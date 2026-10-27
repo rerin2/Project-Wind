@@ -14,6 +14,7 @@ ClientApp::ClientApp(ClientOptions options) : options_(options) {}
 int ClientApp::run() {
     log::info("{} client {} starting", kGameName, kVersion);
 
+    // 창과 렌더러 준비. 실패 원인은 SdlPlatform::create가 이미 로그로 남겼다.
     auto platform = engine::SdlPlatform::create({
         .title = std::string(kGameName),
         .width = options_.window_width,
@@ -24,6 +25,7 @@ int ClientApp::run() {
         return 1;
     }
 
+    // 프레임 루프: 이벤트 처리 -> 화면 지우기 -> 표시. 창을 닫으면 끝난다.
     while (platform->pump_events()) {
         if (options_.max_frames && frames_rendered_ >= *options_.max_frames) {
             log::info("Reached --max-frames {}", *options_.max_frames);
@@ -35,7 +37,7 @@ int ClientApp::run() {
     }
 
     log::info("Client stopping after {} frames", frames_rendered_);
-    platform.reset();
+    platform.reset();  // SDL 자원을 여기서 명시적으로 해제한다
     log::info("Client stopped cleanly");
     return 0;
 }
