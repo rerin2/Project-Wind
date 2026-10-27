@@ -1,0 +1,18 @@
+# Build output
+/build/
+/out/
+CMakeUserPresets.json
+
+# IDE
+.vs/
+.vscode/
+*.user
+
+# Runtime
+/logs/
+*.log
+
+# Local config and secrets — only *.example.json is committed
+/config/*.json
+!/config/*.example.json
+.env
