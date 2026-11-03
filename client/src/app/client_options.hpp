@@ -1,10 +1,13 @@
 #pragma once
 
-// 클라이언트 실행 옵션과 명령줄 파싱. SDL에 의존하지 않는다.
+// 이 파일은 무엇을 하나요?
+// 게임을 켤 때 고를 수 있는 설정(창 크기, 맵 파일 등)을 담는 "주문서"의 모양을 정해요.
+// SDL(창 도구 상자)을 쓰지 않아서, 창을 띄우지 않고도 숙제 검사(테스트)를 할 수 있어요.
 
 #include "wind/log.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <span>
 #include <string>
@@ -12,26 +15,30 @@
 
 namespace wind::client {
 
-// 클라이언트 실행 설정. 기본값만으로도 정상 실행된다.
+// 실행 설정. 아무것도 안 적어도 기본값으로 잘 실행돼요.
 struct ClientOptions {
     std::uint32_t window_width = 1280;   // 창 너비(픽셀)
     std::uint32_t window_height = 720;   // 창 높이(픽셀)
-    // 이 프레임 수만큼 그린 뒤 창을 닫는다. 비어 있으면 사용자가 창을 닫을 때까지 실행한다.
+    // 이 장수만큼 그리면 창을 저절로 닫아요. (자동 시험용) 비어 있으면 사용자가 닫을 때까지 실행.
     std::optional<std::uint64_t> max_frames;
-    log::Level log_level = log::Level::Info;
+    log::Level log_level = log::Level::Info;  // 기록(로그)을 얼마나 자세히 남길지
+    // 게임 자료(콘텐츠) 폴더. 기본값은 빌드할 때의 저장소 content 폴더예요.
+    std::filesystem::path content_dir = WIND_DEFAULT_CONTENT_DIR;
+    // 처음 들어갈 맵 (콘텐츠 폴더 기준 위치)
+    std::string map = "maps/test_meadow.json";
 };
 
-// 파싱 결과. 성공·실패·도움말 요청 중 하나다.
+// 주문서를 읽은 결과. 셋 중 하나예요: 성공 / 실패 / 도움말 보여 주기
 struct ClientParseResult {
-    std::optional<ClientOptions> options;  // 성공 시 설정됨
-    std::string error;                     // 실패 시 사람이 읽을 오류 메시지
-    bool show_help = false;                // --help 요청 시 true
+    std::optional<ClientOptions> options;  // 성공하면 여기에 설정이 들어 있어요
+    std::string error;                     // 실패하면 사람이 읽을 이유가 들어 있어요
+    bool show_help = false;                // --help를 입력했으면 true
 };
 
-// 명령줄 인자를 파싱한다. args에는 프로그램 이름(argv[0])을 넣지 않는다.
+// 명령줄 인자(켤 때 뒤에 붙인 말)를 읽어요. 프로그램 이름(argv[0])은 빼고 넘겨 줘야 해요.
 [[nodiscard]] ClientParseResult parse_client_options(std::span<const std::string_view> args);
 
-// --help와 오류 시 출력할 사용법 문자열
+// --help나 오류 때 보여 줄 사용 설명서
 [[nodiscard]] std::string_view client_usage();
 
 }  // namespace wind::client

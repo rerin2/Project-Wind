@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "test_tiles",
+  "image": "tilesets/test_tiles.bmp",
+  "tile_width": 32,
+  "tile_height": 32,
+  "columns": 8,
+  "tiles": [
+    { "id": 1, "name": "grass", "walkable": true },
+    { "id": 2, "name": "grass_dark", "walkable": true },
+    { "id": 3, "name": "dirt_path", "walkable": true },
+    { "id": 4, "name": "water", "walkable": false },
+    { "id": 5, "name": "stone_wall", "walkable": false },
+    { "id": 6, "name": "tree_trunk", "walkable": false },
+    { "id": 7, "name": "tree_canopy", "walkable": true },
+    { "id": 8, "name": "rock", "walkable": false },
+    { "id": 9, "name": "flowers", "walkable": true },
+    { "id": 10, "name": "sand", "walkable": true }
+  ]
+}

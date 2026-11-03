@@ -10,7 +10,9 @@ All game content and branding are original. See [docs/MASTER_SPEC.md](docs/MASTE
 
 ## Status
 
-**Phase 0 — environment and repository.** The client opens an empty window, the server runs an empty 20 Hz tick loop, and unit tests run through CTest. No gameplay or networking yet.
+**Phase 1 — minimal engine.** The client shows a test map and a character you can walk around locally (tile movement, collision, camera follow, animation, debug overlay). The server runs an empty 20 Hz tick loop. No networking yet — client and server are not connected until phase 2. Engine design: [docs/ENGINE.md](docs/ENGINE.md).
+
+Client controls: arrow keys / WASD move, **F3** debug overlay, **F4** collision overlay, **Esc** quit.
 
 ## Quick start (Windows)
 
@@ -26,9 +28,11 @@ Requires Visual Studio 2022 Build Tools (C++ workload), CMake ≥ 3.25, Ninja, a
 ## Layout
 
 ```text
-shared/   platform-independent code used by client and server (logging, CLI helpers)
+shared/   platform-independent code used by client and server (logging, CLI, map model, content validation)
 server/   authoritative game server (no SDL dependency)
-client/   game client: engine/ (SDL-facing) and app/
+client/   game client: engine/ (custom engine), game/ (gameplay presentation), app/ (loop, overlay)
+content/  game data: maps, tilesets, sprite sheets (JSON + BMP)
+tools/    content generators and (later) validators
 cmake/    dependency pins and compiler settings
 scripts/  build/run/test PowerShell scripts
 docs/     specification, build guide, decisions

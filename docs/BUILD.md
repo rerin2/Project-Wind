@@ -50,7 +50,7 @@ Executables are written to `build\<preset>\bin\`.
 .\scripts\run_tests.ps1             # = ctest --preset windows-debug
 ```
 
-The run on 2026-10-27 passed 20/20 tests: 17 GoogleTest cases plus a process smoke test that starts `wind_server` for 5 ticks and checks for a clean exit.
+The run on 2026-11-02 passed 79/79 tests: GoogleTest cases for shared, server and client modules (including validation of the repository's real test map and sprite sheet), plus a process smoke test that starts `wind_server` for 5 ticks and checks for a clean exit.
 
 ## 4. Run
 
@@ -62,6 +62,24 @@ The run on 2026-10-27 passed 20/20 tests: 17 GoogleTest cases plus a process smo
 ```
 
 Pass `-Preset windows-release` to either script to run the Release build. Each executable lists its options with `--help`.
+
+Client controls: arrow keys / WASD move, F3 debug overlay, F4 collision overlay, Esc quit.
+
+The client reads content from the repository's `content/` folder by default (path baked in at build time). To use another copy or map:
+
+```powershell
+.\scripts\run_client.ps1 --content-dir D:\wind\content --map maps/test_meadow.json
+```
+
+## Regenerating test content
+
+The placeholder art and test map are produced by a script (original shapes, no third-party assets):
+
+```powershell
+powershell -NoProfile -File tools\test_content\generate_test_content.ps1
+```
+
+It rewrites `content/tilesets/test_tiles.bmp`, `content/sprites/test_hero.bmp` and `content/maps/test_meadow.json`. The tileset and sprite JSON files are hand-edited and not touched. Re-run the tests afterwards — `MapLoader.RepositoryTestMapIsValid` validates the generated map.
 
 Smoke-test flags (used for verification, not gameplay):
 

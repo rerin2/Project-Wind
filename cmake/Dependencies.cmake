@@ -20,7 +20,17 @@ FetchContent_Declare(enet
     GIT_TAG        v1.3.18
     GIT_SHALLOW    TRUE)
 
-FetchContent_MakeAvailable(spdlog enet)
+# --- nlohmann/json: 콘텐츠 JSON(맵·타일셋·스프라이트) 파싱 --------------------------
+# JSON은 { "이름": 값 } 모양으로 적는 글자 설명서예요. 맵과 캐릭터 정보를 이 모양으로 적어요.
+# 이 라이브러리(남이 만들어 둔 도구 모음)가 그 글자를 읽어서 프로그램이 쓸 수 있게 바꿔 줘요.
+# 라이브러리 자체의 숙제 검사(테스트)는 우리에게 필요 없어서 끄고 받아요.
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.12.0
+    GIT_SHALLOW    TRUE)
+
+FetchContent_MakeAvailable(spdlog enet nlohmann_json)
 unset(CMAKE_POLICY_VERSION_MINIMUM)  # 다른 라이브러리에는 적용하지 않는다
 
 # ENet은 include 경로·링크 라이브러리를 타깃에 노출하지 않으므로 직접 추가한다.

@@ -1,6 +1,12 @@
+// 이 파일은 무엇을 하나요?
+// 게임을 켤 때 뒤에 붙이는 말(명령줄 인자, 예: --width 1600)을 읽어서
+// 실행 설정(ClientOptions)으로 바꿔 주는 곳이에요.
+// 식당 주문서를 읽고 "곱빼기, 덜 맵게"를 주방 메모로 옮겨 적는 것과 비슷해요.
+
 #include "app/client_options.hpp"
 
 #include "wind/cli.hpp"
+#include "wind/content/content_path.hpp"
 
 #include <limits>
 #include <utility>
@@ -12,29 +18,30 @@ namespace {
 constexpr std::uint64_t kMinWindowSize = 320;
 constexpr std::uint64_t kMaxWindowSize = 7680;
 
-// 오류 메시지만 담은 실패 결과를 만든다.
+// "잘못됐어요" 결과를 만들어요. 왜 잘못됐는지 메시지를 함께 담아요.
 ClientParseResult fail(std::string message) {
     return ClientParseResult{.options = std::nullopt, .error = std::move(message)};
 }
 
 }  // namespace
 
+// 인자를 앞에서부터 하나씩 읽어요. 대부분 "--이름 값" 두 개가 한 쌍이에요.
 ClientParseResult parse_client_options(std::span<const std::string_view> args) {
-    ClientOptions options;  // 기본값에서 시작해 인자로 덮어쓴다
+    ClientOptions options;  // 기본값에서 시작해서, 적힌 것만 바꿔요
 
     for (std::size_t i = 0; i < args.size(); ++i) {
         const std::string_view arg = args[i];
 
-        // --help는 값이 없는 유일한 옵션이라 먼저 처리한다.
+        // --help는 값이 없는 유일한 옵션이라 먼저 처리해요.
         if (arg == "--help" || arg == "-h") {
             return ClientParseResult{.options = std::nullopt, .error = {}, .show_help = true};
         }
 
-        // 나머지 옵션은 모두 "--이름 값" 형태다. 값이 없으면 오류.
+        // 나머지 옵션은 모두 "--이름 값" 모양이에요. 값이 빠졌으면 오류.
         if (i + 1 >= args.size()) {
             return fail("missing value for argument: " + std::string(arg));
         }
-        const std::string_view value = args[++i];
+        const std::string_view value = args[++i];  // 다음 칸이 값이에요
 
         if (arg == "--width" || arg == "--height") {
             const auto parsed = cli::parse_uint(value, kMinWindowSize, kMaxWindowSize);
@@ -43,25 +50,40 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
                             std::to_string(kMinWindowSize) + " and " +
                             std::to_string(kMaxWindowSize));
             }
-            // 인자 이름에 따라 너비 또는 높이에 저장한다.
+            // 이름이 --width면 너비에, --height면 높이에 저장해요.
             (arg == "--width" ? options.window_width : options.window_height) =
                 static_cast<std::uint32_t>(*parsed);
-        } else if (arg == "--max-frames") {
-            // 0프레임은 의미가 없으므로 1 이상만 허용한다.
+        } 
+        else if (arg == "--max-frames") {
+            // 0장은 의미가 없으니 1장 이상만 받아요.
             const auto parsed =
                 cli::parse_uint(value, 1, std::numeric_limits<std::uint64_t>::max());
             if (!parsed) {
                 return fail("--max-frames must be a positive integer");
             }
             options.max_frames = *parsed;
-        } else if (arg == "--log-level") {
+        }
+         else if (arg == "--content-dir") {
+            // 게임 자료 폴더 위치를 바꿔요.
+            options.content_dir = std::filesystem::path(value);
+        } 
+        else if (arg == "--map") {
+            // 맵 위치도 자료 폴더 밖을 가리키지 못하게 문지기 검사를 해요.
+            auto normalized = content::normalize_content_path(value);
+            if (!normalized) {
+                return fail("--map must be a relative path inside the content folder");
+            }
+            options.map = std::move(*normalized);
+        } 
+        else if (arg == "--log-level") {
             const auto parsed = log::parse_level(value);
             if (!parsed) {
                 return fail("--log-level must be one of trace|debug|info|warn|error|critical|off");
             }
             options.log_level = *parsed;
-        } else {
-            // 알 수 없는 인자는 무시하지 않고 거부한다 (오타 조기 발견).
+        } 
+        else {
+            // 모르는 인자는 못 본 척하지 않고 거절해요. (오타를 빨리 알아채려고)
             return fail("unknown argument: " + std::string(arg));
         }
     }
@@ -69,11 +91,15 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
     return ClientParseResult{.options = options};
 }
 
+// --help를 입력하면 보여 주는 사용 설명서 (영어)
 std::string_view client_usage() {
     return "Usage: wind_client [options]\n"
            "  --width <px>         window width, 320-7680 (default 1280)\n"
            "  --height <px>        window height, 320-7680 (default 720)\n"
            "  --max-frames <n>     close after n frames (for smoke tests)\n"
+           "  --content-dir <dir>  content root folder (default: repository content/)\n"
+           "  --map <path>         map to enter, relative to the content root\n"
+           "                       (default maps/test_meadow.json)\n"
            "  --log-level <level>  trace|debug|info|warn|error|critical|off (default info)\n"
            "  --help               show this message\n";
 }

@@ -36,6 +36,20 @@ TEST(ClientOptions, ParsesAllOptions) {
     EXPECT_EQ(result.options->log_level, wind::log::Level::Warn);
 }
 
+// 자료 폴더와 맵 위치를 바꿀 수 있어야 하고, 맵 위치의 '\'는 '/'로 정리돼야 해요.
+TEST(ClientOptions, ParsesContentDirAndMap) {
+    const auto result = parse({"--content-dir", "D:/wind/content", "--map", "maps\\other.json"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->content_dir, std::filesystem::path("D:/wind/content"));
+    EXPECT_EQ(result.options->map, "maps/other.json");
+}
+
+// 맵 위치가 자료 폴더 밖("..")이나 다른 드라이브("C:")를 가리키면 거절해야 해요.
+TEST(ClientOptions, RejectsMapOutsideContent) {
+    EXPECT_FALSE(parse({"--map", "../secret.json"}).options.has_value());
+    EXPECT_FALSE(parse({"--map", "C:/maps/a.json"}).options.has_value());
+}
+
 // 범위 밖 창 크기, 0프레임, 잘못된 수준, 알 수 없는 인자, 값 누락은 모두 거부한다.
 TEST(ClientOptions, RejectsInvalidValues) {
     EXPECT_FALSE(parse({"--width", "100"}).options.has_value());
