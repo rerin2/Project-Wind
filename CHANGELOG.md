@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Direction change — single-player action RPG (spec 2.0)
+- `docs/MASTER_SPEC.md` rewritten: single player, no server/network/accounts/database,
+  free 8-direction movement, real-time action combat, visuals (lighting, particles,
+  day/night, weather, game feel, transitions) as a first-class goal, local JSON saves.
+- New phase plan (spec section 19): phases 2–8. Phases 0–1 stay complete.
+- `CLAUDE.md` updated to match. ADR 0007 added; ADR 0004 superseded; ADR 0001 ENet parts superseded.
+- No code changed yet. Server and ENet removal is the first task of phase 2.
+
 ### Phase 1 — minimal engine
 - Client frame loop in spec order with a fixed 60 Hz update step (0.25 s / 5-step catch-up cap).
 - 640×360 logical resolution, integer scaling, nearest-neighbour textures, pixel-snapped camera.

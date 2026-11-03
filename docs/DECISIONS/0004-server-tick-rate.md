@@ -1,6 +1,6 @@
 # 0004 — Server tick: 20 Hz, fixed step, no catch-up
 
-- Status: accepted
+- Status: superseded by 0007 (no server in the single-player plan)
 - Date: 2026-10-27
 - Spec reference: master spec 3.4, 25.2
 

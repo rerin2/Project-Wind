@@ -1,6 +1,6 @@
 # 0001 — Dependency management: CMake FetchContent
 
-- Status: accepted
+- Status: accepted (ENet parts superseded by 0007; ENet is removed in phase 2)
 - Date: 2026-10-27
 - Spec reference: master spec 2.1, 2.2
 
