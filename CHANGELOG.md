@@ -9,6 +9,7 @@
 - New phase plan (spec section 19): phases 2–8. Phases 0–1 stay complete.
 - `CLAUDE.md` updated to match. ADR 0007 added; ADR 0004 superseded; ADR 0001 ENet parts superseded.
 - No code changed yet. Server and ENet removal is the first task of phase 2.
+- Added the class-per-file module rules (spec 2.4, CLAUDE.md).
 
 ### Phase 1 — minimal engine
 - Client frame loop in spec order with a fixed 60 Hz update step (0.25 s / 5-step catch-up cap).

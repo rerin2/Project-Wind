@@ -45,6 +45,16 @@ If a document does not exist yet, create or update it as part of the relevant ta
 - Do not add dependencies without recording version, license, and rationale.
 - Do not disable or delete tests just to get a green build.
 
+## Module and file rules (spec 2.4)
+- One class per file pair: `class Foo` (or a `struct` with member functions) lives in `foo.hpp` + `foo.cpp`, named in snake_case.
+- A small enum or plain data struct used only by that class may stay in its file; once another class uses it, move it to its own file.
+- Exceptions: a header of tiny value types on one topic (e.g. `math.hpp`), and one file pair of free helper functions per topic (e.g. `coordinates.hpp`).
+- One class does one job. If its purpose needs an "and", split it. Review any `.cpp` over ~300 lines for splitting.
+- Folder = module. Keep related classes in one folder and follow the dependency direction; engine code never includes game code.
+- Keep headers light: include only what is needed, forward-declare types used by pointer or reference, and include SDL headers only in SDL-layer `.cpp` files.
+- Tests for `Foo` go in `foo_tests.cpp`.
+- Split existing files that break these rules when you next touch them, or in a separate behavior-preserving cleanup task verified by build and tests.
+
 ## Scope control
 Do not attempt to implement the whole game in one task. Follow the phases in the master specification. Prefer a small working, good-looking vertical slice over broad placeholder code.
 
@@ -61,3 +71,5 @@ Include:
 - Next task
 
 Never claim a build or test passed unless it was actually run and passed.
+
+코드를 수정하거나 추가 할 때, 13살도 이해할 수 있게 간결하게 설명
