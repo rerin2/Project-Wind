@@ -52,7 +52,7 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
         std::format("particles {}  dropped {}", field.particles, field.particles_dropped),
         std::format("textures {}  cache hits {}  load failures {}", resources.textures_loaded,
                     resources.cache_hits, resources.load_failures),
-        std::string("arrows/WASD move  Space dodge  F3 debug  F4 collision  Esc quit"),
+        std::string("arrows/WASD move  Space dodge  F3 debug  F4 collision  F12 shot  Esc quit"),
     };
 
     // 글자 뒤에 반투명 검은 판을 깔아서, 풀밭 위에서도 글자가 잘 읽히게 해요.

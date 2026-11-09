@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Hero redesign
+- The hero test sprite is now a silver-haired girl with cat ears and long straight hair: navy dress, violet eyes,
+  1 px dark outline, hair tips sway while walking. Right-facing frames mirror the left-facing ones.
+- Only `content/sprites/test_hero.bmp` changed; tiles and the test map regenerate byte-identical.
+- F3 panel help line mentions F12.
+
 ### Phase 3 — rendering foundation
 - The frame is drawn into a 640×360 frame target, then scaled to the window. Verified pixel-identical
   to direct drawing outside the F3 panel.

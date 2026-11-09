@@ -45,6 +45,21 @@ A shared 32-colour palette for all art (spec 6.1). The current test art predates
 
 Rules: characters must stand out from the ground (outline in `ink`, see spec 6.1); light effects use `gold`/`sun`/`ember` with additive blending; darkness uses `night`/`dusk` with multiply blending.
 
+## Hero
+
+Test art drawn by `tools/test_content/generate_test_content.ps1` (32 × 48 frames, feet at y = 46).
+
+| Part | Look |
+|---|---|
+| Hair | silver, long and straight to the waist, bangs, side locks to the shoulders; base `#ced4e4`, shade `#9ca2be`, shine `#f2f4fc` |
+| Cat ears | silver outside, pink inside `#eea8ba` (back view: no pink) |
+| Eyes | violet `#7a60d6` with a white shine pixel, dark lash line, light blush |
+| Outfit | navy dress `#3c4680` with white collar and hem, red ribbon, dark tights, brown boots |
+| Outline | 1 px `ink` (`#1c1628`) around the whole figure, so it reads on grass |
+| Walk | legs alternate, body bobs 1 px, hair tips sway 1 px the other way |
+
+The right-facing row is a mirror of the left-facing row.
+
 ## Blend modes
 
 `SpriteDraw::blend` (spec 5.2):
