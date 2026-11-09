@@ -1,6 +1,6 @@
 # Visual Rules and Effect Tuning
 
-Status: phase 2 (first effects). Spec reference: master spec section 6. Phase 3 adds the palette, lighting, day/night, and weather sections.
+Status: phase 2 (first effects). Spec reference: master spec section 6. Later phases add the palette (3), particles (4), lighting (5), and day/night and weather (6).
 
 Effects are presentation only: they read simulation state and events and never change gameplay results.
 

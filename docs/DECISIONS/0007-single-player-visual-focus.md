@@ -21,6 +21,7 @@
 - `GridMover` (phase 1) is replaced by free movement in phase 2. The tile map, camera, render queue, animation, input, and resource code from phase 1 stay.
 - Authority/anti-cheat rules no longer apply. Content and save files are still treated as untrusted input.
 - The new phase plan (spec section 19) is: 2 cleanup + free movement, 3 visual foundation, 4 real-time combat, 5 growth/items/UI, 6 save/title/audio, 7 world and story, 8 polish and release.
+- Update (spec 2.1, 2026-11-09): the plan was refined into 21 smaller phases (0–20); see spec section 19 for the current numbering.
 
 ## Alternatives considered
 

@@ -31,7 +31,7 @@ Code: `client/src/game/entities/mover.*`, `movement_tuning.hpp`, `client/src/gam
 - Direction: the held direction, or the facing direction when nothing is held.
 - During a dodge, velocity is fixed at `dodge_direction × dodge_speed`; walls still stop it.
 - When it ends, velocity becomes `dodge_direction × max_speed` (no sudden stop) and a cooldown starts.
-- The first part of a dodge is invulnerable (`Mover::invulnerable`), used by combat in phase 4.
+- The first part of a dodge is invulnerable (`Mover::invulnerable`), used by combat in phase 12 (player survival).
 
 | Tuning | Value | Why |
 |---|---|---|
@@ -43,4 +43,4 @@ Code: `client/src/game/entities/mover.*`, `movement_tuning.hpp`, `client/src/gam
 
 ## Not yet defined
 
-Combat, HP, enemies, items, and saves arrive in phases 4–6 (spec section 19).
+Combat (phases 9–12), growth and items (13–15), and saves (16) are defined later (spec section 19).

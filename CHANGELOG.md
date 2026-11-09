@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Spec 2.1 — finer phase plan
+- Spec section 19 now has 21 phases (0–20) with a summary table; phases 0–2 stay complete.
+- Spec section 22 replaced by one common prompt plus per-phase cautions.
+- Phase references updated in GAMEPLAY, VISUALS, ENGINE, ADR 0007.
+
 ### Phase 2 — cleanup and free movement
 - Removed the game server, ENet, `run_server.ps1`, and server tests (single-player, ADR 0007).
 - Split files to one class per file pair: `ErrorList`/`LoadResult`/`JsonReader`/`json_file`,

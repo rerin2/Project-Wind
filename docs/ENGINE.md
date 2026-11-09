@@ -129,7 +129,7 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 - `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Space/K/X dodge, F3 debug overlay, F4 collision overlay, Esc quit.
 - `MovementIntent` turns held move keys into an 8-way unit vector (diagonals are normalized). When opposite keys are both held, the most recently pressed one wins.
 - `InputBuffer` remembers a dodge press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
-- `InputState::set_ui_capture(true)` makes all game queries return false (for a chat box, phase 5).
+- `InputState::set_ui_capture(true)` makes all game queries return false (for menus and text input, phases 15 and 17).
 - Saving custom bindings is not implemented yet.
 
 ## Movement (phase 2)
