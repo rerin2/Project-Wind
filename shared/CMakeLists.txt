@@ -39,7 +39,8 @@ if(WIND_BUILD_TESTS)
         tests/cli_tests.cpp
         tests/direction_tests.cpp
         tests/content_path_tests.cpp
-        tests/map_loader_tests.cpp)
+        tests/map_loader_tests.cpp
+        tests/json_reader_tests.cpp)
     target_link_libraries(wind_shared_tests PRIVATE wind::shared GTest::gtest_main)
     # 진짜 시험 맵을 검사하는 시험이 저장소의 content 폴더 위치를 알 수 있게 알려 준다.
     target_compile_definitions(wind_shared_tests PRIVATE

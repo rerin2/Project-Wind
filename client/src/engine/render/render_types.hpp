@@ -60,6 +60,7 @@ enum class DrawLayer : std::uint8_t {
     Shadows,       // 캐릭터 발밑 그림자 (바닥 위, 캐릭터 아래)
     YSorted,       // 낮은 물건 + 캐릭터
     HighObjects,   // 높은 물건 (나뭇잎 등, 캐릭터를 덮음)
+    WorldFx,       // 공중 효과 (떠다니는 꽃잎, 반딧불). 나뭇잎보다도 위
     Foreground,    // 맨 앞
     DebugOverlay,  // 개발자용 표시 (충돌 칸 등)
 };

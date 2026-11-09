@@ -34,12 +34,18 @@ public:
     // 정수 칸 읽기. min ~ max 사이여야 해요.
     [[nodiscard]] std::optional<std::int64_t> integer(std::string_view key, std::int64_t min,
                                                       std::int64_t max);
+    // 소수도 되는 숫자 칸 읽기 (예: 0.35초). min ~ max 사이여야 해요. 정수(3)도 받아요.
+    [[nodiscard]] std::optional<double> number(std::string_view key, double min, double max);
     // 참/거짓(true/false) 칸 읽기
     [[nodiscard]] std::optional<bool> boolean(std::string_view key);
     // [ ... ] 목록 칸 읽기. 항목이 max_items개보다 많으면 틀린 것으로 봐요.
     [[nodiscard]] const nlohmann::json* array(std::string_view key, std::size_t max_items);
     // { ... } 묶음 칸 읽기
     [[nodiscard]] const nlohmann::json* object(std::string_view key);
+
+    // 칸을 모양 검사 없이 그대로 꺼내요. 숫자일 수도, 목록일 수도 있는 칸에 써요.
+    // 없으면 "꼭 있어야 하는 칸이 없어요"라고 적고 nullptr을 돌려줘요.
+    [[nodiscard]] const nlohmann::json* raw(std::string_view key) { return find(key); }
 
     // 그 칸이 있는지만 살짝 확인해요 (없어도 공책에 적지 않아요).
     [[nodiscard]] bool has(std::string_view key) const;

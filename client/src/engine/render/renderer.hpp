@@ -62,6 +62,9 @@ public:
     // color.a는 가운데의 가장 진한 투명도예요.
     [[nodiscard]] TextureHandle create_soft_ellipse_texture(std::int32_t width, std::int32_t height,
                                                             Color color);
+    // 한 가지 색으로 꽉 찬 네모 스티커를 만들어요. (픽셀 모양 파티클: 흰색 1x1을 크게 늘려 써요)
+    [[nodiscard]] TextureHandle create_solid_texture(std::int32_t width, std::int32_t height,
+                                                     Color color);
     // 스티커 종이 하나를 버려요.
     void destroy_texture(TextureHandle handle);
     // 지금 가진 스티커 종이 수

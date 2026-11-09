@@ -30,6 +30,8 @@ struct ClientOptions {
     // 이 장(프레임) 번호들을 그린 뒤 스크린샷을 저장해요. (자동 시험용, 키를 누르지 않아도 돼요)
     // --screenshot-at을 여러 번 쓰면 여러 장을 찍어요.
     std::vector<std::uint64_t> screenshot_at;
+    // 성능 시험: 화면에 약 이만큼의 파티클을 계속 띄워요 (0이면 끔, 최대 4000).
+    std::uint32_t fx_stress = 0;
     // 스크린샷 저장 폴더. 비어 있으면 %APPDATA%\ProjectWIND\screenshots
     std::filesystem::path screenshot_dir;
 };

@@ -31,6 +31,10 @@ add_library(wind_engine_core STATIC
     src/engine/animation/sprite_sheet_loader.cpp
     src/engine/render/render_queue.cpp
     src/engine/fx/particle_pool.cpp
+    src/engine/fx/particle_random.cpp
+    src/engine/fx/particle_spawn.cpp
+    src/engine/fx/particle_emitter.cpp
+    src/engine/fx/particle_effect_loader.cpp
     src/engine/fx/particle_drawing.cpp
     src/engine/tween/easing.cpp
     src/engine/tween/tween.cpp)
@@ -51,7 +55,8 @@ add_library(wind_game_core STATIC
     src/game/entities/facing.cpp
     src/game/entities/mover.cpp
     src/game/presentation/dust_emitter.cpp
-    src/game/presentation/afterimage_trail.cpp)
+    src/game/presentation/afterimage_trail.cpp
+    src/game/presentation/ambient_particles.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -92,7 +97,12 @@ if(WIND_BUILD_TESTS)
         tests/dust_emitter_tests.cpp
         tests/easing_tests.cpp
         tests/tween_tests.cpp
-        tests/screenshot_name_tests.cpp)
+        tests/screenshot_name_tests.cpp
+        tests/particle_effect_loader_tests.cpp
+        tests/particle_spawn_tests.cpp
+        tests/particle_emitter_tests.cpp
+        tests/particle_drawing_tests.cpp
+        tests/ambient_particles_tests.cpp)
     target_link_libraries(wind_client_tests PRIVATE wind_client_options wind_game_core GTest::gtest_main)
     # 테스트가 저장소의 진짜 자료(content 폴더)를 찾을 수 있게 위치를 알려 줘요.
     target_compile_definitions(wind_client_tests PRIVATE

@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "dust_dodge",
+  "shape": "soft",
+  "blend": "normal",
+  "lifetime": [0.35, 0.6],
+  "speed": [20, 60],
+  "spread": 140,
+  "gravity": -10,
+  "drag": 5,
+  "spawn_radius": 3,
+  "start_size": [4, 7],
+  "end_size": 1,
+  "start_color": "#d6c4a0c8",
+  "end_color": "#d6c4a000",
+  "burst": 10
+}

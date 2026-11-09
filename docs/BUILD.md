@@ -50,7 +50,7 @@ Executables are written to `build\<preset>\bin\`.
 .\scripts\run_tests.ps1             # = ctest --preset windows-debug
 ```
 
-The run on 2026-11-09 passed 105/105 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
+The run on 2026-11-09 passed 131/131 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
 
 ## 4. Run
 
@@ -89,6 +89,7 @@ Smoke-test flags (used for verification, not gameplay):
 
 - `wind_client --max-frames N` closes the window after N frames.
 - `wind_client --screenshot-at N` saves a screenshot after frame N (repeatable); `--screenshot-dir DIR` picks the folder.
+- `wind_client --fx-stress N` keeps about N extra particles on screen (0–4000) to check particle performance on the F3 panel.
 
 ## Troubleshooting
 

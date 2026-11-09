@@ -15,7 +15,10 @@
 #include "engine/animation/sprite_sheet.hpp"
 #include "engine/camera/camera2d.hpp"
 #include "engine/camera/look_ahead.hpp"
+#include "engine/fx/particle_drawing.hpp"
+#include "engine/fx/particle_effect.hpp"
 #include "engine/fx/particle_pool.hpp"
+#include "engine/fx/particle_random.hpp"
 #include "engine/render/render_queue.hpp"
 #include "engine/resources/resource_manager.hpp"
 #include "game/entities/mover.hpp"
@@ -23,6 +26,7 @@
 #include "game/input/input_buffer.hpp"
 #include "game/input/movement_intent.hpp"
 #include "game/presentation/afterimage_trail.hpp"
+#include "game/presentation/ambient_particles.hpp"
 #include "game/presentation/dust_emitter.hpp"
 
 #include "wind/content/map_loader.hpp"
@@ -32,6 +36,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace wind::engine {
 class Renderer;
@@ -48,7 +53,8 @@ struct FieldDebugInfo {
     std::string_view state;                            // idle / walking / dodging
     float speed = 0.0f;                                // 지금 속도 (픽셀/초)
     std::uint32_t tiles_queued = 0;                    // 이번에 그리려고 넣은 타일 수
-    std::size_t particles = 0;                         // 지금 떠 있는 파티클 수
+    std::size_t particles = 0;                         // 지금 떠 있는 파티클 수 (땅 + 공중)
+    std::size_t ambient_effects = 0;                   // 맵 분위기 효과 개수
     std::uint64_t particles_dropped = 0;               // 통이 꽉 차서 버린 파티클 수
 };
 
@@ -61,7 +67,8 @@ public:
                                                             engine::Renderer& renderer,
                                                             std::string_view map_path,
                                                             std::string_view player_sheet_path,
-                                                            engine::Vec2 viewport);
+                                                            engine::Vec2 viewport,
+                                                            std::uint32_t particle_stress = 0);
 
     // 1) 화면 한 장마다, 규칙 계산보다 먼저: 누른 키 기억
     void handle_input(const engine::InputState& input, const InputBindings& bindings);
@@ -78,15 +85,23 @@ public:
     [[nodiscard]] FieldDebugInfo debug_info() const;
 
 private:
-    // 그림자·먼지처럼 코드로 만드는 그림들
+    // 그림자와 파티클처럼 파일 없이 코드로 만드는 그림들
     struct EffectTextures {
         engine::TextureHandle shadow;
-        engine::TextureHandle dust;
+        engine::ParticleTextures particles;
+    };
+
+    // 파일에서 읽은 파티클 효과들. 못 읽은 효과는 비어 있어요(그 효과만 안 보여요).
+    struct FieldEffects {
+        std::optional<engine::ParticleEffect> dust_walk;
+        std::optional<engine::ParticleEffect> dust_dodge;
+        std::vector<engine::ParticleEffect> ambient;  // 맵 분위기 효과 (+ 시험용 부하 효과)
     };
 
     // create()를 통해서만 만들어요. (준비물 검사를 빼먹지 않도록)
     FieldState(content::LoadedMap map, engine::SpriteSheet sheet, engine::TextureHandle tileset_texture,
-               engine::TextureHandle player_texture, EffectTextures effects, engine::Vec2 viewport);
+               engine::TextureHandle player_texture, EffectTextures textures, FieldEffects effects,
+               engine::Vec2 viewport);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
@@ -98,15 +113,19 @@ private:
     engine::SpriteSheet sheet_;              // 캐릭터 그림 설명서
     engine::TextureHandle tileset_texture_;  // 맵 타일 그림
     engine::TextureHandle player_texture_;   // 캐릭터 그림
-    EffectTextures effects_;                 // 그림자·먼지 그림
+    EffectTextures textures_;                // 그림자·파티클 그림
+    FieldEffects effects_;                   // 파티클 효과 요리법들 (아래 먼지·분위기가 빌려 써요)
     engine::Camera2D camera_;                // 사진사: 맵의 어느 부분을 화면에 보여 줄지
     engine::LookAhead look_ahead_;           // 가는 쪽을 조금 더 보여 주기
     Mover player_;                           // 캐릭터의 다리 (이동 규칙)
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     InputBuffer buffer_;                     // 구르기 버튼 메모장
     engine::Animator animator_;              // 캐릭터 그림 넘기기
-    engine::ParticlePool dust_;              // 먼지 통
+    engine::ParticleRandom fx_random_;       // 파티클 주사위
+    engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요
+    engine::ParticlePool air_fx_;            // 공중 효과 통 (꽃잎, 반딧불): 나뭇잎보다 위
     DustEmitter dust_emitter_;               // 먼지 만드는 담당
+    AmbientParticles ambient_;               // 맵 분위기 효과 담당
     AfterimageTrail trail_;                  // 구르기 잔상
     std::optional<engine::Vec2> dodge_burst_;  // 이번 박자에 구르기를 시작했으면 그 방향
     double alpha_ = 1.0;                     // 지금 화면이 두 박자 사이 어디쯤인지

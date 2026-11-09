@@ -17,6 +17,8 @@ namespace {
 // 창 크기 허용 범위 (최소 320 ~ 최대 8K 너비)
 constexpr std::uint64_t kMinWindowSize = 320;
 constexpr std::uint64_t kMaxWindowSize = 7680;
+// 성능 시험용 파티클 개수 상한 (공중 효과 통 크기와 같아요)
+constexpr std::uint64_t kMaxFxStress = 4000;
 
 // "잘못됐어요" 결과를 만들어요. 왜 잘못됐는지 메시지를 함께 담아요.
 ClientParseResult fail(std::string message) {
@@ -86,6 +88,15 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
         else if (arg == "--screenshot-dir") {
             options.screenshot_dir = std::filesystem::path(value);
         }
+        else if (arg == "--fx-stress") {
+            // 성능 시험용: 파티클을 몇 개쯤 띄울지 (0~4000)
+            const auto parsed = cli::parse_uint(value, 0, kMaxFxStress);
+            if (!parsed) {
+                return fail("--fx-stress must be an integer between 0 and " +
+                            std::to_string(kMaxFxStress));
+            }
+            options.fx_stress = static_cast<std::uint32_t>(*parsed);
+        }
         else if (arg == "--log-level") {
             const auto parsed = log::parse_level(value);
             if (!parsed) {
@@ -115,6 +126,7 @@ std::string_view client_usage() {
            "  --screenshot-at <n>  save a screenshot after frame n; may repeat (for checks)\n"
            "  --screenshot-dir <dir>\n"
            "                       screenshot folder (default %APPDATA%\\ProjectWIND\\screenshots)\n"
+           "  --fx-stress <n>      keep about n extra particles on screen, 0-4000 (perf check)\n"
            "  --help               show this message\n";
 }
 

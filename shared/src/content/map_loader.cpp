@@ -22,6 +22,7 @@ using world::TileId;
 // 카드 번호로 쓸 수 있는 가장 큰 수, 타일셋 그림 한 줄의 최대 칸 수
 constexpr std::int64_t kMaxTileId = std::numeric_limits<TileId>::max();
 constexpr std::int64_t kMaxTilesetColumns = 256;
+constexpr std::size_t kMaxAmbientFx = 8;  // 맵 하나에 주변 효과 최대 개수
 
 // 설명서에 적는 필름 이름(글자)과 실제 필름 종류의 짝 목록
 constexpr std::array<std::pair<std::string_view, RenderLayer>, 5> kRenderLayerNames{{
@@ -66,6 +67,37 @@ std::optional<std::string> read_content_path(JsonReader& reader, std::string_vie
         reader.error(reader.field_path(key), "path must stay inside the content folder: " + *raw);
     }
     return normalized;
+}
+
+// 맵 분위기: "ambient_fx": ["fx/petals.json", ...] (최대 kMaxAmbientFx개)
+// 파일이 진짜 있는지와 내용은 게임이 효과를 불러올 때 따로 검사해요.
+void parse_ambience(JsonReader& reader, world::MapData& map, ErrorList& errors, const std::string& file) {
+    const auto* ambience = reader.object("ambience");
+    if (ambience == nullptr) {
+        return;
+    }
+    JsonReader ambience_reader(*ambience, file, "ambience", errors);
+    if (!ambience_reader.has("ambient_fx")) {
+        return;
+    }
+    const auto* list = ambience_reader.array("ambient_fx", kMaxAmbientFx);
+    if (list == nullptr) {
+        return;
+    }
+    for (std::size_t i = 0; i < list->size(); ++i) {
+        const auto& item = (*list)[i];
+        const auto field = ambience_reader.index_path("ambient_fx", i);
+        if (!item.is_string()) {
+            ambience_reader.error(field, "expected a content path string");
+            continue;
+        }
+        auto normalized = normalize_content_path(item.get<std::string>());
+        if (!normalized) {
+            ambience_reader.error(field, "path must stay inside the content folder");
+            continue;
+        }
+        map.ambient_fx.push_back(std::move(*normalized));
+    }
 }
 
 // 칸마다 "지나갈 수 있나?"를 계산해요.
@@ -273,6 +305,11 @@ LoadResult<world::MapData> parse_map(const nlohmann::json& document, const std::
             map.height = static_cast<std::int32_t>(*height);
             parse_layers(reader, map, tileset);
             parse_spawn_points(reader, map);
+        }
+
+        // 분위기(ambience)는 없어도 돼요. 있으면 주변 효과 파일 위치들이 안전한지 검사해요.
+        if (reader.has("ambience")) {
+            parse_ambience(reader, map, errors, file);
         }
 
         // 다른 맵으로 가는 출구(exits)는 단계 2 이후에 만들어요. 지금은 목록 모양인지만 봐요.

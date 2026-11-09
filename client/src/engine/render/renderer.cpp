@@ -290,6 +290,26 @@ TextureHandle Renderer::create_soft_ellipse_texture(std::int32_t width, std::int
     return register_texture(texture);
 }
 
+TextureHandle Renderer::create_solid_texture(std::int32_t width, std::int32_t height, Color color) {
+    if (width <= 0 || height <= 0) {
+        log::error("Solid texture size must be positive, got {}x{}", width, height);
+        return {};
+    }
+    SDL_Surface* surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
+    if (surface == nullptr) {
+        log::error("Cannot create solid surface: {}", SDL_GetError());
+        return {};
+    }
+    SDL_FillSurfaceRect(surface, nullptr, SDL_MapSurfaceRGBA(surface, color.r, color.g, color.b, color.a));
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
+    SDL_DestroySurface(surface);
+    if (texture == nullptr) {
+        log::error("Cannot create solid texture: {}", SDL_GetError());
+        return {};
+    }
+    return register_texture(texture);
+}
+
 void Renderer::destroy_texture(TextureHandle handle) {
     const auto it = textures_.find(handle.id);
     if (it == textures_.end()) {

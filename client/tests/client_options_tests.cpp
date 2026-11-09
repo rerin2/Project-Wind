@@ -70,4 +70,12 @@ TEST(ClientOptions, ParsesScreenshotOptions) {
     EXPECT_FALSE(parse({"--screenshot-at", "0"}).options.has_value());
 }
 
+// 성능 시험 옵션: 0~4000만 받아요.
+TEST(ClientOptions, ParsesFxStress) {
+    const auto result = parse({"--fx-stress", "2000"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->fx_stress, 2000u);
+    EXPECT_FALSE(parse({"--fx-stress", "5000"}).options.has_value());
+}
+
 }  // namespace

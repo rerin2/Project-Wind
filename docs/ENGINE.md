@@ -1,6 +1,6 @@
 # Engine Design (client)
 
-Status: phase 3 (rendering foundation: frame target, blend modes, tweens, screenshots). Spec reference: master spec section 5.
+Status: phase 4 (data-driven particles: effect files, emitters, map ambience). Spec reference: master spec section 5.
 
 The client engine is our own code on top of SDL3. SDL3 is used only for the window, OS events, the GPU-backed 2D renderer, and BMP decoding. Everything else (loop, map, camera, animation, input model, particles, resources, debug view) lives in this repository.
 
@@ -13,7 +13,7 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/engine/camera` | `wind_engine_core` | no | `Camera2D`: world↔screen, follow, bounds clamp, pixel snapping; `LookAhead`: smoothed offset toward the movement direction |
 | `client/src/engine/input` | `wind_engine_core` | no | `InputState`: held/pressed/released, UI capture flag |
 | `client/src/engine/animation` | `wind_engine_core` | no | `AnimationClip`, `SpriteSheet`, `Animator` (one file each), sprite sheet JSON loader |
-| `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticlePool` (fixed capacity, drag, gravity, drop counter), `queue_particles` |
+| `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticleEffect` + loader, `ParticlePool` (fixed capacity, drop counter), `ParticleRandom`, `make_particle`/`emit_burst`, `ParticleEmitter` (continuous), `queue_particles` |
 | `client/src/engine/tween` | `wind_engine_core` | no | `Ease` + `ease()` (easing curves), `Tween` (one float from → to over time) |
 | `client/src/engine/render` (`render_queue`, `render_types`) | `wind_engine_core` | no | draw commands and their sort order |
 | `client/src/engine/render/renderer.*` | `wind_client` | **yes** | `Renderer`: draws into the 640×360 frame target, blend modes and tint, rects/debug text, owns textures, soft-ellipse textures, screenshots |
@@ -63,6 +63,7 @@ The render rate follows VSync (60 FPS measured on the dev machine; not guarantee
 | `Shadows` | soft ellipse under each character's feet |
 | `YSorted` | `"low_objects"` tiles **and** characters, afterimages and dust, ordered by their base (feet) y |
 | `HighObjects` | `"high_objects"` (e.g. tree canopies; always over characters) |
+| `WorldFx` | particles in the air (map ambience: petals, fireflies); above canopies |
 | `Foreground` | `"foreground"` |
 | `DebugOverlay` | collision overlay, feet box |
 
@@ -89,6 +90,7 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
   "tileset": "tilesets/test_tiles.json", "tile_size": 32, "width": 40, "height": 30,
   "spawn_points": [ { "id": "default", "x": 6, "y": 12 } ],
   "exits": [],
+  "ambience": { "ambient_fx": ["fx/petals.json", "fx/fireflies.json"] },
   "layers": [ { "name": "ground", "render_layer": "ground", "tiles": [ ...width*height ids... ] } ] }
 ```
 
@@ -97,6 +99,38 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 - Limits: sides 1–512, 1–8 layers, 1–64 spawn points, tile size 8–128 and equal to the tileset's.
 - **Walkability:** a cell is walkable if it has at least one tile and every tile on it is `walkable`. Spawn points must be walkable.
 - `exits` is accepted (must be an array) but not used until map transitions are implemented.
+- `ambience` is optional. `ambient_fx` lists up to 8 particle effect files (content paths) that float around the camera on this map. Paths are checked when the map loads; the effect files themselves are validated when the field starts, and a broken effect is logged and skipped.
+
+### Particle effect (`content/fx/*.json`)
+
+```json
+{ "schema_version": 1, "id": "petals", "shape": "pixel", "blend": "normal",
+  "lifetime": [6, 9], "speed": [10, 18], "direction": 110, "spread": 30,
+  "gravity": 2, "drag": 0.2, "spawn_radius": 0,
+  "start_size": [3, 4], "end_size": 3,
+  "start_color": "#f590b0ff", "end_color": "#fbd0dcff", "fade_in": 0.08, "fade_out": 0.2,
+  "wobble": { "amplitude": 7, "frequency": 0.5 },
+  "burst": 0, "rate": 6 }
+```
+
+| Field | Required | Meaning and limits |
+|---|---|---|
+| `shape` | yes | `soft` (soft circle) or `pixel` (crisp square) |
+| `blend` | yes | `normal`, `add`, `multiply` |
+| `lifetime` | yes | seconds, number or `[min, max]`, 0.01–60 |
+| `speed` | yes | px/s, number or `[min, max]`, 0–2000 |
+| `start_size` | yes | px, number or `[min, max]`, 0–64 |
+| `start_color`, `end_color` | yes | `#rrggbb` or `#rrggbbaa`; colour and alpha blend over the lifetime |
+| `direction` | no (0) | degrees, 0 = right, 90 = down, 270 = up; callers may override (dust goes backward) |
+| `spread` | no (0) | cone width in degrees, 0–360 |
+| `gravity`, `drag` | no (0) | px/s² (negative floats up), drag 0–50 per second |
+| `spawn_radius` | no (0) | random offset from the spawn point, px |
+| `end_size` | no (0) | px at the end of life |
+| `fade_in`, `fade_out` | no (0) | fraction of the lifetime spent appearing / disappearing |
+| `wobble` | no | `amplitude` px (0–64) and `frequency` Hz (0–20); sideways sway applied when drawing |
+| `burst`, `rate` | at least one > 0 | particles per one-shot burst (0–256) / per second when emitting continuously (0–500) |
+
+Errors carry the file and field path (e.g. `wobble.frequency`). Particles are white textures tinted by the colour: `soft` uses an 8×8 soft circle, `pixel` a 1×1 square scaled up.
 
 ### Sprite sheet (`content/sprites/*.json`)
 
@@ -138,12 +172,14 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 
 Rules and tuning numbers are in [GAMEPLAY.md](GAMEPLAY.md#movement). In short: `Mover` keeps a float feet position and velocity; each 60 Hz step it accelerates toward `input × max_speed`, then `move_and_slide` moves the feet box in sub-steps of at most 1 px, x then y, so the body slides along walls and never tunnels. When moving along one axis and blocked by a corner by a few pixels, corner assist nudges the body sideways. Out-of-map counts as a wall. A dodge moves at a fixed speed for a fixed time, then hands back to walking at max speed and starts a cooldown.
 
-## Effects (phase 2)
+## Effects (phases 2 and 4)
 
 Values are listed in [VISUALS.md](VISUALS.md).
 
 - **Shadow:** a soft black ellipse under the feet (`Shadows` layer).
-- **Dust:** `DustEmitter` puffs every 14 px walked (above 40 px/s) and bursts 10 puffs when a dodge starts. Particles live in a 512-slot `ParticlePool`.
+- **Dust:** `DustEmitter` decides *when* (every 14 px walked above 40 px/s, and when a dodge starts); `fx/dust_walk.json` and `fx/dust_dodge.json` decide *how it looks*. Dust lives in the ground pool (1024 slots, `YSorted` by feet y).
+- **Map ambience:** `AmbientParticles` runs one `ParticleEmitter` per `ambient_fx` effect, spawning inside the camera view plus a 48 px margin. These live in the air pool (4000 slots, `WorldFx` layer).
+- **Stress check:** `--fx-stress N` (0–4000) adds a test effect that keeps about N particles alive. Phase 4 measurement: 2039 particles, 60.0 FPS (VSync), 16.66 ms per frame, 1654 draw calls, 0 dropped.
 - **Afterimages:** `AfterimageTrail` snapshots the sprite every 0.035 s while dodging; snapshots fade out over 0.18 s.
 - **Camera look-ahead:** the camera target is shifted up to 28 px toward the movement direction, smoothed.
 

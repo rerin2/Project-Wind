@@ -72,6 +72,8 @@ struct MapData {
     std::int32_t height = 0;
     std::vector<MapLayer> layers;
     std::vector<SpawnPoint> spawn_points;
+    // 맵 분위기: 화면에 늘 떠다니는 효과들 (꽃잎, 반딧불 등). 효과 파일 위치 목록이에요. 없어도 돼요.
+    std::vector<std::string> ambient_fx;
     // 칸마다 "지나갈 수 있나?"를 미리 계산해 둔 표예요. 1이면 갈 수 있고 0이면 못 가요.
     // 맵을 읽을 때 로더가 카드 성질을 보고 채워 줘요.
     std::vector<std::uint8_t> walkable;

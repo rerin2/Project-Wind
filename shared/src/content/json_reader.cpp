@@ -5,6 +5,7 @@
 
 #include "wind/content/json_reader.hpp"
 
+#include <cmath>
 #include <string>
 
 namespace wind::content {
@@ -84,6 +85,26 @@ std::optional<std::int64_t> JsonReader::integer(std::string_view key, std::int64
         error(field_path(key),
               "value " + std::to_string(number) + " is outside " + std::to_string(min) + "-" +
                   std::to_string(max));
+        return std::nullopt;
+    }
+    return number;
+}
+
+std::optional<double> JsonReader::number(std::string_view key, double min, double max) {
+    const auto* value = find(key);
+    if (value == nullptr) {
+        return std::nullopt;
+    }
+    // 따옴표 속 숫자("3")나 참/거짓은 숫자로 인정하지 않아요.
+    if (!value->is_number()) {
+        error(field_path(key), "expected a number");
+        return std::nullopt;
+    }
+    const auto number = value->get<double>();
+    // NaN(숫자가 아님)이나 무한대는 범위 비교가 이상하게 동작해서 따로 막아요.
+    if (!std::isfinite(number) || number < min || number > max) {
+        error(field_path(key), "value " + std::to_string(number) + " is outside " +
+                                   std::to_string(min) + "-" + std::to_string(max));
         return std::nullopt;
     }
     return number;

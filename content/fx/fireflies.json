@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "fireflies",
+  "shape": "soft",
+  "blend": "add",
+  "lifetime": [3, 5],
+  "speed": [2, 8],
+  "direction": 270,
+  "spread": 360,
+  "gravity": -2,
+  "drag": 0.5,
+  "start_size": [5, 7],
+  "end_size": 4,
+  "start_color": "#fff6a0ff",
+  "end_color": "#d8f080ff",
+  "fade_in": 0.3,
+  "fade_out": 0.35,
+  "wobble": { "amplitude": 4, "frequency": 0.7 },
+  "rate": 2.5
+}

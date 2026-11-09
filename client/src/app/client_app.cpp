@@ -87,7 +87,7 @@ int ClientApp::run() {
     engine::ResourceManager resources(renderer, options_.content_dir);  // 그림 파일 보관 담당
 
     auto field = game::FieldState::create(resources, renderer, options_.map, kPlayerSheet,
-                                          renderer.logical_size());
+                                          renderer.logical_size(), options_.fx_stress);
     if (!field) {
         log::critical("Client cannot start without a valid map; see errors above");
         return 1;  // 맵이 잘못되면 시작할 수 없어요 (자세한 이유는 위쪽 로그에 있어요)

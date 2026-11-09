@@ -167,6 +167,27 @@ TEST(MapLoader, RepositoryTestMapIsValid) {
     const auto result = wind::content::load_map_file(WIND_TEST_CONTENT_DIR, "maps/test_meadow.json");
     ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
     EXPECT_NE(result.value->map.find_spawn("default"), nullptr);
+    // 시험 맵에는 꽃잎과 반딧불 분위기 효과가 있어요.
+    EXPECT_EQ(result.value->map.ambient_fx,
+              (std::vector<std::string>{"fx/petals.json", "fx/fireflies.json"}));
+}
+
+// 분위기(ambience)는 없어도 되고, 있으면 효과 파일 위치를 검사해요.
+TEST(MapLoader, ParsesAmbienceAndRejectsBadPaths) {
+    const auto tileset = load_tileset();
+    EXPECT_TRUE(wind::content::parse_map(make_map(), "unit.json", tileset).value->ambient_fx.empty());
+
+    auto doc = make_map();
+    doc["ambience"] = {{"ambient_fx", {"fx/petals.json", "fx\\rain.json"}}};
+    const auto ok = wind::content::parse_map(doc, "unit.json", tileset);
+    ASSERT_TRUE(ok.ok());
+    EXPECT_EQ(ok.value->ambient_fx, (std::vector<std::string>{"fx/petals.json", "fx/rain.json"}));
+
+    doc["ambience"] = {{"ambient_fx", {"../escape.json", 7}}};
+    const auto bad = wind::content::parse_map(doc, "unit.json", tileset);
+    ASSERT_FALSE(bad.ok());
+    EXPECT_TRUE(has_error_at(bad.errors, "ambience.ambient_fx[0]"));
+    EXPECT_TRUE(has_error_at(bad.errors, "ambience.ambient_fx[1]"));
 }
 
 }  // namespace

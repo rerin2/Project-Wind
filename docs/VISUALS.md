@@ -1,6 +1,6 @@
 # Visual Rules and Effect Tuning
 
-Status: phase 3 (rendering foundation). Spec reference: master spec section 6. Later phases add particles (4), lighting (5), and day/night and weather (6).
+Status: phase 4 (particles). Spec reference: master spec section 6. Later phases add lighting (5) and day/night and weather (6).
 
 Effects are presentation only: they read simulation state and events and never change gameplay results.
 
@@ -90,20 +90,20 @@ Code: `client/src/app/screenshot_flash.cpp`. The screenshot is saved first; the 
 | Colour | black, centre alpha 110 (≈ 43 %) |
 | Layer | `Shadows` (above ground decor, below characters) |
 
-## Dust
+## Particles
 
-Code: `client/src/game/presentation/dust_emitter.cpp`.
+Effect files live in `content/fx/` (format: [ENGINE.md](ENGINE.md#particle-effect-contentfxjson)). Change the look there, not in code.
 
-| Setting | Value |
-|---|---|
-| Texture | 8 × 8 soft circle, colour (214, 196, 160) |
-| Walk puff | every 14 px walked, only above 40 px/s |
-| Dodge burst | 10 puffs, pushed backward with a sideways spread |
-| Lifetime | 0.35–0.55 s |
-| Size | 4–6 px shrinking to 1 px |
-| Alpha | 170 fading to 0 |
-| Motion | drag 5, slight upward drift (gravity −10) |
-| Pool | 512 particles; extra puffs are dropped and counted (F3) |
+| Effect | File | Look | Key values |
+|---|---|---|---|
+| Walking dust | `dust_walk.json` | soft tan puff behind the feet | 1 puff every 14 px walked (above 40 px/s, rule in `dust_emitter.cpp`); 0.35–0.55 s; 4–6 px → 1 px; `#d6c4a0` alpha 170 → 0; drag 5, drifts up |
+| Dodge dust | `dust_dodge.json` | burst of puffs thrown backward | 10 puffs; spread 140°; 20–60 px/s; alpha 200 → 0 |
+| Petals | `petals.json` | pink pixel petals drifting down-left, swaying | 6 per second around the view; 6–9 s; 3–4 px; `#f590b0` → `#fbd0dc`; sway 7 px at 0.5 Hz; fade in 8 %, out 20 % |
+| Fireflies | `fireflies.json` | soft yellow-green glows wandering slowly | additive blend; 2.5 per second; 3–5 s; 5–7 px; `#fff6a0` → `#d8f080`; fade in 30 %, out 35 % (stronger at night in phase 6) |
+
+Pools: ground (dust) 1024, air (ambience) 4000. Extra particles are dropped and counted on the F3 panel.
+
+Lesson from tuning: fading the colour over the whole lifetime made petals half-transparent most of the time and hard to see; `fade_out` keeps them solid until the end.
 
 ## Dodge afterimages
 

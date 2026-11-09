@@ -398,6 +398,9 @@ $json = @"
     { "id": "default", "x": 6, "y": 12 }
   ],
   "exits": [],
+  "ambience": {
+    "ambient_fx": ["fx/petals.json", "fx/fireflies.json"]
+  },
   "layers": [
 $layers
   ]

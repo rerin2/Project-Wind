@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "dust_walk",
+  "shape": "soft",
+  "blend": "normal",
+  "lifetime": [0.35, 0.55],
+  "speed": [6, 16],
+  "spread": 120,
+  "gravity": -20,
+  "drag": 5,
+  "spawn_radius": 3,
+  "start_size": [4, 6],
+  "end_size": 1,
+  "start_color": "#d6c4a0aa",
+  "end_color": "#d6c4a000",
+  "burst": 1
+}

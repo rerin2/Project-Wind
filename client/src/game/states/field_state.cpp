@@ -7,6 +7,7 @@
 
 #include "engine/animation/sprite_sheet_loader.hpp"
 #include "engine/fx/particle_drawing.hpp"
+#include "engine/fx/particle_effect_loader.hpp"
 #include "engine/map/coordinates.hpp"
 #include "engine/map/tilemap_renderer.hpp"
 #include "engine/render/renderer.hpp"
@@ -16,6 +17,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
+#include <string>
 #include <utility>
 
 namespace wind::game {
@@ -28,10 +31,16 @@ constexpr float kLookAheadDistance = 28.0f;
 constexpr float kLookAheadSharpness = 3.0f;
 // 구르기 버튼을 몇 초 동안 기억해 줄지 (명세 5.8 입력 버퍼 기본값)
 constexpr double kInputBufferSeconds = 0.15;
-// 먼지 통 크기 (이보다 많으면 버려요)
-constexpr std::size_t kDustCapacity = 512;
-// 먼지 무작위 씨앗. 연출용이라 아무 숫자나 괜찮지만, 고정하면 매번 같은 모양이 나와요.
-constexpr std::uint32_t kDustSeed = 20261109;
+// 파티클 통 크기 (이보다 많으면 버리고 세요, 명세 6.6)
+constexpr std::size_t kGroundFxCapacity = 1024;  // 땅 효과 (먼지)
+constexpr std::size_t kAirFxCapacity = 4000;     // 공중 효과 (꽃잎, 반딧불, 시험용 부하)
+// 파티클 주사위 씨앗. 연출용이라 아무 숫자나 괜찮지만, 고정하면 매번 같은 모양이 나와요.
+constexpr std::uint32_t kFxSeed = 20261109;
+// 먼지 효과 파일 (콘텐츠 폴더 기준)
+constexpr std::string_view kDustWalkFx = "fx/dust_walk.json";
+constexpr std::string_view kDustDodgeFx = "fx/dust_dodge.json";
+// 시험용 부하 효과의 수명(초). 부하 개수 ÷ 수명 = 1초에 만들 개수
+constexpr float kStressLifetime = 4.0f;
 // 걷기 그림 넘기는 속도: 최고 속도일 때 1배, 느리면 천천히 (최소 0.5배), 구를 때는 2배
 constexpr double kMinWalkAnimRate = 0.5;
 constexpr double kDodgeAnimRate = 2.0;
@@ -40,9 +49,9 @@ constexpr double kDodgeAnimRate = 2.0;
 constexpr std::int32_t kShadowWidth = 22;
 constexpr std::int32_t kShadowHeight = 8;
 constexpr engine::Color kShadowColor{0, 0, 0, 110};
-// 먼지 그림: 밝은 흙색 동그라미
-constexpr std::int32_t kDustTextureSize = 8;
-constexpr engine::Color kDustColor{214, 196, 160, 255};
+// 파티클 그림: 흰색이라 효과 파일의 색을 곱해서 써요.
+constexpr std::int32_t kSoftParticleSize = 8;
+constexpr engine::Color kWhite{255, 255, 255, 255};
 // F4: 발 상자 표시 색 (반투명 하늘색)
 constexpr engine::Color kBodyBoxColor{80, 200, 255, 140};
 
@@ -66,6 +75,34 @@ engine::Vec2 spawn_feet(world::TileCoord tile, std::int32_t tile_size) {
             static_cast<float>(tile.y) * size + size * 0.75f};
 }
 
+// 효과 파일 하나를 읽어요. 잘못된 파일이면 이유를 기록하고 "없음"을 돌려줘요.
+// 효과가 없어도 게임은 계속돼요 (그 효과만 안 보여요).
+std::optional<engine::ParticleEffect> load_effect(const std::filesystem::path& content_root,
+                                                  std::string_view path) {
+    auto result = engine::load_particle_effect_file(content_root, path);
+    if (!result.ok()) {
+        log_errors(std::string("particle effect ") + std::string(path), result.errors);
+        return std::nullopt;
+    }
+    return std::move(*result.value);
+}
+
+// 성능 시험용 부하 효과: 화면 곳곳에 작은 점이 약 count개 떠 있게 만들어요. (--fx-stress)
+engine::ParticleEffect make_stress_effect(std::uint32_t count) {
+    engine::ParticleEffect effect;
+    effect.id = "stress";
+    effect.shape = engine::ParticleShape::Soft;
+    effect.lifetime = {kStressLifetime, kStressLifetime};
+    effect.speed = {4.0f, 12.0f};
+    effect.spread = 360.0f;
+    effect.start_size = {3.0f, 5.0f};
+    effect.end_size = 2.0f;
+    effect.start_color = {255, 240, 168, 200};
+    effect.end_color = {255, 240, 168, 0};
+    effect.rate = static_cast<float>(count) / kStressLifetime;
+    return effect;
+}
+
 std::string_view state_name(Mover::State state) {
     switch (state) {
         case Mover::State::Idle: return "idle";
@@ -82,7 +119,8 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
                                                engine::Renderer& renderer,
                                                std::string_view map_path,
                                                std::string_view player_sheet_path,
-                                               engine::Vec2 viewport) {
+                                               engine::Vec2 viewport,
+                                               std::uint32_t particle_stress) {
     // 1) 맵 파일(과 맵이 쓰는 타일셋)을 읽고 검사해요.
     auto map = content::load_map_file(resources.content_root(), map_path);
     if (!map.ok()) {
@@ -106,28 +144,45 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     //    (무엇이 없는지는 리소스 관리자가 기록해 줘요.)
     const auto tileset_texture = resources.texture(map.value->tileset.image);
     const auto player_texture = resources.texture(sheet.value->image);
-    // 5) 그림자와 먼지 그림은 파일 없이 코드로 만들어요. 실패해도 그 효과만 안 보일 뿐 계속해요.
-    const EffectTextures effects{
+    // 5) 그림자와 파티클 그림은 파일 없이 코드로 만들어요. 실패해도 그 효과만 안 보일 뿐 계속해요.
+    const EffectTextures textures{
         renderer.create_soft_ellipse_texture(kShadowWidth, kShadowHeight, kShadowColor),
-        renderer.create_soft_ellipse_texture(kDustTextureSize, kDustTextureSize, kDustColor),
+        {renderer.create_soft_ellipse_texture(kSoftParticleSize, kSoftParticleSize, kWhite),
+         renderer.create_solid_texture(1, 1, kWhite)},
     };
 
-    log::info("Entered map '{}' ({}x{} tiles)", map.value->map.map_id, map.value->map.width,
-              map.value->map.height);
+    // 6) 파티클 효과 요리법을 읽어요: 먼지 두 가지 + 맵이 정한 분위기 효과들
+    const auto& root = resources.content_root();
+    FieldEffects effects;
+    effects.dust_walk = load_effect(root, kDustWalkFx);
+    effects.dust_dodge = load_effect(root, kDustDodgeFx);
+    for (const auto& path : map.value->map.ambient_fx) {
+        if (auto effect = load_effect(root, path)) {
+            effects.ambient.push_back(std::move(*effect));
+        }
+    }
+    if (particle_stress > 0) {
+        log::info("Particle stress test: about {} particles", particle_stress);
+        effects.ambient.push_back(make_stress_effect(particle_stress));
+    }
+
+    log::info("Entered map '{}' ({}x{} tiles, {} ambient effect(s))", map.value->map.map_id,
+              map.value->map.width, map.value->map.height, effects.ambient.size());
     return std::unique_ptr<FieldState>(new FieldState(std::move(*map.value), std::move(*sheet.value),
-                                                      tileset_texture, player_texture, effects,
-                                                      viewport));
+                                                      tileset_texture, player_texture, textures,
+                                                      std::move(effects), viewport));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
 FieldState::FieldState(content::LoadedMap map, engine::SpriteSheet sheet,
                        engine::TextureHandle tileset_texture, engine::TextureHandle player_texture,
-                       EffectTextures effects, engine::Vec2 viewport)
+                       EffectTextures textures, FieldEffects effects, engine::Vec2 viewport)
     : map_(std::move(map)),
       sheet_(std::move(sheet)),
       tileset_texture_(tileset_texture),
       player_texture_(player_texture),
-      effects_(effects),
+      textures_(textures),
+      effects_(std::move(effects)),
       look_ahead_(kLookAheadDistance, kLookAheadSharpness),
       // 캐릭터가 처음 설 곳(스폰 지점): "default"라는 이름이 있으면 거기, 없으면 첫 번째 지점.
       // (맵 검사기는 "default"가 꼭 있다고 약속하지 않아서 이렇게 해요.)
@@ -137,8 +192,15 @@ FieldState::FieldState(content::LoadedMap map, engine::SpriteSheet sheet,
                          map_.map.tile_size),
               world::Direction::Down, MovementTuning{}),
       buffer_(kInputBufferSeconds),
-      dust_(kDustCapacity),
-      dust_emitter_(kDustSeed) {
+      fx_random_(kFxSeed),
+      ground_fx_(kGroundFxCapacity),
+      air_fx_(kAirFxCapacity),
+      // effects_는 위에서 이미 만들어졌고, 이 화면이 사라질 때까지 그대로라서 빌려 써도 안전해요.
+      dust_emitter_(effects_.dust_walk ? &*effects_.dust_walk : nullptr,
+                    effects_.dust_dodge ? &*effects_.dust_dodge : nullptr) {
+    for (const auto& effect : effects_.ambient) {
+        ambient_.add(effect);
+    }
     // 카메라 준비: 화면 크기를 알려 주고, 맵 밖은 보여 주지 않도록 맵 크기를 경계로 정해요.
     const auto size = static_cast<float>(map_.map.tile_size);
     camera_.set_viewport(viewport);
@@ -184,13 +246,16 @@ void FieldState::frame_update(double dt_seconds, double alpha) {
 
     // 먼지: 구르기 시작이면 확 뿌리고, 걷는 중이면 조금씩
     if (dodge_burst_) {
-        dust_emitter_.dodge_burst(feet, *dodge_burst_, dust_);
+        dust_emitter_.dodge_burst(feet, *dodge_burst_, fx_random_, ground_fx_);
         dodge_burst_.reset();
     }
     if (player_.state() == Mover::State::Walking) {
-        dust_emitter_.walk(feet, player_.velocity(), dt, dust_);
+        dust_emitter_.walk(feet, player_.velocity(), dt, fx_random_, ground_fx_);
     }
-    dust_.update(dt);
+    ground_fx_.update(dt);
+    // 분위기 효과(꽃잎·반딧불)는 카메라가 보는 곳 근처에서 계속 생겨나요.
+    ambient_.update(dt, camera_.view_rect(), fx_random_, air_fx_);
+    air_fx_.update(dt);
 
     // 잔상: 구르는 동안 사진을 찍어요
     trail_.update(dt, player_.state() == Mover::State::Dodging, feet,
@@ -235,10 +300,10 @@ void FieldState::render(engine::RenderQueue& queue) {
     tiles_queued_ = engine::queue_tilemap(map_.map, map_.tileset, tileset_texture_, camera_, queue);
 
     // 2) 발밑 그림자: 바닥 위, 캐릭터 아래 단계에 그려요.
-    if (effects_.shadow.valid()) {
+    if (textures_.shadow.valid()) {
         const engine::Vec2 screen = camera_.world_to_screen(feet);
         engine::SpriteDraw shadow;
-        shadow.texture = effects_.shadow;
+        shadow.texture = textures_.shadow;
         shadow.dest = {std::round(screen.x - static_cast<float>(kShadowWidth) * 0.5f),
                        std::round(screen.y - static_cast<float>(kShadowHeight) * 0.5f),
                        static_cast<float>(kShadowWidth), static_cast<float>(kShadowHeight)};
@@ -249,9 +314,9 @@ void FieldState::render(engine::RenderQueue& queue) {
     trail_.queue(camera_, player_texture_, sheet_.origin, {sheet_.frame_width, sheet_.frame_height},
                  queue);
     queue_player(queue, feet);
-    if (effects_.dust.valid()) {
-        engine::queue_particles(dust_, camera_, effects_.dust, engine::DrawLayer::YSorted, queue);
-    }
+    engine::queue_particles(ground_fx_, camera_, textures_.particles, engine::DrawLayer::YSorted, queue);
+    // 공중 효과는 나뭇잎보다도 위에 그려요.
+    engine::queue_particles(air_fx_, camera_, textures_.particles, engine::DrawLayer::WorldFx, queue);
 
     // 4) F4를 켰으면 못 가는 칸을 빨갛게, 발 상자를 하늘색으로 덮어요.
     if (show_collision_) {
@@ -296,8 +361,9 @@ FieldDebugInfo FieldState::debug_info() const {
             state_name(player_.state()),
             player_.speed(),
             tiles_queued_,
-            dust_.size(),
-            dust_.dropped()};
+            ground_fx_.size() + air_fx_.size(),
+            ambient_.count(),
+            ground_fx_.dropped() + air_fx_.dropped()};
 }
 
 }  // namespace wind::game

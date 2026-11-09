@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Phase 4 — particle system
+- Particle effects are data: `content/fx/*.json` with validation (file + field path errors). Fields: shape, blend,
+  lifetime/speed/size ranges, direction, spread, gravity, drag, spawn radius, colour gradient, fade in/out,
+  wobble, burst, rate.
+- Engine: `ParticleEffect` + loader, `ParticleRandom`, `make_particle`/`emit_burst`, continuous `ParticleEmitter`,
+  colour/fade/wobble drawing with `soft` and `pixel` shapes and per-particle blend mode.
+- Dust now uses `fx/dust_walk.json` and `fx/dust_dodge.json`. Broken effect files are logged and skipped.
+- Maps can list `ambience.ambient_fx`; the test meadow has drifting petals and fireflies (`WorldFx` layer, above canopies).
+- `JsonReader::number` (decimals) and `JsonReader::raw`; `Renderer::create_solid_texture`.
+- `--fx-stress N`: 2039 particles measured at 60.0 FPS (VSync), 1654 draw calls, 0 dropped.
+- 131 CTest tests.
+
 ### Hero redesign
 - The hero test sprite is now a silver-haired girl with cat ears and long straight hair: navy dress, violet eyes,
   1 px dark outline, hair tips sway while walking. Right-facing frames mirror the left-facing ones.
