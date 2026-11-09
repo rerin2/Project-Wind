@@ -42,14 +42,17 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
     // 한 줄씩 보여 줄 글자들:
     const std::array lines{
         std::format("FPS {:.1f}  frame {:.2f} ms  dropped {}", fps_, frame_ms_, dropped_frames),
-        std::format("map {}  tile ({}, {})  facing {}{}", field.map_id, field.player_tile.x,
-                    field.player_tile.y, world::to_string(field.facing),
-                    field.moving ? "  moving" : ""),
+        std::format("map {}  pos ({:.1f}, {:.1f})  tile ({}, {})", field.map_id,
+                    field.player_feet.x, field.player_feet.y, field.player_tile.x,
+                    field.player_tile.y),
+        std::format("{}  facing {}  speed {:.0f} px/s", field.state,
+                    world::to_string(field.facing), field.speed),
         std::format("draw calls {}  culled {}  tiles {}", stats.draw_calls, stats.culled,
                     field.tiles_queued),
+        std::format("particles {}  dropped {}", field.particles, field.particles_dropped),
         std::format("textures {}  cache hits {}  load failures {}", resources.textures_loaded,
                     resources.cache_hits, resources.load_failures),
-        std::string("arrows/WASD move  F3 debug  F4 collision  Esc quit"),
+        std::string("arrows/WASD move  Space dodge  F3 debug  F4 collision  Esc quit"),
     };
 
     // 글자 뒤에 반투명 검은 판을 깔아서, 풀밭 위에서도 글자가 잘 읽히게 해요.

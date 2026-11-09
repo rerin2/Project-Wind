@@ -1,6 +1,6 @@
 #pragma once
 
-// 클라이언트·서버·도구가 함께 쓰는 최소한의 명령줄 인자 도우미.
+// 게임과 도구가 함께 쓰는 최소한의 명령줄 인자 도우미.
 
 #include <cstdint>
 #include <optional>

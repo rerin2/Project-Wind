@@ -32,7 +32,7 @@ If Windows blocks the `.ps1` scripts, allow local scripts for your user once:
 .\scripts\build.ps1 -Preset windows-release # Release -> build\windows-release
 ```
 
-`build.ps1` loads the MSVC x64 developer environment (`scripts\dev_environment.ps1`), then runs the CMake presets. The first configure clones SDL3, ENet, spdlog, and GoogleTest (≈40 s); the first full build compiles about 320 steps.
+`build.ps1` loads the MSVC x64 developer environment (`scripts\dev_environment.ps1`), then runs the CMake presets. The first configure clones SDL3, spdlog, nlohmann/json, and GoogleTest.
 
 Doing the same by hand, from any PowerShell:
 
@@ -50,20 +50,18 @@ Executables are written to `build\<preset>\bin\`.
 .\scripts\run_tests.ps1             # = ctest --preset windows-debug
 ```
 
-The run on 2026-11-02 passed 79/79 tests: GoogleTest cases for shared, server and client modules (including validation of the repository's real test map and sprite sheet), plus a process smoke test that starts `wind_server` for 5 ticks and checks for a clean exit.
+The run on 2026-11-09 passed 94/94 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
 
 ## 4. Run
 
 ```powershell
-.\scripts\run_server.ps1                    # Ctrl+C to stop
-.\scripts\run_server.ps1 --log-level debug --tick-rate 30
 .\scripts\run_client.ps1                    # close the window to quit
 .\scripts\run_client.ps1 --width 1600 --height 900
 ```
 
-Pass `-Preset windows-release` to either script to run the Release build. Each executable lists its options with `--help`.
+Pass `-Preset windows-release` to run the Release build. The client lists its options with `--help`.
 
-Client controls: arrow keys / WASD move, F3 debug overlay, F4 collision overlay, Esc quit.
+Controls: arrow keys / WASD move, Space (or K / X) dodge, F3 debug overlay, F4 collision overlay, Esc quit.
 
 The client reads content from the repository's `content/` folder by default (path baked in at build time). To use another copy or map:
 
@@ -83,7 +81,6 @@ It rewrites `content/tilesets/test_tiles.bmp`, `content/sprites/test_hero.bmp` a
 
 Smoke-test flags (used for verification, not gameplay):
 
-- `wind_server --max-ticks N` stops after N ticks.
 - `wind_client --max-frames N` closes the window after N frames.
 
 ## Troubleshooting

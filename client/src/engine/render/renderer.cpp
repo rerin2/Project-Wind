@@ -8,6 +8,9 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <string>
 
 namespace wind::engine {
@@ -97,7 +100,10 @@ void Renderer::draw_sprite(const SpriteDraw& sprite) {
     const SDL_FRect dst{sprite.dest.x, sprite.dest.y, sprite.dest.w, sprite.dest.h};
     SDL_SetTextureAlphaMod(it->second, sprite.alpha);  // 투명도 정하기
     // 스티커 종이의 src 부분을 오려서, 화면의 dst 자리에 (회전·뒤집기 포함) 붙여요.
-    SDL_RenderTextureRotated(renderer_, it->second, &src, &dst, sprite.rotation_degrees, nullptr,
+    // source 크기가 0이면 "그림 전체"를 써요 (부드러운 동그라미처럼 통째로 쓰는 그림).
+    const bool whole_texture = sprite.source.w <= 0 || sprite.source.h <= 0;
+    SDL_RenderTextureRotated(renderer_, it->second, whole_texture ? nullptr : &src, &dst,
+                             sprite.rotation_degrees, nullptr,
                              to_sdl(sprite.flip));
     ++stats_.draw_calls;
 }
@@ -162,6 +168,48 @@ TextureHandle Renderer::create_checker_texture(std::int32_t size) {
         log::error("Cannot create placeholder texture: {}", SDL_GetError());
         return {};
     }
+    return register_texture(texture);
+}
+
+TextureHandle Renderer::create_soft_ellipse_texture(std::int32_t width, std::int32_t height,
+                                                    Color color) {
+    if (width <= 0 || height <= 0) {
+        log::error("Soft ellipse size must be positive, got {}x{}", width, height);
+        return {};
+    }
+    SDL_Surface* surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
+    if (surface == nullptr) {
+        log::error("Cannot create soft ellipse surface: {}", SDL_GetError());
+        return {};
+    }
+    // 픽셀마다 "타원 가운데에서 얼마나 떨어졌나"(0 = 가운데, 1 = 가장자리)를 재서
+    // 가운데는 진하게, 가장자리로 갈수록 투명하게 칠해요.
+    const float half_w = static_cast<float>(width) * 0.5f;
+    const float half_h = static_cast<float>(height) * 0.5f;
+    auto* pixels = static_cast<std::uint8_t*>(surface->pixels);
+    for (std::int32_t y = 0; y < height; ++y) {
+        std::uint8_t* row = pixels + static_cast<std::ptrdiff_t>(y) * surface->pitch;
+        for (std::int32_t x = 0; x < width; ++x) {
+            const float dx = (static_cast<float>(x) + 0.5f - half_w) / half_w;
+            const float dy = (static_cast<float>(y) + 0.5f - half_h) / half_h;
+            const float distance = std::sqrt(dx * dx + dy * dy);
+            const float strength = std::clamp(1.0f - distance, 0.0f, 1.0f);
+            // 제곱근으로 가장자리를 살짝 넓혀서, 너무 작은 점처럼 보이지 않게 해요.
+            const float alpha = std::sqrt(strength) * static_cast<float>(color.a);
+            std::uint8_t* px = row + static_cast<std::ptrdiff_t>(x) * 4;
+            px[0] = color.r;
+            px[1] = color.g;
+            px[2] = color.b;
+            px[3] = static_cast<std::uint8_t>(alpha);
+        }
+    }
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
+    SDL_DestroySurface(surface);
+    if (texture == nullptr) {
+        log::error("Cannot create soft ellipse texture: {}", SDL_GetError());
+        return {};
+    }
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);  // 투명한 부분이 뒤가 비쳐 보이게
     return register_texture(texture);
 }
 

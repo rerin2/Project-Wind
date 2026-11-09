@@ -34,7 +34,7 @@ enum class Flip : std::uint8_t { None, Horizontal, Vertical };
 // 스프라이트(화면에 붙이는 작은 그림 조각) 하나를 그리는 데 필요한 정보
 struct SpriteDraw {
     TextureHandle texture;  // 어느 스티커 종이에서
-    RectI source;           // 어느 부분을 오려서
+    RectI source;           // 어느 부분을 오려서 (가로·세로가 0이면 그림 전체)
     RectF dest;             // 화면의 어디에, 얼마나 크게 붙일지
     Flip flip = Flip::None;
     float rotation_degrees = 0.0f;  // 붙일 곳 한가운데를 중심으로 시계 방향 회전 각도
@@ -48,6 +48,7 @@ struct SpriteDraw {
 enum class DrawLayer : std::uint8_t {
     Ground,        // 바닥
     GroundDecor,   // 바닥 장식 (꽃 등)
+    Shadows,       // 캐릭터 발밑 그림자 (바닥 위, 캐릭터 아래)
     YSorted,       // 낮은 물건 + 캐릭터
     HighObjects,   // 높은 물건 (나뭇잎 등, 캐릭터를 덮음)
     Foreground,    // 맨 앞

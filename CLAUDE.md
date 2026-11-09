@@ -73,3 +73,4 @@ Include:
 Never claim a build or test passed unless it was actually run and passed.
 
 코드를 수정하거나 추가 할 때, 13살도 이해할 수 있게 간결하게 설명
+

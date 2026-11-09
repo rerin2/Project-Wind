@@ -1,8 +1,8 @@
 # Engine Design (client)
 
-Status: phase 1 (minimal engine). Spec reference: master spec section 5.
+Status: phase 2 (free movement, dodge, first effects). Spec reference: master spec section 5.
 
-The client engine is our own code on top of SDL3. SDL3 is used only for the window, OS events, the GPU-backed 2D renderer, and BMP decoding. Everything else (loop, map, camera, animation, input model, resources, debug view) lives in this repository.
+The client engine is our own code on top of SDL3. SDL3 is used only for the window, OS events, the GPU-backed 2D renderer, and BMP decoding. Everything else (loop, map, camera, animation, input model, particles, resources, debug view) lives in this repository.
 
 ## Module layout
 
@@ -10,15 +10,20 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 |---|---|---|---|
 | `client/src/engine/core` | `wind_engine_core` | no | `Vec2`/`RectF` math, `FixedStepClock` |
 | `client/src/engine/map` | `wind_engine_core` | no | tile↔world coordinates, visible-tile culling, tile batching into the render queue |
-| `client/src/engine/camera` | `wind_engine_core` | no | `Camera2D`: world↔screen, follow, bounds clamp, pixel snapping |
+| `client/src/engine/camera` | `wind_engine_core` | no | `Camera2D`: world↔screen, follow, bounds clamp, pixel snapping; `LookAhead`: smoothed offset toward the movement direction |
 | `client/src/engine/input` | `wind_engine_core` | no | `InputState`: held/pressed/released, UI capture flag |
-| `client/src/engine/animation` | `wind_engine_core` | no | `SpriteSheet`, `AnimationClip`, `Animator`, sprite sheet JSON loader |
+| `client/src/engine/animation` | `wind_engine_core` | no | `AnimationClip`, `SpriteSheet`, `Animator` (one file each), sprite sheet JSON loader |
+| `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticlePool` (fixed capacity, drag, gravity, drop counter), `queue_particles` |
 | `client/src/engine/render` (`render_queue`, `render_types`) | `wind_engine_core` | no | draw commands and their sort order |
-| `client/src/engine/render/renderer.*` | `wind_client` | **yes** | `Renderer`: draws sprites/rects/debug text, owns textures |
+| `client/src/engine/render/renderer.*` | `wind_client` | **yes** | `Renderer`: draws sprites/rects/debug text, owns textures, makes soft-ellipse textures (shadow, dust) |
 | `client/src/engine/resources` | `wind_client` | **yes** (via `Renderer`) | `ResourceManager`: safe paths, cache, fallback texture, stats |
 | `client/src/engine/platform` | `wind_client` | **yes** | `SdlPlatform`: SDL init, window, event → `InputState` |
-| `client/src/game` | `wind_game_core` / `wind_client` | no | movement (`GridMover`), key bindings, `FieldState` scene |
-| `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation, safe content paths (reused by the server) |
+| `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
+| `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
+| `client/src/game/entities` | `wind_game_core` | no | `Mover` (speed, acceleration, dodge), `MovementTuning`, facing helpers |
+| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail` (effects that only read simulation state) |
+| `client/src/game/states` | `wind_client` | no | `FieldState` scene: wires simulation, effects, camera, drawing |
+| `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths |
 
 Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.cpp` do. The SDL-free libraries are unit-tested without opening a window.
 
@@ -28,9 +33,9 @@ Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.
 
 1. `InputState::begin_frame`, then `SdlPlatform::pump_events` (OS events → keys; focus loss releases all keys)
 2. Frame-level actions (Esc quit, F3 debug toggle)
-3. *(network receive — phase 2)*
-4. Fixed-step game update: `FixedStepClock` at **60 Hz**; a frame counts at most **0.25 s** and runs at most **5** steps, extra time is dropped (no catch-up spiral)
-5. Per-frame update: animation, camera follow
+3. `FieldState::handle_input`: movement intent, dodge press into the input buffer, F4 toggle
+4. Fixed-step simulation (`FieldState::fixed_update`): `FixedStepClock` at **60 Hz**; a frame counts at most **0.25 s** and runs at most **5** steps, extra time is dropped (no catch-up spiral)
+5. Per-frame presentation (`FieldState::frame_update(dt, alpha)`): animation, dust, afterimages, look-ahead, camera follow. Positions are drawn interpolated between the last two simulation steps using the clock's `alpha`, so movement is smooth at any frame rate.
 6. Render: scene pushes draw commands into a `RenderQueue`, the queue is sorted, `Renderer::submit` draws it
 7. *(audio — later phase)*
 8. Debug overlay drawn last
@@ -39,7 +44,7 @@ The render rate follows VSync (60 FPS measured on the dev machine; not guarantee
 
 ## Coordinates and pixels (spec 5.3, 5.4)
 
-- Game logic uses integer `TileCoord` (x right, y down, (0,0) top-left).
+- Simulation positions are world pixels (`Vec2`, floats). `TileCoord` (x right, y down, (0,0) top-left) is used for map lookups and collision.
 - `engine/map/coordinates.hpp` is the only tile↔world-pixel conversion; `Camera2D` is the only world↔screen conversion.
 - `world_to_tile` uses `floor`, so negative world pixels map to negative tiles correctly.
 - The game renders at a fixed **logical resolution of 640×360**, scaled by an integer factor to the window (`SDL_LOGICAL_PRESENTATION_INTEGER_SCALE`); extra space is letterboxed.
@@ -53,10 +58,11 @@ The render rate follows VSync (60 FPS measured on the dev machine; not guarantee
 |---|---|
 | `Ground` | map layers with `render_layer: "ground"` |
 | `GroundDecor` | `"ground_decor"` |
-| `YSorted` | `"low_objects"` tiles **and** characters, ordered by their base (feet) y |
+| `Shadows` | soft ellipse under each character's feet |
+| `YSorted` | `"low_objects"` tiles **and** characters, afterimages and dust, ordered by their base (feet) y |
 | `HighObjects` | `"high_objects"` (e.g. tree canopies; always over characters) |
 | `Foreground` | `"foreground"` |
-| `DebugOverlay` | collision overlay |
+| `DebugOverlay` | collision overlay, feet box |
 
 A low object's `sort_y` is the bottom edge of its tile; a character's is its feet. A character standing south of a tree trunk is therefore drawn in front of it.
 
@@ -120,18 +126,30 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 ## Input (spec 5.8)
 
 - `SdlPlatform` translates SDL **scancodes** (physical keys, layout-independent) into engine `Key`s; OS key-repeat events are ignored.
-- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, F3 debug overlay, F4 collision overlay, Esc quit.
-- When several move keys are held, the most recently pressed one wins (`MovementIntent`).
+- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Space/K/X dodge, F3 debug overlay, F4 collision overlay, Esc quit.
+- `MovementIntent` turns held move keys into an 8-way unit vector (diagonals are normalized). When opposite keys are both held, the most recently pressed one wins.
+- `InputBuffer` remembers a dodge press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
 - `InputState::set_ui_capture(true)` makes all game queries return false (for a chat box, phase 5).
 - Saving custom bindings is not implemented yet.
 
-## Movement (phase 1, local only)
+## Movement (phase 2)
 
-`GridMover` moves one tile per step (0.2 s per tile). The logical tile changes immediately to the destination when a step starts and the visual position interpolates — the same model the server-authoritative version will use in phase 2. Blocked or out-of-map targets only turn the character. When a step ends while a key is still held, leftover time carries into the next step so continuous walking does not stutter.
+Rules and tuning numbers are in [GAMEPLAY.md](GAMEPLAY.md#movement). In short: `Mover` keeps a float feet position and velocity; each 60 Hz step it accelerates toward `input × max_speed`, then `move_and_slide` moves the feet box in sub-steps of at most 1 px, x then y, so the body slides along walls and never tunnels. When moving along one axis and blocked by a corner by a few pixels, corner assist nudges the body sideways. Out-of-map counts as a wall. A dodge moves at a fixed speed for a fixed time, then hands back to walking at max speed and starts a cooldown.
+
+## Effects (phase 2)
+
+Values are listed in [VISUALS.md](VISUALS.md).
+
+- **Shadow:** a soft black ellipse under the feet (`Shadows` layer).
+- **Dust:** `DustEmitter` puffs every 14 px walked (above 40 px/s) and bursts 10 puffs when a dodge starts. Particles live in a 512-slot `ParticlePool`.
+- **Afterimages:** `AfterimageTrail` snapshots the sprite every 0.035 s while dodging; snapshots fade out over 0.18 s.
+- **Camera look-ahead:** the camera target is shifted up to 28 px toward the movement direction, smoothed.
+
+Effects read simulation state and events only; they never move the character.
 
 ## Debug overlay (spec 5.10)
 
-F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, player tile and facing, draw calls, culled sprites, tiles queued, texture count, cache hits, load failures. F4 toggles the red collision overlay. Server tick, RTT and packet counters arrive with networking in phase 2.
+F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/dodging), facing, speed, draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures. F4 toggles the red collision overlay and the cyan feet box.
 
 ## Known limitations
 
@@ -139,4 +157,6 @@ F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map 
 - The debug font is SDL's built-in 8×8 ASCII font; Korean text needs a real font renderer (later phase).
 - No audio yet (spec 5.9).
 - UI and world share the logical resolution; a separate UI scale comes with real UI work.
-- Key binding persistence and 8-direction movement are not implemented.
+- Key binding persistence is not implemented.
+- Sprites have 4 directions; 8-way movement picks the nearest of the four (`facing_from_vector`). There is no dedicated dodge animation yet (the walk clip plays at 2× speed).
+- Movement tuning lives in code (`MovementTuning`) until a character data file exists.

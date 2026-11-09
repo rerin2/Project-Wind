@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Phase 2 — cleanup and free movement
+- Removed the game server, ENet, `run_server.ps1`, and server tests (single-player, ADR 0007).
+- Split files to one class per file pair: `ErrorList`/`LoadResult`/`JsonReader`/`json_file`,
+  `AnimationClip`/`SpriteSheet`/`Animator`, `Action`/`InputBindings`/`MovementIntent`. Tests split to match.
+- Free 8-way movement (`Mover`): acceleration, deceleration, normalized diagonals, float positions.
+- Feet-box tile collision (`move_and_slide`): 1 px sub-steps, wall sliding, 6 px corner assist, map edge blocks.
+- Dodge roll (Space/K/X): 280 px/s for 0.2 s, 0.3 s cooldown, early invulnerability flag; 0.15 s input buffer.
+- Simulation/presentation split: input → fixed 60 Hz steps → per-frame effects; drawing interpolates between steps.
+- Effects: feet shadow, walking dust and dodge dust burst (`ParticlePool`, 512 cap), dodge afterimages,
+  camera look-ahead, walk animation speed follows movement speed.
+- Debug overlay: feet position, state, speed, particle count/drops; F4 also shows the feet box.
+- `Shadows` draw layer; `Renderer::create_soft_ellipse_texture`; empty source rect draws the whole texture.
+- New docs: `docs/GAMEPLAY.md` (movement rules), `docs/VISUALS.md` (effect values).
+- 94 CTest tests.
+
 ### Direction change — single-player action RPG (spec 2.0)
 - `docs/MASTER_SPEC.md` rewritten: single player, no server/network/accounts/database,
   free 8-direction movement, real-time action combat, visuals (lighting, particles,

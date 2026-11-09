@@ -5,7 +5,9 @@
 // - Vec2: 소수점까지 쓰는 위치 (화면이나 맵 위의 픽셀 위치)
 // - Vec2i: 정수만 쓰는 위치 (그림 파일 안의 픽셀 위치)
 // - RectF / RectI: 왼쪽 위 위치와 가로·세로 크기로 정한 네모
+// 화살표 길이 재기, 길이 1로 맞추기, 중간 지점 찾기 같은 작은 계산 도우미도 있어요.
 
+#include <cmath>
 #include <cstdint>
 
 namespace wind::engine {
@@ -21,6 +23,24 @@ struct Vec2 {
     friend Vec2 operator*(Vec2 v, float s) { return {v.x * s, v.y * s}; }
     friend bool operator==(const Vec2&, const Vec2&) = default;
 };
+
+// 화살표(Vec2)의 길이. 피타고라스 정리: 길이 = √(x² + y²)
+[[nodiscard]] inline float length(Vec2 v) {
+    return std::sqrt(v.x * v.x + v.y * v.y);
+}
+
+// 같은 방향이지만 길이가 1인 화살표. 길이가 0이면 그대로 0을 돌려줘요.
+// 예: 오른쪽+아래 (1, 1)은 길이가 약 1.41이라, 그대로 쓰면 대각선이 더 빨라져요.
+//     길이 1로 줄이면 (0.71, 0.71)이 돼서 어느 방향이든 같은 빠르기가 돼요.
+[[nodiscard]] inline Vec2 normalized(Vec2 v) {
+    const float len = length(v);
+    return len > 0.0f ? Vec2{v.x / len, v.y / len} : Vec2{};
+}
+
+// a와 b 사이의 중간 지점. t = 0이면 a, t = 1이면 b, t = 0.5면 딱 가운데.
+[[nodiscard]] inline Vec2 lerp(Vec2 a, Vec2 b, float t) {
+    return a + (b - a) * t;
+}
 
 // 정수만 쓰는 위치. 그림 파일 속 "몇 번째 픽셀"처럼 딱 떨어지는 값에 써요.
 struct Vec2i {

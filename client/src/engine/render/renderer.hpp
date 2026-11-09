@@ -55,6 +55,11 @@ public:
     [[nodiscard]] TextureHandle load_bmp_texture(const std::filesystem::path& path, std::string& error);
     // 그림 파일이 없을 때 대신 쓰는 분홍/검정 체크무늬 스티커를 만들어요.
     [[nodiscard]] TextureHandle create_checker_texture(std::int32_t size);
+    // 가운데는 진하고 가장자리로 갈수록 흐려지는 타원 스티커를 만들어요.
+    // 발밑 그림자(검은색)나 먼지(밝은 흙색)처럼 부드러운 모양에 써요.
+    // color.a는 가운데의 가장 진한 투명도예요.
+    [[nodiscard]] TextureHandle create_soft_ellipse_texture(std::int32_t width, std::int32_t height,
+                                                            Color color);
     // 스티커 종이 하나를 버려요.
     void destroy_texture(TextureHandle handle);
     // 지금 가진 스티커 종이 수

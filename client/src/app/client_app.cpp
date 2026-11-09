@@ -68,7 +68,7 @@ int ClientApp::run() {
     engine::Renderer& renderer = platform->renderer();           // 그림 그리는 담당
     engine::ResourceManager resources(renderer, options_.content_dir);  // 그림 파일 보관 담당
 
-    auto field = game::FieldState::create(resources, options_.map, kPlayerSheet,
+    auto field = game::FieldState::create(resources, renderer, options_.map, kPlayerSheet,
                                           renderer.logical_size());
     if (!field) {
         log::critical("Client cannot start without a valid map; see errors above");
@@ -106,15 +106,17 @@ int ClientApp::run() {
         const double frame_seconds = std::chrono::duration<double>(now - last_frame).count();
         last_frame = now;
 
-        // 3. 서버에서 온 소식 받기는 단계 2에서 여기에 들어가요.
+        // 3. 누른 키를 필드에 알려 줘요 (구르기 버튼은 메모장에 적어 둬요).
+        field->handle_input(input, bindings);
         // 4. 박자 시계가 "몇 번 계산해"라고 알려 준 만큼 게임 규칙을 계산해요.
         //    (보통 1번, 컴퓨터가 느려졌으면 2~5번, 아주 빠르면 0번일 수도 있어요)
         const int steps = clock.advance(frame_seconds);
         for (int i = 0; i < steps; ++i) {
             field->fixed_update(clock.step_seconds(), input, bindings);
         }
-        // 5. 그림 넘기기(애니메이션)와 카메라는 화면 한 장마다 해요.
-        field->frame_update(frame_seconds, input, bindings);
+        // 5. 그림 넘기기, 먼지·잔상, 카메라는 화면 한 장마다 해요.
+        //    alpha: 지난 박자와 다음 박자 사이 어디쯤인지 -> 위치를 부드럽게 이어 그려요.
+        field->frame_update(frame_seconds, clock.alpha());
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();

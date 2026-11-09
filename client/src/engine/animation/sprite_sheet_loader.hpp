@@ -5,9 +5,11 @@
 // 설명서에 실수가 있으면 "어느 파일 어느 칸이 틀렸어요"라고 알려 줘요.
 // 설명서 모양은 docs/ENGINE.md에 적혀 있어요.
 
-#include "engine/animation/animation.hpp"
+#include "engine/animation/sprite_sheet.hpp"
 
+#include "wind/content/json_file.hpp"
 #include "wind/content/json_reader.hpp"
+#include "wind/content/load_result.hpp"
 
 #include <filesystem>
 #include <string_view>

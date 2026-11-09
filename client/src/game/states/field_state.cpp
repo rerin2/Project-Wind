@@ -1,27 +1,51 @@
 // 이 파일은 무엇을 하나요?
-// "필드 화면"(맵 위를 걸어 다니는 화면)이 실제로 어떻게 움직이는지 적은 곳이에요.
-// 맵과 캐릭터 그림을 불러오고, 키를 보고 캐릭터를 옮기고, 카메라를 따라가게 하고,
-// 화면에 그릴 것들을 "그리기 목록"(렌더 큐)에 넣어요.
+// "필드 화면"(맵 위를 돌아다니는 화면)이 실제로 어떻게 움직이는지 적은 곳이에요.
+// 맵과 캐릭터 그림을 불러오고, 키를 보고 캐릭터를 옮기고, 먼지·잔상·그림자를 만들고,
+// 카메라를 따라가게 하고, 화면에 그릴 것들을 "그리기 목록"(렌더 큐)에 넣어요.
 
 #include "game/states/field_state.hpp"
 
 #include "engine/animation/sprite_sheet_loader.hpp"
+#include "engine/fx/particle_drawing.hpp"
 #include "engine/map/coordinates.hpp"
 #include "engine/map/tilemap_renderer.hpp"
+#include "engine/render/renderer.hpp"
+#include "game/physics/tile_collision.hpp"
 
 #include "wind/log.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
 namespace wind::game {
 namespace {
 
-// 한 칸 이동 시간(0.2초 = 1초에 5칸). 나중에는 캐릭터의 이동 속도 능력치(movement_rate)로
-// 데이터에서 정하게 바꿀 거예요.
-constexpr double kStepSeconds = 0.2;
 // 카메라가 플레이어를 따라가는 속도 (클수록 빨리 따라붙어요)
-constexpr float kCameraStiffness = 10.0f;
+constexpr float kCameraStiffness = 8.0f;
+// 카메라 앞보기: 최대 몇 픽셀 앞을 보여 줄지, 얼마나 빨리 따라갈지
+constexpr float kLookAheadDistance = 28.0f;
+constexpr float kLookAheadSharpness = 3.0f;
+// 구르기 버튼을 몇 초 동안 기억해 줄지 (명세 5.8 입력 버퍼 기본값)
+constexpr double kInputBufferSeconds = 0.15;
+// 먼지 통 크기 (이보다 많으면 버려요)
+constexpr std::size_t kDustCapacity = 512;
+// 먼지 무작위 씨앗. 연출용이라 아무 숫자나 괜찮지만, 고정하면 매번 같은 모양이 나와요.
+constexpr std::uint32_t kDustSeed = 20261109;
+// 걷기 그림 넘기는 속도: 최고 속도일 때 1배, 느리면 천천히 (최소 0.5배), 구를 때는 2배
+constexpr double kMinWalkAnimRate = 0.5;
+constexpr double kDodgeAnimRate = 2.0;
+
+// 발밑 그림자 크기와 진하기 (가운데가 가장 진하고 가장자리는 투명해요)
+constexpr std::int32_t kShadowWidth = 22;
+constexpr std::int32_t kShadowHeight = 8;
+constexpr engine::Color kShadowColor{0, 0, 0, 110};
+// 먼지 그림: 밝은 흙색 동그라미
+constexpr std::int32_t kDustTextureSize = 8;
+constexpr engine::Color kDustColor{214, 196, 160, 255};
+// F4: 발 상자 표시 색 (반투명 하늘색)
+constexpr engine::Color kBodyBoxColor{80, 200, 255, 140};
+
 // 플레이어 그림 묶음(스프라이트 시트)에 꼭 있어야 하는 동작 그림(클립) 이름
 constexpr std::string_view kIdleClip = "idle";  // 가만히 서 있기
 constexpr std::string_view kWalkClip = "walk";  // 걷기
@@ -34,10 +58,28 @@ void log_errors(std::string_view what, const std::vector<content::ContentError>&
     }
 }
 
+// 시작 칸에서 발을 둘 위치: 칸의 가로 가운데, 세로는 칸의 3/4 지점.
+// 발 상자(높이 8)가 칸 안에 쏙 들어가서 시작하자마자 벽에 걸리지 않아요.
+engine::Vec2 spawn_feet(world::TileCoord tile, std::int32_t tile_size) {
+    const auto size = static_cast<float>(tile_size);
+    return {static_cast<float>(tile.x) * size + size * 0.5f,
+            static_cast<float>(tile.y) * size + size * 0.75f};
+}
+
+std::string_view state_name(Mover::State state) {
+    switch (state) {
+        case Mover::State::Idle: return "idle";
+        case Mover::State::Walking: return "walking";
+        case Mover::State::Dodging: return "dodging";
+    }
+    return "?";
+}
+
 }  // namespace
 
 // 필드 화면 만들기: 준비물을 하나씩 불러와요. 하나라도 잘못되면 nullptr(없음)를 돌려줘요.
 std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resources,
+                                               engine::Renderer& renderer,
                                                std::string_view map_path,
                                                std::string_view player_sheet_path,
                                                engine::Vec2 viewport) {
@@ -64,76 +106,162 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     //    (무엇이 없는지는 리소스 관리자가 기록해 줘요.)
     const auto tileset_texture = resources.texture(map.value->tileset.image);
     const auto player_texture = resources.texture(sheet.value->image);
+    // 5) 그림자와 먼지 그림은 파일 없이 코드로 만들어요. 실패해도 그 효과만 안 보일 뿐 계속해요.
+    const EffectTextures effects{
+        renderer.create_soft_ellipse_texture(kShadowWidth, kShadowHeight, kShadowColor),
+        renderer.create_soft_ellipse_texture(kDustTextureSize, kDustTextureSize, kDustColor),
+    };
 
     log::info("Entered map '{}' ({}x{} tiles)", map.value->map.map_id, map.value->map.width,
               map.value->map.height);
     return std::unique_ptr<FieldState>(new FieldState(std::move(*map.value), std::move(*sheet.value),
-                                                      tileset_texture, player_texture, viewport));
+                                                      tileset_texture, player_texture, effects,
+                                                      viewport));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
 FieldState::FieldState(content::LoadedMap map, engine::SpriteSheet sheet,
                        engine::TextureHandle tileset_texture, engine::TextureHandle player_texture,
-                       engine::Vec2 viewport)
+                       EffectTextures effects, engine::Vec2 viewport)
     : map_(std::move(map)),
       sheet_(std::move(sheet)),
       tileset_texture_(tileset_texture),
       player_texture_(player_texture),
+      effects_(effects),
+      look_ahead_(kLookAheadDistance, kLookAheadSharpness),
       // 캐릭터가 처음 설 곳(스폰 지점): "default"라는 이름이 있으면 거기, 없으면 첫 번째 지점.
       // (맵 검사기는 "default"가 꼭 있다고 약속하지 않아서 이렇게 해요.)
-      player_(map_.map.find_spawn("default") != nullptr ? map_.map.find_spawn("default")->position
-                                                        : map_.map.spawn_points.front().position,
-              world::Direction::Down, kStepSeconds) {
+      player_(spawn_feet(map_.map.find_spawn("default") != nullptr
+                             ? map_.map.find_spawn("default")->position
+                             : map_.map.spawn_points.front().position,
+                         map_.map.tile_size),
+              world::Direction::Down, MovementTuning{}),
+      buffer_(kInputBufferSeconds),
+      dust_(kDustCapacity),
+      dust_emitter_(kDustSeed) {
     // 카메라 준비: 화면 크기를 알려 주고, 맵 밖은 보여 주지 않도록 맵 크기를 경계로 정해요.
     const auto size = static_cast<float>(map_.map.tile_size);
     camera_.set_viewport(viewport);
     camera_.set_world_bounds({0.0f, 0.0f, static_cast<float>(map_.map.width) * size,
                               static_cast<float>(map_.map.height) * size});
-    camera_.center_on(player_feet());  // 시작할 때는 캐릭터에게 바로 카메라를 맞춰요
+    // 카메라는 캐릭터 몸 가운데(발에서 반 칸 위)를 봐요. 시작할 때는 바로 맞춰요.
+    camera_.center_on(player_.feet() - engine::Vec2{0.0f, size * 0.5f});
     animator_.play(sheet_.clip(kIdleClip));  // 처음엔 서 있는 모습
 }
 
-// 화면을 한 장 그릴 때마다 한 번씩 불려요. (1초에 약 60번)
-void FieldState::frame_update(double dt_seconds, const engine::InputState& input,
-                              const InputBindings& bindings) {
+void FieldState::handle_input(const engine::InputState& input, const InputBindings& bindings) {
     intent_.update(bindings, input);  // 새로 누른 방향키를 기억
-    if (bindings.pressed(Action::ToggleCollision, input)) {
-        show_collision_ = !show_collision_;  // F4: 못 가는 칸 표시 켜기/끄기
+    if (bindings.pressed(Action::Dodge, input)) {
+        // 바로 구르지 않고 메모장에 적어 둬요. 다음 박자 계산 때 꺼내 써요.
+        // (이번 화면에 박자 계산이 0번이어도 버튼이 사라지지 않아요)
+        buffer_.press(Action::Dodge);
     }
-
-    // 이동 중이거나 이동 키를 누르고 있으면 걷기, 아니면 서 있기 그림
-    const bool walking = player_.moving() || intent_.direction(bindings, input).has_value();
-    animator_.play(sheet_.clip(walking ? kWalkClip : kIdleClip));
-    animator_.update(dt_seconds);  // 그림을 다음 장으로 넘길 때가 됐는지 확인
-
-    // 카메라는 캐릭터 몸 가운데(발에서 반 칸 위)를 화면 가운데에 두려고 천천히 따라가요.
-    const float half_tile = static_cast<float>(map_.map.tile_size) * 0.5f;
-    camera_.follow(player_feet() - engine::Vec2{0.0f, half_tile}, static_cast<float>(dt_seconds),
-                   kCameraStiffness);
+    if (bindings.pressed(Action::ToggleCollision, input)) {
+        show_collision_ = !show_collision_;  // F4: 못 가는 칸과 발 상자 표시 켜기/끄기
+    }
 }
 
 // 정해진 박자(1/60초)마다 불려요. 캐릭터 이동처럼 "게임 규칙" 계산은 여기서 해요.
 void FieldState::fixed_update(double dt_seconds, const engine::InputState& input,
                               const InputBindings& bindings) {
-    const double leftover = player_.update(dt_seconds);  // 이동 진행. 막 도착했으면 남은 시간이 와요
-    // 이동이 끝났는데 방향키를 계속 누르고 있으면, 남은 시간을 이어 써서
-    // 멈칫하지 않고 바로 다음 칸으로 출발해요.
-    if (!player_.moving()) {
-        if (const auto dir = intent_.direction(bindings, input)) {
-            if (player_.try_move(*dir, map_.map) == GridMover::MoveResult::Started) {
-                player_.update(leftover);
-            }
-        }
+    const engine::Vec2 direction = intent_.direction(bindings, input);
+    // 구를 수 있을 때만 메모를 꺼내요. 못 구르면 메모는 남아 있다가 0.15초 뒤 사라져요.
+    const bool dodge = player_.can_dodge() && buffer_.consume(Action::Dodge);
+    if (player_.step(dt_seconds, direction, dodge, map_.map)) {
+        // 구르기 시작! 연출(먼지 팍)은 다음 frame_update에서 해요.
+        dodge_burst_ = engine::normalized(player_.velocity());
     }
+    buffer_.tick(dt_seconds);
+}
+
+// 화면을 한 장 그릴 때마다 한 번씩 불려요. (1초에 약 60번)
+void FieldState::frame_update(double dt_seconds, double alpha) {
+    alpha_ = alpha;
+    const auto dt = static_cast<float>(dt_seconds);
+    const engine::Vec2 feet = drawn_feet();
+
+    update_animation(dt_seconds);
+
+    // 먼지: 구르기 시작이면 확 뿌리고, 걷는 중이면 조금씩
+    if (dodge_burst_) {
+        dust_emitter_.dodge_burst(feet, *dodge_burst_, dust_);
+        dodge_burst_.reset();
+    }
+    if (player_.state() == Mover::State::Walking) {
+        dust_emitter_.walk(feet, player_.velocity(), dt, dust_);
+    }
+    dust_.update(dt);
+
+    // 잔상: 구르는 동안 사진을 찍어요
+    trail_.update(dt, player_.state() == Mover::State::Dodging, feet,
+                  sheet_.frame_rect(player_.facing(), animator_.column()));
+
+    // 카메라: 가는 쪽을 조금 더 보여 주면서 캐릭터 몸 가운데를 따라가요.
+    const float max_speed = player_.tuning().max_speed;
+    const float run = max_speed > 0.0f ? std::min(1.0f, player_.speed() / max_speed) : 0.0f;
+    look_ahead_.update(engine::normalized(player_.velocity()) * run, dt);
+    const float half_tile = static_cast<float>(map_.map.tile_size) * 0.5f;
+    camera_.follow(feet - engine::Vec2{0.0f, half_tile} + look_ahead_.offset(), dt,
+                   kCameraStiffness);
+}
+
+void FieldState::update_animation(double dt_seconds) {
+    double rate = 1.0;
+    switch (player_.state()) {
+        case Mover::State::Idle:
+            animator_.play(sheet_.clip(kIdleClip));
+            break;
+        case Mover::State::Walking: {
+            animator_.play(sheet_.clip(kWalkClip));
+            // 천천히 걸으면 발도 천천히 움직여요 (발이 미끄러지는 것처럼 보이지 않게)
+            const double max_speed = player_.tuning().max_speed;
+            rate = max_speed > 0.0 ? std::max(kMinWalkAnimRate, player_.speed() / max_speed) : 1.0;
+            break;
+        }
+        case Mover::State::Dodging:
+            // 구르기 그림은 아직 없어서, 걷기 그림을 두 배 빨리 넘겨요.
+            animator_.play(sheet_.clip(kWalkClip));
+            rate = kDodgeAnimRate;
+            break;
+    }
+    animator_.update(dt_seconds * rate);
 }
 
 // 이번 화면에 그릴 것들을 그리기 목록(렌더 큐)에 넣어요. 실제로 그리는 건 렌더러가 해요.
 void FieldState::render(engine::RenderQueue& queue) {
+    const engine::Vec2 feet = drawn_feet();
+
     // 1) 맵 타일 (화면에 보이는 칸만)
     tiles_queued_ = engine::queue_tilemap(map_.map, map_.tileset, tileset_texture_, camera_, queue);
 
-    // 2) 플레이어: 그림 속 "발 위치"(origin)가 맵 위의 진짜 발 위치에 딱 오도록 그려요.
-    const engine::Vec2 feet = player_feet();
+    // 2) 발밑 그림자: 바닥 위, 캐릭터 아래 단계에 그려요.
+    if (effects_.shadow.valid()) {
+        const engine::Vec2 screen = camera_.world_to_screen(feet);
+        engine::SpriteDraw shadow;
+        shadow.texture = effects_.shadow;
+        shadow.dest = {std::round(screen.x - static_cast<float>(kShadowWidth) * 0.5f),
+                       std::round(screen.y - static_cast<float>(kShadowHeight) * 0.5f),
+                       static_cast<float>(kShadowWidth), static_cast<float>(kShadowHeight)};
+        queue.push_sprite(engine::DrawLayer::Shadows, feet.y, shadow);
+    }
+
+    // 3) 잔상, 플레이어, 먼지: 모두 발 위치(y)로 줄을 서요.
+    trail_.queue(camera_, player_texture_, sheet_.origin, {sheet_.frame_width, sheet_.frame_height},
+                 queue);
+    queue_player(queue, feet);
+    if (effects_.dust.valid()) {
+        engine::queue_particles(dust_, camera_, effects_.dust, engine::DrawLayer::YSorted, queue);
+    }
+
+    // 4) F4를 켰으면 못 가는 칸을 빨갛게, 발 상자를 하늘색으로 덮어요.
+    if (show_collision_) {
+        engine::queue_collision_overlay(map_.map, camera_, queue);
+        queue_body_box(queue, feet);
+    }
+}
+
+void FieldState::queue_player(engine::RenderQueue& queue, engine::Vec2 feet) const {
+    // 그림 속 "발 위치"(origin)가 맵 위의 진짜 발 위치에 딱 오도록 그려요.
     const engine::Vec2 screen = camera_.world_to_screen(feet);  // 맵 위치 -> 화면 위치
     engine::SpriteDraw sprite;
     sprite.texture = player_texture_;
@@ -145,24 +273,31 @@ void FieldState::render(engine::RenderQueue& queue) {
                    static_cast<float>(sheet_.frame_width), static_cast<float>(sheet_.frame_height)};
     // 발 위치(y)로 줄을 세워서, 나무 밑동보다 아래(앞)에 서면 나무보다 앞에 그려져요.
     queue.push_sprite(engine::DrawLayer::YSorted, feet.y, sprite);
+}
 
-    // 3) F4를 켰으면 못 가는 칸을 빨갛게 덮어요.
-    if (show_collision_) {
-        engine::queue_collision_overlay(map_.map, camera_, queue);
-    }
+void FieldState::queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) const {
+    const engine::RectF box = body_box(feet, player_.tuning().body);
+    const engine::Vec2 top_left = camera_.world_to_screen({box.x, box.y});
+    queue.push_fill(engine::DrawLayer::DebugOverlay, 0.0f, {top_left.x, top_left.y, box.w, box.h},
+                    kBodyBoxColor);
+}
+
+engine::Vec2 FieldState::drawn_feet() const {
+    return player_.interpolated_feet(static_cast<float>(alpha_));
 }
 
 // 디버그 화면(F3)에 보여 줄 정보를 모아 줘요.
 FieldDebugInfo FieldState::debug_info() const {
-    return {map_.map.map_id, player_.tile(), player_.facing(), player_.moving(), tiles_queued_};
-}
-
-engine::Vec2 FieldState::player_feet() const {
-    // 발은 칸의 가로 한가운데, 칸의 아래쪽 끝선에 놓여요.
-    // visual_tile()은 걸어가는 중이면 1.5 같은 중간 값이라 발도 스르륵 움직여요.
-    const auto size = static_cast<float>(map_.map.tile_size);
-    const engine::Vec2 tile = player_.visual_tile();
-    return {tile.x * size + size * 0.5f, tile.y * size + size};
+    const engine::Vec2 feet = player_.feet();
+    return {map_.map.map_id,
+            feet,
+            engine::world_to_tile(feet, map_.map.tile_size),
+            player_.facing(),
+            state_name(player_.state()),
+            player_.speed(),
+            tiles_queued_,
+            dust_.size(),
+            dust_.dropped()};
 }
 
 }  // namespace wind::game

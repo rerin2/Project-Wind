@@ -15,25 +15,39 @@ target_compile_definitions(wind_client_options PUBLIC
     WIND_DEFAULT_CONTENT_DIR="${PROJECT_SOURCE_DIR}/content")
 wind_set_warnings(wind_client_options)
 
-# 묶음 2: 엔진 핵심 (SDL 없음): 박자 시계, 좌표 계산, 카메라, 키보드 출석부,
-# 애니메이션, 그리기 순서표, 타일맵 배치
+# 묶음 2: 엔진 핵심 (SDL 없음): 박자 시계, 좌표 계산, 카메라(+앞보기), 키보드 출석부,
+# 애니메이션, 그리기 순서표, 타일맵 배치, 파티클(먼지 같은 작은 점)
 add_library(wind_engine_core STATIC
     src/engine/core/frame_clock.cpp
     src/engine/map/coordinates.cpp
     src/engine/map/tilemap_renderer.cpp
     src/engine/camera/camera2d.cpp
+    src/engine/camera/look_ahead.cpp
     src/engine/input/input_state.cpp
-    src/engine/animation/animation.cpp
+    src/engine/animation/sprite_sheet.cpp
+    src/engine/animation/animator.cpp
     src/engine/animation/sprite_sheet_loader.cpp
-    src/engine/render/render_queue.cpp)
+    src/engine/render/render_queue.cpp
+    src/engine/fx/particle_pool.cpp
+    src/engine/fx/particle_drawing.cpp)
 target_include_directories(wind_engine_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(wind_engine_core PUBLIC wind::shared)
 wind_set_warnings(wind_engine_core)
 
-# 묶음 3: 게임 핵심 (SDL 없음): 한 칸 이동, 키 버튼표
+# 묶음 3: 게임 핵심 (SDL 없음)
+#   input/        : 키 버튼표, 가고 싶은 방향, 버튼 메모장(입력 버퍼)
+#   physics/      : 발 상자와 벽 충돌 (미끄러지기, 모서리 보정)
+#   entities/     : 캐릭터 다리(Mover), 바라보는 방향
+#   presentation/ : 먼지, 잔상 같은 보여 주기용 효과 (그리기 목록에 넣기까지만, SDL은 안 씀)
 add_library(wind_game_core STATIC
-    src/game/entities/grid_mover.cpp
-    src/game/input/input_bindings.cpp)
+    src/game/input/input_bindings.cpp
+    src/game/input/movement_intent.cpp
+    src/game/input/input_buffer.cpp
+    src/game/physics/tile_collision.cpp
+    src/game/entities/facing.cpp
+    src/game/entities/mover.cpp
+    src/game/presentation/dust_emitter.cpp
+    src/game/presentation/afterimage_trail.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -57,11 +71,20 @@ if(WIND_BUILD_TESTS)
         tests/frame_clock_tests.cpp
         tests/coordinates_tests.cpp
         tests/camera_tests.cpp
-        tests/input_tests.cpp
-        tests/animation_tests.cpp
+        tests/input_state_tests.cpp
+        tests/input_bindings_tests.cpp
+        tests/movement_intent_tests.cpp
+        tests/input_buffer_tests.cpp
+        tests/animator_tests.cpp
+        tests/sprite_sheet_loader_tests.cpp
         tests/render_queue_tests.cpp
         tests/tilemap_renderer_tests.cpp
-        tests/grid_mover_tests.cpp)
+        tests/tile_collision_tests.cpp
+        tests/facing_tests.cpp
+        tests/mover_tests.cpp
+        tests/particle_pool_tests.cpp
+        tests/look_ahead_tests.cpp
+        tests/dust_emitter_tests.cpp)
     target_link_libraries(wind_client_tests PRIVATE wind_client_options wind_game_core GTest::gtest_main)
     # 테스트가 저장소의 진짜 자료(content 폴더)를 찾을 수 있게 위치를 알려 줘요.
     target_compile_definitions(wind_client_tests PRIVATE

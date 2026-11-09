@@ -6,7 +6,7 @@
 // - FPS(1초에 화면을 몇 장 그리나), 한 장 그리는 데 걸린 시간
 // - 지금 맵, 캐릭터 칸 위치, 바라보는 방향
 // - 그리기 횟수, 그림 파일 통계
-// F3 키로 켜고 꺼요. 서버 정보(틱, 통신 속도)는 단계 2에서 추가해요.
+// F3 키로 켜고 꺼요.
 
 #include "engine/render/renderer.hpp"
 #include "engine/resources/resource_manager.hpp"

@@ -12,14 +12,6 @@ FetchContent_Declare(spdlog
     GIT_TAG        v1.15.3
     GIT_SHALLOW    TRUE)
 
-# --- ENet: UDP 전송 계층 (게임 프로토콜은 우리가 직접 정의) ------------------------
-# ENet의 CMakeLists는 CMake 3.5 이전 문법이라, CMake 4는 이 하한값 없이 거부한다.
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-FetchContent_Declare(enet
-    GIT_REPOSITORY https://github.com/lsalzman/enet.git
-    GIT_TAG        v1.3.18
-    GIT_SHALLOW    TRUE)
-
 # --- nlohmann/json: 콘텐츠 JSON(맵·타일셋·스프라이트) 파싱 --------------------------
 # JSON은 { "이름": 값 } 모양으로 적는 글자 설명서예요. 맵과 캐릭터 정보를 이 모양으로 적어요.
 # 이 라이브러리(남이 만들어 둔 도구 모음)가 그 글자를 읽어서 프로그램이 쓸 수 있게 바꿔 줘요.
@@ -30,16 +22,7 @@ FetchContent_Declare(nlohmann_json
     GIT_TAG        v3.12.0
     GIT_SHALLOW    TRUE)
 
-FetchContent_MakeAvailable(spdlog enet nlohmann_json)
-unset(CMAKE_POLICY_VERSION_MINIMUM)  # 다른 라이브러리에는 적용하지 않는다
-
-# ENet은 include 경로·링크 라이브러리를 타깃에 노출하지 않으므로 직접 추가한다.
-# 이렇게 하면 사용하는 쪽은 enet::enet만 링크하면 된다.
-target_include_directories(enet SYSTEM INTERFACE ${enet_SOURCE_DIR}/include)
-if(WIN32)
-    target_link_libraries(enet INTERFACE ws2_32 winmm)  # 윈속, 타이머
-endif()
-add_library(enet::enet ALIAS enet)
+FetchContent_MakeAvailable(spdlog nlohmann_json)
 
 # --- SDL3: 창·입력·렌더러·오디오 (클라이언트 전용) ---------------------------------
 if(WIND_BUILD_CLIENT)

@@ -7,9 +7,8 @@ Adding or upgrading a library requires updating this table and recording the rea
 | Library | Pinned tag | License | Used by | Why |
 |---|---|---|---|---|
 | [SDL3](https://github.com/libsdl-org/SDL) | `release-3.4.18` | zlib | client | Window, input, 2D renderer backend, audio. Platform layer only; the engine is ours. Built as a static library. |
-| [ENet](https://github.com/lsalzman/enet) | `v1.3.18` | MIT | server, client (from phase 2) | Reliable/unreliable UDP transport. The application protocol is ours (`docs/PROTOCOL.md`, phase 2). |
 | [spdlog](https://github.com/gabime/spdlog) | `v1.15.3` | MIT (bundles {fmt}, MIT) | shared | Backend for the `wind::log` interface. |
-| [nlohmann/json](https://github.com/nlohmann/json) | `v3.12.0` | MIT | shared (client, server, tests) | Parses content JSON (maps, tilesets, sprite sheets) without exceptions for validation. See [0005](docs/DECISIONS/0005-content-formats.md). |
+| [nlohmann/json](https://github.com/nlohmann/json) | `v3.12.0` | MIT | shared (client, tests) | Parses content JSON (maps, tilesets, sprite sheets) without exceptions for validation. See [0005](docs/DECISIONS/0005-content-formats.md). |
 | [GoogleTest](https://github.com/google/googletest) | `v1.17.0` | BSD-3-Clause | tests only | Unit test framework; `gtest_discover_tests` integrates with CTest. See [0002](docs/DECISIONS/0002-test-framework.md). |
 
 ## Build tools (not linked)
@@ -23,6 +22,11 @@ Adding or upgrading a library requires updating this table and recording the rea
 
 ## Planned, not yet added
 
-- PostgreSQL client library (phase 4)
-- Password hashing (Argon2id implementation, phase 4) — to be chosen and recorded before use
+- SDL3_ttf + an open-licence Korean pixel font (phase 5)
 - PNG image decoder (when real art with alpha arrives; BMP + colour key for now)
+
+## Removed
+
+| Library | Removed | Why |
+|---|---|---|
+| ENet `v1.3.18` (MIT) | 2026-11-09, phase 2 | Single-player game has no networking ([ADR 0007](docs/DECISIONS/0007-single-player-visual-focus.md)) |

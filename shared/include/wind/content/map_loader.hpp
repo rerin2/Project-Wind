@@ -6,7 +6,9 @@
 // "어느 파일의 어느 칸이 틀렸는지" 적힌 오류 목록을 돌려줘요.
 // 망가진 맵으로 게임을 시작하는 것보다, 처음부터 알려 주는 게 훨씬 안전하니까요.
 
+#include "wind/content/json_file.hpp"
 #include "wind/content/json_reader.hpp"
+#include "wind/content/load_result.hpp"
 #include "wind/world/map.hpp"
 
 #include <filesystem>

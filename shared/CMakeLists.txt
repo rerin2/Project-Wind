@@ -1,5 +1,5 @@
-# shared 모듈: 클라이언트·서버·도구가 함께 쓰는 플랫폼 독립 코드.
-# client나 server에 의존하면 안 된다.
+# shared 모듈: 클라이언트·도구가 함께 쓰는 SDL 없는 코드.
+# client에 의존하면 안 된다.
 
 # version.hpp.in의 @PROJECT_VERSION@을 채워 빌드 폴더에 헤더를 생성한다.
 configure_file(
@@ -16,6 +16,8 @@ add_library(wind_shared STATIC
     src/world/direction.cpp
     src/world/map.cpp
     src/content/content_path.cpp
+    src/content/error_list.cpp
+    src/content/json_file.cpp
     src/content/json_reader.cpp
     src/content/map_loader.cpp)
 add_library(wind::shared ALIAS wind_shared)

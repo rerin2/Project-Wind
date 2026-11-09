@@ -25,6 +25,9 @@ Key translate(SDL_Scancode code) {
         case SDL_SCANCODE_D: return Key::D;
         case SDL_SCANCODE_ESCAPE: return Key::Escape;
         case SDL_SCANCODE_RETURN: return Key::Enter;
+        case SDL_SCANCODE_SPACE: return Key::Space;
+        case SDL_SCANCODE_K: return Key::K;
+        case SDL_SCANCODE_X: return Key::X;
         case SDL_SCANCODE_F3: return Key::F3;
         case SDL_SCANCODE_F4: return Key::F4;
         default: return Key::Unknown;  // 우리 게임이 안 쓰는 키

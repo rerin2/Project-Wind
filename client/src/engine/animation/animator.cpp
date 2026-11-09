@@ -1,24 +1,12 @@
 // 이 파일은 무엇을 하나요?
 // 애니메이션 플레이어(Animator)가 시간에 맞춰 그림을 넘기는 방법을 실제로 적은 곳이에요.
 
-#include "engine/animation/animation.hpp"
+#include "engine/animation/animator.hpp"
 
 #include <cmath>
 #include <numeric>
 
 namespace wind::engine {
-
-// 이름으로 클립을 찾아요.
-const AnimationClip* SpriteSheet::clip(std::string_view name) const {
-    const auto it = clips.find(name);
-    return it != clips.end() ? &it->second : nullptr;
-}
-
-// 방향으로 행을, 칸 번호로 열을 골라서 그림 판의 네모 위치를 계산해요.
-RectI SpriteSheet::frame_rect(world::Direction dir, int column) const {
-    const auto row = direction_rows[static_cast<std::size_t>(dir)];
-    return {column * frame_width, row * frame_height, frame_width, frame_height};
-}
 
 void Animator::play(const AnimationClip* clip, bool restart) {
     if (clip == clip_ && !restart) {

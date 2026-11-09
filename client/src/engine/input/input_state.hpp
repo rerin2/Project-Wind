@@ -26,6 +26,9 @@ enum class Key : std::uint8_t {
     D,
     Escape,
     Enter,
+    Space,
+    K,
+    X,
     F3,
     F4,
     Count  // 키가 몇 개인지 세는 용도 (진짜 키가 아니에요)

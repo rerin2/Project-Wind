@@ -5,26 +5,9 @@
 
 #include "wind/content/json_reader.hpp"
 
-#include <fstream>
-#include <iterator>
-#include <system_error>
+#include <string>
 
 namespace wind::content {
-
-// 칸 주소가 없으면 "파일: 이유", 있으면 "파일: 칸 주소: 이유"
-std::string to_string(const ContentError& error) {
-    if (error.field.empty()) {
-        return error.file + ": " + error.message;
-    }
-    return error.file + ": " + error.field + ": " + error.message;
-}
-
-void ErrorList::add(std::string file, std::string field, std::string message) {
-    if (full()) {
-        return;  // 20개가 넘으면 더 적지 않아요 (앞의 오류들로 원인을 충분히 알 수 있어요)
-    }
-    errors_.push_back({std::move(file), std::move(field), std::move(message)});
-}
 
 // 도우미를 만들 때 받은 것이 { ... } 묶음인지 먼저 확인해요.
 JsonReader::JsonReader(const nlohmann::json& object, std::string file, std::string path,
@@ -146,46 +129,6 @@ const nlohmann::json* JsonReader::object(std::string_view key) {
         return nullptr;
     }
     return value;
-}
-
-std::optional<nlohmann::json> parse_json_text(std::string_view text,
-                                              const std::string& display_name,
-                                              ErrorList& errors) {
-    // allow_exceptions=false: JSON 모양이 엉망이어도 프로그램이 멈추지 않고
-    // "버려진 값"(discarded)을 돌려줘요. 그걸 보고 오류로 적어요.
-    // (예외: 문제가 생겼을 때 프로그램이 갑자기 하던 일을 멈추고 튀어나가는 것)
-    auto document = nlohmann::json::parse(text, /*cb=*/nullptr, /*allow_exceptions=*/false);
-    if (document.is_discarded()) {
-        errors.add(display_name, "", "not valid JSON");
-        return std::nullopt;
-    }
-    return document;
-}
-
-std::optional<nlohmann::json> read_json_file(const std::filesystem::path& path,
-                                             const std::string& display_name,
-                                             ErrorList& errors) {
-    // 1) 파일 크기부터 확인해요. 파일이 없으면 여기서 알게 돼요.
-    std::error_code ec;
-    const auto size = std::filesystem::file_size(path, ec);
-    if (ec) {
-        errors.add(display_name, "", "cannot read file (" + path.string() + "): " + ec.message());
-        return std::nullopt;
-    }
-    if (size > kMaxContentFileBytes) {
-        errors.add(display_name, "", "file is too large (" + std::to_string(size) + " bytes)");
-        return std::nullopt;
-    }
-
-    // 2) 파일을 열어 내용을 통째로 글자로 읽어요.
-    std::ifstream in(path, std::ios::binary);
-    if (!in) {
-        errors.add(display_name, "", "cannot open file (" + path.string() + ")");
-        return std::nullopt;
-    }
-    const std::string text{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
-    // 3) 읽은 글자를 JSON으로 바꿔요.
-    return parse_json_text(text, display_name, errors);
 }
 
 }  // namespace wind::content
