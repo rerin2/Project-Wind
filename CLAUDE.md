@@ -58,20 +58,6 @@ If a document does not exist yet, create or update it as part of the relevant ta
 ## Scope control
 Do not attempt to implement the whole game in one task. Follow the phases in the master specification. Prefer a small working, good-looking vertical slice over broad placeholder code.
 
-## Completion report
-Include:
-- Task
-- Files changed
-- Behavior implemented
-- Interface/schema changes
-- Build command and result
-- Tests run and result
-- On-screen check
-- Known limitations
-- Next task
-
-Never claim a build or test passed unless it was actually run and passed.
-
 코드를 수정하거나 추가 할 때, 13살도 이해할 수 있게 간결하게 설명
 
 # 개발 작업 완료 보고 규칙
@@ -112,7 +98,10 @@ Never claim a build or test passed unless it was actually run and passed.
 - 실행 테스트 결과
 - 단위 테스트 결과
 - 통합 테스트 결과
+- 화면 확인 결과 (눈에 보이는 기능)
 - 발견된 문제와 미해결 항목
+
+실제로 실행해서 통과하지 않은 빌드나 테스트를 통과했다고 보고하지 않는다.
 
 ## 7. 개발자 확인 필요 사항
 - 사람이 반드시 검토해야 할 코드

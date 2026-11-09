@@ -43,7 +43,7 @@
 18. [빌드·실행·배포](#18-빌드실행배포)
 19. [단계별 개발 계획 및 완료 기준](#19-단계별-개발-계획-및-완료-기준)
 20. [Claude 개발 운영 규칙](#20-claude-개발-운영-규칙)
-21. [CLAUDE.md 초안](#21-claudemd-초안)
+21. [CLAUDE.md](#21-claudemd)
 22. [Claude 단계별 실행 프롬프트](#22-claude-단계별-실행-프롬프트)
 23. [위험 요소와 미결정 사항](#23-위험-요소와-미결정-사항)
 24. [최초 플레이 가능 버전 체크리스트](#24-최초-플레이-가능-버전-체크리스트)
@@ -1206,18 +1206,7 @@ FPS, 프레임 시간, 시뮬레이션 시간, 놓친 박자, 그리기 호출 �
 
 ## 20.4 테스트와 보고
 
-```text
-작업명:
-변경된 파일:
-구현 내용:
-인터페이스/스키마 변경:
-실행한 빌드 명령:
-실행한 테스트:
-테스트 결과:
-화면 확인:
-미해결 문제:
-다음 작업:
-```
+작업 완료 보고 형식은 저장소 루트 `CLAUDE.md`의 "개발 작업 완료 보고 규칙"(8개 항목)을 따른다. 이 문서에 따로 적지 않는다.
 
 실제로 실행하지 않은 명령이나 테스트를 실행했다고 말하지 않는다.
 
@@ -1233,75 +1222,19 @@ FPS, 프레임 시간, 시뮬레이션 시간, 놓친 박자, 그리기 호출 �
 
 ---
 
-# 21. CLAUDE.md 초안
+# 21. CLAUDE.md
 
-저장소 루트의 `CLAUDE.md`는 이 내용을 따른다.
+Claude 작업 규칙의 기준은 저장소 루트의 `CLAUDE.md`다. 두 곳에 같은 내용을 두면 서로 어긋나므로 이 문서에는 복사본을 두지 않는다. `CLAUDE.md`에는 다음이 들어 있다.
 
-```markdown
-# Project WIND — Claude Instructions
+- 프로젝트 목표와 기준 문서 목록
+- 필수 작업 순서 (화면 확인 포함)
+- 아키텍처 규칙 (시뮬레이션/프레젠테이션 분리, 저장·콘텐츠 검증)
+- C++ 규칙과 클래스별 파일 규칙(2.4)
+- 범위 관리
+- 설명 방식 (13살도 이해할 수 있게 간결하게)
+- 개발 작업 완료 보고 규칙 (8개 항목)
 
-## Project
-Build an original Windows-first 2D pixel-art single-player action RPG using C++20, CMake, and SDL3. Do not use Unity, Unreal, Godot, or another full game engine. SDL3 is an allowed low-level library; implement the game engine systems in this repository. Visual quality (lighting, particles, weather, day/night, game feel, transitions, UI animation) is a first-class goal.
-
-The full master specification lives in `docs/MASTER_SPEC.md`. Follow its phases (section 19) in order.
-
-## Source of truth
-- `docs/MASTER_SPEC.md`: integrated master specification
-- `docs/ENGINE.md`: custom engine design and content formats
-- `docs/VISUALS.md`: art rules, palette, effect tuning
-- `docs/GAMEPLAY.md`: gameplay rules
-- `docs/SAVE_FORMAT.md`: save file format and migrations
-- `docs/TESTING.md`: test policy
-- `docs/DECISIONS/`: accepted architectural decisions
-
-If a document does not exist yet, create or update it as part of the relevant task. Do not silently invent conflicting rules.
-
-## Mandatory workflow
-1. Inspect the repository and read relevant docs before editing.
-2. State the small task, files likely to change, and acceptance criteria.
-3. Implement only that task.
-4. Build the affected targets.
-5. Run relevant tests.
-6. For visible features, run the client and check the result on screen.
-7. Inspect the diff for unrelated changes.
-8. Update docs when interfaces, content formats, save format, or behavior change.
-9. Report commands actually run and their real results.
-
-## Architecture rules
-- Game simulation (movement, collision, combat, HP, XP, inventory, quests, save data) runs at a fixed step and must not depend on SDL or rendering.
-- Presentation (rendering, particles, lighting, audio, UI) reads simulation state and events; it must not change simulation outcomes. Hitstop is passed to the simulation explicitly as a time scale.
-- `shared` must not depend on `client`.
-- SDL calls live only in the engine platform/render/resources/audio layers.
-- Content and save files are untrusted input: validate size, ranges, and references; confine paths to the content root or save folder; never crash on bad files.
-- Saves are written atomically with a backup, carry a schema version, and are migrated by tested functions.
-- Inventory, shop, and quest-reward operations are all-or-nothing.
-- Keep content data and effect tuning values separate from gameplay code.
-
-## C++ rules
-- C++20.
-- Prefer RAII, explicit ownership, small functions, and clear interfaces.
-- Avoid global mutable state and unexplained magic numbers.
-- Do not swallow errors.
-- Do not add dependencies without recording version, license, and rationale.
-- Do not disable or delete tests just to get a green build.
-
-## Scope control
-Do not attempt to implement the whole game in one task. Follow the phases in the master specification. Prefer a small working, good-looking vertical slice over broad placeholder code.
-
-## Completion report
-Include:
-- Task
-- Files changed
-- Behavior implemented
-- Interface/schema changes
-- Build command and result
-- Tests run and result
-- On-screen check
-- Known limitations
-- Next task
-
-Never claim a build or test passed unless it was actually run and passed.
-```
+규칙을 바꿀 때는 `CLAUDE.md`를 고치고, 이 명세와 충돌하면 함께 고친다.
 
 ---
 
