@@ -168,20 +168,60 @@ TEST(MapLoader, RepositoryTestMapIsValid) {
     ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
     EXPECT_NE(result.value->map.find_spawn("default"), nullptr);
     // 시험 맵에는 꽃잎과 반딧불 분위기 효과가 있어요.
-    EXPECT_EQ(result.value->map.ambient_fx,
+    EXPECT_FALSE(result.value->map.ambience.ambient_light.has_value());  // 초원은 조명 없음
+    // 흙길 왼쪽 끝 동굴 입구 (0, 12)
+    ASSERT_NE(result.value->map.exit_at({0, 12}), nullptr);
+    EXPECT_EQ(result.value->map.exit_at({0, 12})->to_map, "maps/test_cave.json");
+    EXPECT_NE(result.value->map.find_spawn("from_cave"), nullptr);
+    EXPECT_EQ(result.value->map.ambience.ambient_fx,
               (std::vector<std::string>{"fx/petals.json", "fx/fireflies.json"}));
 }
 
 // 분위기(ambience)는 없어도 되고, 있으면 효과 파일 위치를 검사해요.
+// 시험 동굴은 조명 맵이에요: 주변광, 주인공 빛, 빛 9개 (횃불 8 + 연못 1)
+TEST(MapLoader, RepositoryTestCaveIsValid) {
+    const auto result = wind::content::load_map_file(WIND_TEST_CONTENT_DIR, "maps/test_cave.json");
+    ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
+    const auto& ambience = result.value->map.ambience;
+    EXPECT_TRUE(ambience.ambient_light.has_value());
+    EXPECT_TRUE(ambience.player_light.has_value());
+    EXPECT_EQ(ambience.lights.size(), 9u);
+    // 왼쪽 벽 출구로 초원에 돌아가요.
+    ASSERT_EQ(result.value->map.exits.size(), 1u);
+    EXPECT_EQ(result.value->map.exits[0].to_map, "maps/test_meadow.json");
+    EXPECT_NE(result.value->map.find_spawn("entrance"), nullptr);
+}
+
+// 출구 칸이 전부 벽이면 절대 못 쓰는 출구라서 거절해요. 걸어 들어갈 수 있는 칸이면 통과해요.
+// (연습용 맵에서 (1,0)은 벽, (0,1)은 풀)
+TEST(MapLoader, RejectsUnreachableExit) {
+    auto make_exit = [](int x, int y) {
+        return json{{"area", {{"x", x}, {"y", y}, {"w", 1}, {"h", 1}}},
+                    {"to_map", "maps/x.json"},
+                    {"to_spawn", "a"}};
+    };
+    auto walled = make_map();
+    walled["exits"] = json::array({make_exit(1, 0)});
+    const auto bad = wind::content::parse_map(walled, "unit.json", load_tileset());
+    ASSERT_FALSE(bad.ok());
+    EXPECT_TRUE(has_error_at(bad.errors, "exits[0]"));
+
+    auto open = make_map();
+    open["exits"] = json::array({make_exit(0, 1)});
+    const auto good = wind::content::parse_map(open, "unit.json", load_tileset());
+    ASSERT_TRUE(good.ok());
+    EXPECT_NE(good.value->exit_at({0, 1}), nullptr);
+}
+
 TEST(MapLoader, ParsesAmbienceAndRejectsBadPaths) {
     const auto tileset = load_tileset();
-    EXPECT_TRUE(wind::content::parse_map(make_map(), "unit.json", tileset).value->ambient_fx.empty());
+    EXPECT_TRUE(wind::content::parse_map(make_map(), "unit.json", tileset).value->ambience.ambient_fx.empty());
 
     auto doc = make_map();
     doc["ambience"] = {{"ambient_fx", {"fx/petals.json", "fx\\rain.json"}}};
     const auto ok = wind::content::parse_map(doc, "unit.json", tileset);
     ASSERT_TRUE(ok.ok());
-    EXPECT_EQ(ok.value->ambient_fx, (std::vector<std::string>{"fx/petals.json", "fx/rain.json"}));
+    EXPECT_EQ(ok.value->ambience.ambient_fx, (std::vector<std::string>{"fx/petals.json", "fx/rain.json"}));
 
     doc["ambience"] = {{"ambient_fx", {"../escape.json", 7}}};
     const auto bad = wind::content::parse_map(doc, "unit.json", tileset);

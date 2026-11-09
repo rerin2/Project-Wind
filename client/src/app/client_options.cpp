@@ -19,6 +19,8 @@ constexpr std::uint64_t kMinWindowSize = 320;
 constexpr std::uint64_t kMaxWindowSize = 7680;
 // 성능 시험용 파티클 개수 상한 (공중 효과 통 크기와 같아요)
 constexpr std::uint64_t kMaxFxStress = 4000;
+// 성능 시험용 빛 개수 상한 (한 화면에 그리는 빛 최대 개수와 같아요)
+constexpr std::uint64_t kMaxLightStress = 64;
 
 // "잘못됐어요" 결과를 만들어요. 왜 잘못됐는지 메시지를 함께 담아요.
 ClientParseResult fail(std::string message) {
@@ -97,6 +99,23 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
             }
             options.fx_stress = static_cast<std::uint32_t>(*parsed);
         }
+        else if (arg == "--auto-move") {
+            // 시험용: up / down / left / right 중 하나를 계속 누르고 있어요.
+            const auto dir = world::parse_direction(value);
+            if (!dir) {
+                return fail("--auto-move must be one of up|down|left|right");
+            }
+            options.auto_move = *dir;
+        }
+        else if (arg == "--light-stress") {
+            // 성능 시험용: 빛을 몇 개 더 놓을지 (0~64)
+            const auto parsed = cli::parse_uint(value, 0, kMaxLightStress);
+            if (!parsed) {
+                return fail("--light-stress must be an integer between 0 and " +
+                            std::to_string(kMaxLightStress));
+            }
+            options.light_stress = static_cast<std::uint32_t>(*parsed);
+        }
         else if (arg == "--log-level") {
             const auto parsed = log::parse_level(value);
             if (!parsed) {
@@ -127,6 +146,8 @@ std::string_view client_usage() {
            "  --screenshot-dir <dir>\n"
            "                       screenshot folder (default %APPDATA%\\ProjectWIND\\screenshots)\n"
            "  --fx-stress <n>      keep about n extra particles on screen, 0-4000 (perf check)\n"
+           "  --light-stress <n>   add n lights around the start, 0-64; needs a lit map (perf check)\n"
+           "  --auto-move <dir>    hold up|down|left|right for the whole run (for checks)\n"
            "  --help               show this message\n";
 }
 

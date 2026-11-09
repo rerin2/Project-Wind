@@ -4,13 +4,12 @@
 
 #include "engine/render/renderer.hpp"
 
+#include "engine/render/surface_painter.hpp"
+
 #include "wind/log.hpp"
 
 #include <SDL3/SDL.h>
 
-#include <algorithm>
-#include <cmath>
-#include <cstddef>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -59,6 +58,9 @@ Renderer::~Renderer() {
     if (frame_target_ != nullptr) {
         SDL_DestroyTexture(frame_target_);
     }
+    if (light_target_ != nullptr) {
+        SDL_DestroyTexture(light_target_);
+    }
 }
 
 bool Renderer::set_logical_size(std::int32_t width, std::int32_t height) {
@@ -82,6 +84,20 @@ bool Renderer::set_logical_size(std::int32_t width, std::int32_t height) {
     }
     SDL_SetTextureScaleMode(frame_target_, SDL_SCALEMODE_NEAREST);  // 키울 때 또렷하게
     SDL_SetTextureBlendMode(frame_target_, SDL_BLENDMODE_NONE);     // 창에 붙일 때 그대로 덮어쓰기
+
+    // 빛 지도: 같은 크기의 도화지. 그림 위에 "곱하기(MOD)"로 얹어요.
+    // 흰색인 곳은 그림이 그대로, 검은색인 곳은 그림이 까맣게 돼요.
+    if (light_target_ != nullptr) {
+        SDL_DestroyTexture(light_target_);
+    }
+    light_target_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
+                                      SDL_TEXTUREACCESS_TARGET, width, height);
+    if (light_target_ == nullptr) {
+        log::error("Cannot create the {}x{} light map: {}", width, height, SDL_GetError());
+        return false;
+    }
+    SDL_SetTextureScaleMode(light_target_, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureBlendMode(light_target_, SDL_BLENDMODE_MOD);
     logical_size_ = {static_cast<float>(width), static_cast<float>(height)};
     return true;
 }
@@ -154,6 +170,41 @@ void Renderer::submit(const RenderQueue& queue) {
     }
 }
 
+// 정해진 단계(first~last)의 명령만 그려요. 순서표는 단계 순으로 줄 서 있어요.
+void Renderer::submit(const RenderQueue& queue, DrawLayer first, DrawLayer last) {
+    for (const DrawCommand& cmd : queue.commands()) {
+        if (cmd.layer < first || cmd.layer > last) {
+            continue;
+        }
+        if (cmd.kind == DrawCommand::Kind::Sprite) {
+            draw_sprite(cmd.sprite);
+        } else {
+            fill_rect(cmd.rect, cmd.color);
+        }
+    }
+}
+
+void Renderer::apply_lighting(const LightingFrame& frame) {
+    if (!frame.enabled || light_target_ == nullptr) {
+        return;
+    }
+    // 1) 빛 지도를 주변광 색으로 칠해요. (빛이 하나도 없는 곳의 밝기)
+    if (!SDL_SetRenderTarget(renderer_, light_target_)) {
+        log::error("Cannot draw into the light map: {}", SDL_GetError());
+        return;
+    }
+    SDL_SetRenderDrawColor(renderer_, frame.ambient.r, frame.ambient.g, frame.ambient.b, 255);
+    SDL_RenderClear(renderer_);
+    // 2) 빛들을 "더하기"로 그려요. 겹치면 더 밝아져요.
+    for (const SpriteDraw& light : frame.lights) {
+        draw_sprite(light);
+    }
+    // 3) 그림 도화지로 돌아와서, 빛 지도를 통째로 곱해요.
+    SDL_SetRenderTarget(renderer_, frame_target_);
+    SDL_RenderTexture(renderer_, light_target_, nullptr, nullptr);
+    ++stats_.draw_calls;
+}
+
 void Renderer::draw_sprite(const SpriteDraw& sprite) {
     // 화면 밖에 붙일 그림은 그리지 않고 건너뛰어요. (컬링 = 안 보이는 것 솎아 내기)
     // 안 보이는 걸 그리면 그래픽 카드만 힘들어요.
@@ -222,92 +273,41 @@ TextureHandle Renderer::load_bmp_texture(const std::filesystem::path& path, std:
     return register_texture(texture);
 }
 
-TextureHandle Renderer::create_checker_texture(std::int32_t size) {
-    // 빈 그림을 하나 만들어요.
-    SDL_Surface* surface = SDL_CreateSurface(size, size, SDL_PIXELFORMAT_RGBA8888);
+TextureHandle Renderer::texture_from_surface(SDL_Surface* surface, const char* what) {
     if (surface == nullptr) {
-        log::error("Cannot create placeholder surface: {}", SDL_GetError());
-        return {};
+        return {};  // 그림 칠하기가 이미 실패했어요 (이유는 기록돼 있어요)
     }
-    // 4x4칸 분홍/검정 체크무늬를 칠해요. 그림이 빠진 곳이 화면에서 바로 눈에 띄도록요.
-    const std::int32_t cell = size / 4;
-    for (std::int32_t y = 0; y < 4; ++y) {
-        for (std::int32_t x = 0; x < 4; ++x) {
-            const SDL_Rect r{x * cell, y * cell, cell, cell};
-            const bool magenta = ((x + y) % 2) == 0;  // 바둑판처럼 번갈아 칠하기
-            SDL_FillSurfaceRect(surface, &r,
-                                SDL_MapSurfaceRGB(surface, magenta ? 255 : 0, 0, magenta ? 255 : 0));
-        }
-    }
+    // 기억 속 그림을 그래픽 카드에 올려서 스티커(텍스처)로 만들어요.
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
-    SDL_DestroySurface(surface);
+    SDL_DestroySurface(surface);  // 기억 속 그림은 이제 필요 없어요
     if (texture == nullptr) {
-        log::error("Cannot create placeholder texture: {}", SDL_GetError());
-        return {};
-    }
-    return register_texture(texture);
-}
-
-TextureHandle Renderer::create_soft_ellipse_texture(std::int32_t width, std::int32_t height,
-                                                    Color color) {
-    if (width <= 0 || height <= 0) {
-        log::error("Soft ellipse size must be positive, got {}x{}", width, height);
-        return {};
-    }
-    SDL_Surface* surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
-    if (surface == nullptr) {
-        log::error("Cannot create soft ellipse surface: {}", SDL_GetError());
-        return {};
-    }
-    // 픽셀마다 "타원 가운데에서 얼마나 떨어졌나"(0 = 가운데, 1 = 가장자리)를 재서
-    // 가운데는 진하게, 가장자리로 갈수록 투명하게 칠해요.
-    const float half_w = static_cast<float>(width) * 0.5f;
-    const float half_h = static_cast<float>(height) * 0.5f;
-    auto* pixels = static_cast<std::uint8_t*>(surface->pixels);
-    for (std::int32_t y = 0; y < height; ++y) {
-        std::uint8_t* row = pixels + static_cast<std::ptrdiff_t>(y) * surface->pitch;
-        for (std::int32_t x = 0; x < width; ++x) {
-            const float dx = (static_cast<float>(x) + 0.5f - half_w) / half_w;
-            const float dy = (static_cast<float>(y) + 0.5f - half_h) / half_h;
-            const float distance = std::sqrt(dx * dx + dy * dy);
-            const float strength = std::clamp(1.0f - distance, 0.0f, 1.0f);
-            // 제곱근으로 가장자리를 살짝 넓혀서, 너무 작은 점처럼 보이지 않게 해요.
-            const float alpha = std::sqrt(strength) * static_cast<float>(color.a);
-            std::uint8_t* px = row + static_cast<std::ptrdiff_t>(x) * 4;
-            px[0] = color.r;
-            px[1] = color.g;
-            px[2] = color.b;
-            px[3] = static_cast<std::uint8_t>(alpha);
-        }
-    }
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
-    SDL_DestroySurface(surface);
-    if (texture == nullptr) {
-        log::error("Cannot create soft ellipse texture: {}", SDL_GetError());
+        log::error("Cannot create {} texture: {}", what, SDL_GetError());
         return {};
     }
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);  // 투명한 부분이 뒤가 비쳐 보이게
     return register_texture(texture);
 }
 
+TextureHandle Renderer::create_checker_texture(std::int32_t size) {
+    return texture_from_surface(paint_checker(size), "placeholder");
+}
+
+TextureHandle Renderer::create_soft_ellipse_texture(std::int32_t width, std::int32_t height,
+                                                    Color color) {
+    return texture_from_surface(paint_soft_ellipse(width, height, color), "soft ellipse");
+}
+
+TextureHandle Renderer::create_light_texture(std::int32_t size) {
+    const TextureHandle handle = texture_from_surface(paint_radial_light(size), "light");
+    // 빛 그림은 크게 늘려서 그려요. 이것만은 부드럽게 키워야 계단 무늬 없이 둥글게 보여요.
+    if (const auto it = textures_.find(handle.id); it != textures_.end()) {
+        SDL_SetTextureScaleMode(it->second, SDL_SCALEMODE_LINEAR);
+    }
+    return handle;
+}
+
 TextureHandle Renderer::create_solid_texture(std::int32_t width, std::int32_t height, Color color) {
-    if (width <= 0 || height <= 0) {
-        log::error("Solid texture size must be positive, got {}x{}", width, height);
-        return {};
-    }
-    SDL_Surface* surface = SDL_CreateSurface(width, height, SDL_PIXELFORMAT_RGBA32);
-    if (surface == nullptr) {
-        log::error("Cannot create solid surface: {}", SDL_GetError());
-        return {};
-    }
-    SDL_FillSurfaceRect(surface, nullptr, SDL_MapSurfaceRGBA(surface, color.r, color.g, color.b, color.a));
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
-    SDL_DestroySurface(surface);
-    if (texture == nullptr) {
-        log::error("Cannot create solid texture: {}", SDL_GetError());
-        return {};
-    }
-    return register_texture(texture);
+    return texture_from_surface(paint_solid(width, height, color), "solid");
 }
 
 void Renderer::destroy_texture(TextureHandle handle) {

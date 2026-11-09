@@ -27,11 +27,14 @@
 #include "game/input/movement_intent.hpp"
 #include "game/presentation/afterimage_trail.hpp"
 #include "game/presentation/ambient_particles.hpp"
+#include "game/presentation/field_effects.hpp"
+#include "game/presentation/field_lighting.hpp"
 #include "game/presentation/dust_emitter.hpp"
 
 #include "wind/content/map_loader.hpp"
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -56,6 +59,14 @@ struct FieldDebugInfo {
     std::size_t particles = 0;                         // 지금 떠 있는 파티클 수 (땅 + 공중)
     std::size_t ambient_effects = 0;                   // 맵 분위기 효과 개수
     std::uint64_t particles_dropped = 0;               // 통이 꽉 차서 버린 파티클 수
+    bool lighting = false;                             // 조명을 쓰는 맵인가
+    engine::LightStats lights;                         // 빛 수 (전체, 그린 것, 건너뛴 것)
+};
+
+// 성능 시험용 부하 (실행 옵션 --fx-stress, --light-stress). 평소에는 0이에요.
+struct FieldStress {
+    std::uint32_t particles = 0;  // 화면에 더 띄울 파티클 수
+    std::uint32_t lights = 0;     // 시작 위치 주변에 더 놓을 빛 수
 };
 
 class FieldState {
@@ -68,7 +79,13 @@ public:
                                                             std::string_view map_path,
                                                             std::string_view player_sheet_path,
                                                             engine::Vec2 viewport,
-                                                            std::uint32_t particle_stress = 0);
+                                                            std::string_view spawn_id = "default",
+                                                            FieldStress stress = {});
+
+    // 이 화면이 코드로 만든 그림(그림자·파티클·빛)을 정리해요. 맵을 옮길 때마다 새로 만드니까요.
+    ~FieldState();
+    FieldState(const FieldState&) = delete;
+    FieldState& operator=(const FieldState&) = delete;
 
     // 1) 화면 한 장마다, 규칙 계산보다 먼저: 누른 키 기억
     void handle_input(const engine::InputState& input, const InputBindings& bindings);
@@ -78,8 +95,20 @@ public:
     // 3) 화면 한 장마다, 규칙 계산 다음: 연출과 카메라
     //    alpha: 지난 박자와 다음 박자 사이 어디쯤인지 (0~1), 위치를 부드럽게 이을 때 써요
     void frame_update(double dt_seconds, double alpha);
-    // 4) 이번 화면에 그릴 것들을 그리기 목록(렌더 큐)에 넣어요.
+    // 4) 이번 화면에 그릴 것들을 그리기 목록(렌더 큐)에 넣고, 조명 준비물도 만들어요.
     void render(engine::RenderQueue& queue);
+    // render() 다음에: 이번 화면의 조명 준비물 (조명 없는 맵이면 enabled = false)
+    [[nodiscard]] const engine::LightingFrame& lighting() const {
+        return lighting_frame_ != nullptr ? *lighting_frame_ : no_lighting_;
+    }
+
+    // 주인공이 출구를 밟았으면 그 출구를 한 번 돌려주고 비워요. 없으면 nullopt.
+    // 게임 루프가 이걸 보고 화면을 어둡게 한 뒤 다른 맵으로 옮겨 가요.
+    [[nodiscard]] std::optional<world::MapExit> take_exit_request() {
+        auto request = std::move(exit_request_);
+        exit_request_.reset();
+        return request;
+    }
 
     // 디버그 화면용 정보
     [[nodiscard]] FieldDebugInfo debug_info() const;
@@ -89,19 +118,14 @@ private:
     struct EffectTextures {
         engine::TextureHandle shadow;
         engine::ParticleTextures particles;
-    };
-
-    // 파일에서 읽은 파티클 효과들. 못 읽은 효과는 비어 있어요(그 효과만 안 보여요).
-    struct FieldEffects {
-        std::optional<engine::ParticleEffect> dust_walk;
-        std::optional<engine::ParticleEffect> dust_dodge;
-        std::vector<engine::ParticleEffect> ambient;  // 맵 분위기 효과 (+ 시험용 부하 효과)
+        engine::TextureHandle light;  // 둥근 빛 그림
     };
 
     // create()를 통해서만 만들어요. (준비물 검사를 빼먹지 않도록)
-    FieldState(content::LoadedMap map, engine::SpriteSheet sheet, engine::TextureHandle tileset_texture,
+    FieldState(engine::Renderer& renderer, content::LoadedMap map, engine::SpriteSheet sheet,
+               engine::TextureHandle tileset_texture,
                engine::TextureHandle player_texture, EffectTextures textures, FieldEffects effects,
-               engine::Vec2 viewport);
+               engine::Vec2 viewport, world::TileCoord spawn_tile, std::uint32_t stress_lights);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
@@ -109,6 +133,7 @@ private:
     void queue_player(engine::RenderQueue& queue, engine::Vec2 feet) const;
     void queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) const;
 
+    engine::Renderer* renderer_;             // 그림을 만들고 정리할 화가 (빌려 씀)
     content::LoadedMap map_;                 // 맵과 타일셋 정보
     engine::SpriteSheet sheet_;              // 캐릭터 그림 설명서
     engine::TextureHandle tileset_texture_;  // 맵 타일 그림
@@ -126,10 +151,15 @@ private:
     engine::ParticlePool air_fx_;            // 공중 효과 통 (꽃잎, 반딧불): 나뭇잎보다 위
     DustEmitter dust_emitter_;               // 먼지 만드는 담당
     AmbientParticles ambient_;               // 맵 분위기 효과 담당
+    FieldLighting lighting_;                 // 조명 담당 (주변광, 횃불, 주인공 빛)
+    const engine::LightingFrame* lighting_frame_ = nullptr;  // render()가 만든 조명 준비물
+    engine::LightingFrame no_lighting_;      // render() 전에 물어보면 돌려줄 "조명 없음"
     AfterimageTrail trail_;                  // 구르기 잔상
     std::optional<engine::Vec2> dodge_burst_;  // 이번 박자에 구르기를 시작했으면 그 방향
     double alpha_ = 1.0;                     // 지금 화면이 두 박자 사이 어디쯤인지
     bool show_collision_ = false;            // F4 충돌 표시가 켜져 있나
+    bool exit_armed_ = false;                // 출구가 아닌 칸을 밟은 뒤라 출구가 동작하나
+    std::optional<world::MapExit> exit_request_;  // 밟은 출구 (게임 루프가 가져가요)
     std::uint32_t tiles_queued_ = 0;         // 이번 화면에 넣은 타일 수
 };
 

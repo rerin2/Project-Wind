@@ -6,6 +6,7 @@
 // 그림을 그리는 일과는 상관없는 "순수한 정보"라서 도구(맵 검사기 등)도 그대로 써요.
 // 설명서(JSON) 모양과 검사 규칙은 docs/ENGINE.md, 읽어 오는 코드는 wind/content/map_loader.hpp에 있어요.
 
+#include "wind/world/ambience.hpp"
 #include "wind/world/direction.hpp"
 
 #include <cstdint>
@@ -62,6 +63,20 @@ struct SpawnPoint {
     TileCoord position;
 };
 
+// 다른 맵으로 가는 출구 (명세 7.4)
+// 캐릭터의 발이 area 칸들 중 하나에 들어가면 to_map 맵의 to_spawn 자리로 옮겨 가요.
+struct MapExit {
+    TileCoord area_min;  // 출구 영역의 왼쪽 위 칸
+    TileCoord area_max;  // 출구 영역의 오른쪽 아래 칸 (포함)
+    std::string to_map;    // 갈 맵 파일 위치 (콘텐츠 폴더 기준)
+    std::string to_spawn;  // 그 맵의 어느 등장 자리로 갈지
+
+    [[nodiscard]] bool contains(TileCoord tile) const {
+        return tile.x >= area_min.x && tile.x <= area_max.x && tile.y >= area_min.y &&
+               tile.y <= area_max.y;
+    }
+};
+
 // 맵 한 장의 모든 정보
 struct MapData {
     std::string map_id;
@@ -72,8 +87,9 @@ struct MapData {
     std::int32_t height = 0;
     std::vector<MapLayer> layers;
     std::vector<SpawnPoint> spawn_points;
-    // 맵 분위기: 화면에 늘 떠다니는 효과들 (꽃잎, 반딧불 등). 효과 파일 위치 목록이에요. 없어도 돼요.
-    std::vector<std::string> ambient_fx;
+    std::vector<MapExit> exits;  // 다른 맵으로 가는 출구들 (없어도 돼요)
+    // 맵 분위기: 늘 떠다니는 효과, 주변광, 빛들. 없어도 돼요.
+    Ambience ambience;
     // 칸마다 "지나갈 수 있나?"를 미리 계산해 둔 표예요. 1이면 갈 수 있고 0이면 못 가요.
     // 맵을 읽을 때 로더가 카드 성질을 보고 채워 줘요.
     std::vector<std::uint8_t> walkable;
@@ -84,6 +100,8 @@ struct MapData {
     [[nodiscard]] bool is_walkable(TileCoord pos) const;
     // 이 필름의 이 칸에 놓인 카드 번호. 바둑판 밖이면 "카드 없음"(kEmptyTile)
     [[nodiscard]] TileId tile_at(const MapLayer& layer, TileCoord pos) const;
+    // 이 칸에 있는 출구를 찾아요. 없으면 nullptr
+    [[nodiscard]] const MapExit* exit_at(TileCoord tile) const;
     // 이름으로 등장 자리를 찾아요. 없으면 nullptr
     [[nodiscard]] const SpawnPoint* find_spawn(std::string_view spawn_id) const;
     // (x, y) 칸을 목록의 자리 번호로 바꿔요. 바둑판 안인지는 먼저 확인하고 불러야 해요.

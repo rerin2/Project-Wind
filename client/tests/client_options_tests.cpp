@@ -78,4 +78,20 @@ TEST(ClientOptions, ParsesFxStress) {
     EXPECT_FALSE(parse({"--fx-stress", "5000"}).options.has_value());
 }
 
+// 빛 성능 시험 옵션: 0~64만 받아요.
+TEST(ClientOptions, ParsesLightStress) {
+    const auto result = parse({"--light-stress", "32"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->light_stress, 32u);
+    EXPECT_FALSE(parse({"--light-stress", "65"}).options.has_value());
+}
+
+// 시험용 자동 이동: 네 방향 이름만 받아요.
+TEST(ClientOptions, ParsesAutoMove) {
+    const auto result = parse({"--auto-move", "left"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->auto_move, wind::world::Direction::Left);
+    EXPECT_FALSE(parse({"--auto-move", "sideways"}).options.has_value());
+}
+
 }  // namespace

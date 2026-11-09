@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "torch_embers",
+  "shape": "pixel",
+  "blend": "add",
+  "lifetime": [0.6, 1.2],
+  "speed": [10, 25],
+  "direction": 270,
+  "spread": 40,
+  "gravity": -15,
+  "drag": 1,
+  "spawn_radius": 2,
+  "start_size": [1, 2],
+  "end_size": 1,
+  "start_color": "#ffc050ff",
+  "end_color": "#ff602000",
+  "fade_out": 0.4,
+  "wobble": { "amplitude": 2, "frequency": 1.5 },
+  "rate": 6
+}

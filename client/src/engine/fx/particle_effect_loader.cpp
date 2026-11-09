@@ -8,6 +8,7 @@
 #include "engine/fx/particle_effect_loader.hpp"
 
 #include "wind/content/content_path.hpp"
+#include "wind/content/hex_color.hpp"
 #include "wind/content/json_file.hpp"
 #include "wind/content/json_reader.hpp"
 
@@ -78,38 +79,15 @@ std::optional<Color> read_color(JsonReader& reader, std::string_view key) {
     if (!text) {
         return std::nullopt;
     }
-    const auto color = parse_hex_color(*text);
+    const auto color = content::parse_hex_color(*text);
     if (!color) {
         reader.error(reader.field_path(key), "expected \"#rrggbb\" or \"#rrggbbaa\"");
+        return std::nullopt;
     }
-    return color;
+    return Color{color->r, color->g, color->b, color->a};
 }
 
 }  // namespace
-
-std::optional<Color> parse_hex_color(std::string_view text) {
-    if ((text.size() != 7 && text.size() != 9) || text.front() != '#') {
-        return std::nullopt;
-    }
-    // 16진수 글자 하나(0~9, a~f)를 숫자 0~15로 바꿔요.
-    auto nibble = [](char c) -> int {
-        if (c >= '0' && c <= '9') return c - '0';
-        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-        return -1;
-    };
-    std::uint8_t channels[4] = {0, 0, 0, 255};
-    const std::size_t count = (text.size() - 1) / 2;
-    for (std::size_t i = 0; i < count; ++i) {
-        const int hi = nibble(text[1 + i * 2]);
-        const int lo = nibble(text[2 + i * 2]);
-        if (hi < 0 || lo < 0) {
-            return std::nullopt;
-        }
-        channels[i] = static_cast<std::uint8_t>(hi * 16 + lo);
-    }
-    return Color{channels[0], channels[1], channels[2], channels[3]};
-}
 
 content::LoadResult<ParticleEffect> parse_particle_effect(const nlohmann::json& document,
                                                           const std::string& file) {

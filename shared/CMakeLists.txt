@@ -18,6 +18,9 @@ add_library(wind_shared STATIC
     src/content/content_path.cpp
     src/content/error_list.cpp
     src/content/json_file.cpp
+    src/content/hex_color.cpp
+    src/content/ambience_loader.cpp
+    src/content/exit_loader.cpp
     src/content/json_reader.cpp
     src/content/map_loader.cpp)
 add_library(wind::shared ALIAS wind_shared)
@@ -40,7 +43,10 @@ if(WIND_BUILD_TESTS)
         tests/direction_tests.cpp
         tests/content_path_tests.cpp
         tests/map_loader_tests.cpp
-        tests/json_reader_tests.cpp)
+        tests/json_reader_tests.cpp
+        tests/hex_color_tests.cpp
+        tests/ambience_loader_tests.cpp
+        tests/exit_loader_tests.cpp)
     target_link_libraries(wind_shared_tests PRIVATE wind::shared GTest::gtest_main)
     # 진짜 시험 맵을 검사하는 시험이 저장소의 content 폴더 위치를 알 수 있게 알려 준다.
     target_compile_definitions(wind_shared_tests PRIVATE

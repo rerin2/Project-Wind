@@ -51,6 +51,10 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
                     field.tiles_queued),
         std::format("particles {}  dropped {}  ambient fx {}", field.particles,
                     field.particles_dropped, field.ambient_effects),
+        field.lighting
+            ? std::format("lights {}  drawn {}  offscreen {}  over cap {}", field.lights.total,
+                          field.lights.drawn, field.lights.offscreen, field.lights.over_cap)
+            : std::string("lighting off"),
         std::format("textures {}  cache hits {}  load failures {}", resources.textures_loaded,
                     resources.cache_hits, resources.load_failures),
         std::string("arrows/WASD move  Space dodge  F3 debug  F4 collision  F12 shot  Esc quit"),

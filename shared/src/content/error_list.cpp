@@ -3,6 +3,8 @@
 
 #include "wind/content/error_list.hpp"
 
+#include "wind/log.hpp"
+
 namespace wind::content {
 
 // 칸 주소가 없으면 "파일: 이유", 있으면 "파일: 칸 주소: 이유"
@@ -11,6 +13,13 @@ std::string to_string(const ContentError& error) {
         return error.file + ": " + error.message;
     }
     return error.file + ": " + error.field + ": " + error.message;
+}
+
+void log_content_errors(std::string_view what, const std::vector<ContentError>& errors) {
+    log::error("Failed to load {} ({} error(s)):", what, errors.size());
+    for (const auto& error : errors) {
+        log::error("  {}", to_string(error));
+    }
 }
 
 void ErrorList::add(std::string file, std::string field, std::string message) {

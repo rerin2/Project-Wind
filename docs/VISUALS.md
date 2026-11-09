@@ -1,6 +1,6 @@
 # Visual Rules and Effect Tuning
 
-Status: phase 4 (particles). Spec reference: master spec section 6. Later phases add lighting (5) and day/night and weather (6).
+Status: phase 5 (lighting). Spec reference: master spec section 6. Phase 6 adds day/night and weather.
 
 Effects are presentation only: they read simulation state and events and never change gameplay results.
 
@@ -104,6 +104,29 @@ Effect files live in `content/fx/` (format: [ENGINE.md](ENGINE.md#particle-effec
 Pools: ground (dust) 1024, air (ambience) 4000. Extra particles are dropped and counted on the F3 panel.
 
 Lesson from tuning: fading the colour over the whole lifetime made petals half-transparent most of the time and hard to see; `fade_out` keeps them solid until the end.
+
+## Lighting
+
+How it works: [ENGINE.md](ENGINE.md#lighting-spec-63-phase-5). Values used in the test cave (`content/maps/test_cave.json`):
+
+| Light | Colour | Radius | Intensity | Animation |
+|---|---|---|---|---|
+| Ambient (cave darkness) | `#1c1a30` (palette `night`-ish) | — | — | — |
+| Torch | `#ffb060` (warm `gold`) | 110 px | 1.0 | flicker 0.35 + `torch_embers` sparks |
+| Pool magic light | `#5878ff` (blue) | 140 px | 0.9 | pulse 0.4 Hz, depth 0.5 |
+| Hero light | `#ffe2b8` (warm white) | 80 px | 0.55 | follows the hero, 14 px above the feet |
+
+| Effect | File | Look |
+|---|---|---|
+| Torch embers | `fx/torch_embers.json` | 1–2 px orange sparks rising and swaying, additive, 6 per second per torch |
+
+Tile 11 `torch`: wooden pole, iron cup, three-tone flame (`ember`, `gold`, `sun`). Blocks movement.
+
+Tile 12 `cave_entrance`: dark arch in a stone wall, walkable; used as the exit tile on both sides (meadow left wall at (0, 12), cave left wall at (0, 10)).
+
+Map travel fade: black, 0.35 s out (`in_quad`) and 0.35 s in (`out_quad`).
+
+Rules of thumb: keep ambient dark but not black (players must still read walls); torch pools should overlap a little so paths stay readable; avoid many overlapping lights at full intensity (they add up to white).
 
 ## Dodge afterimages
 

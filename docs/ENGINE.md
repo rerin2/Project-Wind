@@ -1,6 +1,6 @@
 # Engine Design (client)
 
-Status: phase 4 (data-driven particles: effect files, emitters, map ambience). Spec reference: master spec section 5.
+Status: phase 5 (lighting: ambient light, point lights, flicker and pulse, light map pass). Spec reference: master spec section 5.
 
 The client engine is our own code on top of SDL3. SDL3 is used only for the window, OS events, the GPU-backed 2D renderer, and BMP decoding. Everything else (loop, map, camera, animation, input model, particles, resources, debug view) lives in this repository.
 
@@ -14,6 +14,7 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/engine/input` | `wind_engine_core` | no | `InputState`: held/pressed/released, UI capture flag |
 | `client/src/engine/animation` | `wind_engine_core` | no | `AnimationClip`, `SpriteSheet`, `Animator` (one file each), sprite sheet JSON loader |
 | `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticleEffect` + loader, `ParticlePool` (fixed capacity, drop counter), `ParticleRandom`, `make_particle`/`emit_burst`, `ParticleEmitter` (continuous), `queue_particles` |
+| `client/src/engine/light` | `wind_engine_core` | no | `Light`, `light_strength`/`light_radius_scale` (flicker, pulse), `queue_lights` (cull, 64-per-frame cap), `LightingFrame`, `LightStats` |
 | `client/src/engine/tween` | `wind_engine_core` | no | `Ease` + `ease()` (easing curves), `Tween` (one float from → to over time) |
 | `client/src/engine/render` (`render_queue`, `render_types`) | `wind_engine_core` | no | draw commands and their sort order |
 | `client/src/engine/render/renderer.*` | `wind_client` | **yes** | `Renderer`: draws into the 640×360 frame target, blend modes and tint, rects/debug text, owns textures, soft-ellipse textures, screenshots |
@@ -22,7 +23,7 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
 | `client/src/game/entities` | `wind_game_core` | no | `Mover` (speed, acceleration, dodge), `MovementTuning`, facing helpers |
-| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail` (effects that only read simulation state) |
+| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
 | `client/src/game/states` | `wind_client` | no | `FieldState` scene: wires simulation, effects, camera, drawing |
 | `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths |
 
@@ -37,7 +38,7 @@ Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.
 3. `FieldState::handle_input`: movement intent, dodge press into the input buffer, F4 toggle
 4. Fixed-step simulation (`FieldState::fixed_update`): `FixedStepClock` at **60 Hz**; a frame counts at most **0.25 s** and runs at most **5** steps, extra time is dropped (no catch-up spiral)
 5. Per-frame presentation (`FieldState::frame_update(dt, alpha)`): animation, dust, afterimages, look-ahead, camera follow. Positions are drawn interpolated between the last two simulation steps using the clock's `alpha`, so movement is smooth at any frame rate.
-6. Render: scene pushes draw commands into a `RenderQueue`, the queue is sorted, `Renderer::submit` draws it into the frame target
+6. Render: scene pushes draw commands into a `RenderQueue` and builds a `LightingFrame`; the queue is sorted; layers `Ground`–`WorldFx` are drawn into the frame target, then `Renderer::apply_lighting`, then `Foreground`–`DebugOverlay`
 7. *(audio — later phase)*
 8. Debug overlay, then the screenshot flash, drawn last; `end_frame` saves a requested screenshot, then scales the frame target to the window
 
@@ -64,6 +65,7 @@ The render rate follows VSync (60 FPS measured on the dev machine; not guarantee
 | `YSorted` | `"low_objects"` tiles **and** characters, afterimages and dust, ordered by their base (feet) y |
 | `HighObjects` | `"high_objects"` (e.g. tree canopies; always over characters) |
 | `WorldFx` | particles in the air (map ambience: petals, fireflies); above canopies |
+| *(lighting)* | light map multiplied over everything above (not a queue layer) |
 | `Foreground` | `"foreground"` |
 | `DebugOverlay` | collision overlay, feet box |
 
@@ -88,9 +90,14 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 ```json
 { "schema_version": 1, "map_id": "test_meadow", "display_name": "Test Meadow",
   "tileset": "tilesets/test_tiles.json", "tile_size": 32, "width": 40, "height": 30,
-  "spawn_points": [ { "id": "default", "x": 6, "y": 12 } ],
-  "exits": [],
-  "ambience": { "ambient_fx": ["fx/petals.json", "fx/fireflies.json"] },
+  "spawn_points": [ { "id": "default", "x": 6, "y": 12 }, { "id": "from_cave", "x": 2, "y": 12 } ],
+  "exits": [ { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance" } ],
+  "ambience": {
+    "ambient_fx": ["fx/petals.json"],
+    "ambient_light": "#1c1a30",
+    "player_light": { "radius": 80, "color": "#ffe2b8", "intensity": 0.55 },
+    "lights": [ { "x": 3.5, "y": 2.2, "radius": 110, "color": "#ffb060", "intensity": 1,
+                  "flicker": 0.35, "pulse": { "frequency": 0.4, "depth": 0.5 }, "fx": "fx/torch_embers.json" } ] },
   "layers": [ { "name": "ground", "render_layer": "ground", "tiles": [ ...width*height ids... ] } ] }
 ```
 
@@ -98,8 +105,9 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 - `tiles` is row-major (`index = y * width + x`) and must have exactly `width*height` entries.
 - Limits: sides 1–512, 1–8 layers, 1–64 spawn points, tile size 8–128 and equal to the tileset's.
 - **Walkability:** a cell is walkable if it has at least one tile and every tile on it is `walkable`. Spawn points must be walkable.
-- `exits` is accepted (must be an array) but not used until map transitions are implemented.
+- `exits` (optional, up to 32): `area` in tiles (`x`, `y`, `w`, `h`, inside the map), `to_map` (content path) and `to_spawn` (spawn id in that map). At least one tile of the area must be walkable. The target map and spawn are checked when the hero actually travels; if either is missing, she stays on the current map and the error is logged.
 - `ambience` is optional. `ambient_fx` lists up to 8 particle effect files (content paths) that float around the camera on this map. Paths are checked when the map loads; the effect files themselves are validated when the field starts, and a broken effect is logged and skipped.
+- `ambient_light` (`#rrggbb`) turns lighting on for the map; without it the map is drawn fully lit. `player_light` (radius 4–512, colour, intensity 0–1) follows the hero. `lights` (up to 64) each need `x`, `y` (tile units, inside the map), `radius` (4–512 px), `color`, `intensity` (0–1); optional `flicker` (0–1), `pulse` (`frequency` 0–10 Hz, `depth` 0–1) and `fx` (an effect emitted continuously at the light). Parsed by `wind/content/ambience_loader`.
 
 ### Particle effect (`content/fx/*.json`)
 
@@ -184,6 +192,24 @@ Values are listed in [VISUALS.md](VISUALS.md).
 - **Camera look-ahead:** the camera target is shifted up to 28 px toward the movement direction, smoothed.
 
 Effects read simulation state and events only; they never move the character.
+
+## Map travel (spec 7.4, early part of phase 7)
+
+- `FieldState` checks the feet tile after every simulation step. An exit fires only after the hero has stood on a non-exit tile once ("armed"), so arriving next to or on an exit never bounces her straight back.
+- `ClientApp` takes the request, fades to black with `ScreenFade` (0.35 s, `in_quad`), builds the new `FieldState` for `to_map` / `to_spawn` while the screen is covered, then fades back in (0.35 s, `out_quad`). Input is ignored while fading. The F3 panel stays visible on top.
+- Each `FieldState` destroys the textures it generated (shadow, particles, light) when it is replaced.
+- Test-only `--auto-move <dir>` holds a direction for the whole run; with `--auto-move left` the hero walks from the meadow start into the cave and back.
+
+## Lighting (spec 6.3, phase 5)
+
+Decision and limits: [ADR 0008](DECISIONS/0008-lighting-with-sdl-renderer.md).
+
+- `FieldLighting` turns map light definitions into `Light`s (tile units → pixels, a different flicker phase per light), moves the hero light (14 px above the feet), and runs one `ParticleEmitter` per light `fx` (embers go to the air pool).
+- Each frame `queue_lights` keeps lights whose radius box touches the view, up to `kMaxLightsPerFrame` = 64 (hero light first), and turns them into `ADD` sprites of a 128 px radial light texture (linear filtering).
+- `Renderer::apply_lighting`: clear the light map to the ambient colour → draw the light sprites → multiply the light map over the frame target (`MOD`).
+- **Flicker:** strength × (1 − flicker × w), where w mixes two sine waves (9.1 and 15.7 rad/s); the radius also shrinks by up to 12 % of the flicker amount. **Pulse:** strength × (1 − depth × (0.5 + 0.5 sin(2π f t + phase))).
+- F3 shows `lights / drawn / offscreen / over cap`, or `lighting off`.
+- `--light-stress N` (0–64) adds N lights around the start on a lit map. Phase 5 measurement: 42 lights (37 drawn), 60.0 FPS, 16.67 ms.
 
 ## Blend modes and tint (spec 5.2)
 

@@ -30,7 +30,4 @@ inline constexpr std::int64_t kParticleEffectSchemaVersion = 1;
 [[nodiscard]] content::LoadResult<ParticleEffect> load_particle_effect_file(
     const std::filesystem::path& content_root, std::string_view path);
 
-// "#rrggbb" 또는 "#rrggbbaa" 글자를 색으로 바꿔요. 모양이 틀리면 nullopt.
-[[nodiscard]] std::optional<Color> parse_hex_color(std::string_view text);
-
 }  // namespace wind::engine

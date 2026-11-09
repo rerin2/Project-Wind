@@ -34,6 +34,15 @@ TileId MapData::tile_at(const MapLayer& layer, TileCoord pos) const {
 }
 
 // 등장 자리 목록에서 이름이 같은 것을 찾아요.
+const MapExit* MapData::exit_at(TileCoord tile) const {
+    for (const MapExit& exit : exits) {
+        if (exit.contains(tile)) {
+            return &exit;
+        }
+    }
+    return nullptr;
+}
+
 const SpawnPoint* MapData::find_spawn(std::string_view spawn_id) const {
     const auto it = std::ranges::find(spawn_points, spawn_id, &SpawnPoint::id);
     return it != spawn_points.end() ? &*it : nullptr;

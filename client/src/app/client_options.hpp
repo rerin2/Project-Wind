@@ -5,6 +5,7 @@
 // SDL(창 도구 상자)을 쓰지 않아서, 창을 띄우지 않고도 숙제 검사(테스트)를 할 수 있어요.
 
 #include "wind/log.hpp"
+#include "wind/world/direction.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -32,6 +33,10 @@ struct ClientOptions {
     std::vector<std::uint64_t> screenshot_at;
     // 성능 시험: 화면에 약 이만큼의 파티클을 계속 띄워요 (0이면 끔, 최대 4000).
     std::uint32_t fx_stress = 0;
+    // 성능 시험: 시작 위치 주변에 빛을 이만큼 더 놓아요 (0이면 끔, 최대 64).
+    std::uint32_t light_stress = 0;
+    // 시험용: 이 방향키를 처음부터 끝까지 누르고 있는 것처럼 해요 (화면 확인 자동화).
+    std::optional<world::Direction> auto_move;
     // 스크린샷 저장 폴더. 비어 있으면 %APPDATA%\ProjectWIND\screenshots
     std::filesystem::path screenshot_dir;
 };

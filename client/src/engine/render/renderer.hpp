@@ -6,6 +6,7 @@
 // 게임 화면은 항상 640x360 크기로 그리고, 창이 크면 2배, 3배처럼 "딱 떨어지는 배수"로
 // 키워요. 그래야 도트 그림(픽셀 아트)이 뭉개지지 않고 또렷해요.
 
+#include "engine/light/lighting_frame.hpp"
 #include "engine/render/render_queue.hpp"
 #include "engine/render/render_types.hpp"
 
@@ -18,6 +19,7 @@
 // SDL의 속 모습은 숨기고 이름만 알려 줘요. (그래서 이 헤더를 쓰는 쪽은 SDL을 몰라도 돼요)
 struct SDL_Renderer;
 struct SDL_Texture;
+struct SDL_Surface;
 
 namespace wind::engine {
 
@@ -43,6 +45,13 @@ public:
 
     // 줄 세운 순서표(렌더 큐)를 위에서부터 차례로 그려요. (먼저 queue.sort()를 해야 해요)
     void submit(const RenderQueue& queue);
+    // first~last 단계(DrawLayer)만 그려요. 조명은 월드와 UI 사이에 입혀야 해서 나눠 그릴 때 써요.
+    void submit(const RenderQueue& queue, DrawLayer first, DrawLayer last);
+
+    // 조명 입히기 (명세 6.3): 빛 지도에 주변광을 칠하고 빛을 더한 다음,
+    // 빛 지도를 지금까지 그린 그림 위에 곱해요. 빛이 없는 곳은 주변광만큼 어두워져요.
+    // frame.enabled가 false면 아무것도 안 해요.
+    void apply_lighting(const LightingFrame& frame);
     // 그림 조각 하나 그리기
     void draw_sprite(const SpriteDraw& sprite);
     // 색칠한 네모 하나 그리기
@@ -65,6 +74,8 @@ public:
     // 한 가지 색으로 꽉 찬 네모 스티커를 만들어요. (픽셀 모양 파티클: 흰색 1x1을 크게 늘려 써요)
     [[nodiscard]] TextureHandle create_solid_texture(std::int32_t width, std::int32_t height,
                                                      Color color);
+    // 빛 그림: 가운데가 가장 밝고 가장자리로 부드럽게 사라지는 흰 동그라미 (size x size)
+    [[nodiscard]] TextureHandle create_light_texture(std::int32_t size);
     // 스티커 종이 하나를 버려요.
     void destroy_texture(TextureHandle handle);
     // 지금 가진 스티커 종이 수
@@ -78,6 +89,8 @@ public:
     void request_screenshot(std::filesystem::path path);
 
 private:
+    // 코드로 칠한 그림(서피스)을 스티커로 바꿔 보관함에 넣어요. 서피스는 여기서 버려요.
+    TextureHandle texture_from_surface(SDL_Surface* surface, const char* what);
     // 새 스티커 종이에 번호표를 붙여 보관함에 넣어요.
     TextureHandle register_texture(SDL_Texture* texture);
     // 붓의 색을 바꿔요.
@@ -87,6 +100,7 @@ private:
 
     SDL_Renderer* renderer_;  // 빌려 쓰는 SDL 붓
     SDL_Texture* frame_target_ = nullptr;  // 게임 화면을 먼저 그리는 640x360 작은 도화지
+    SDL_Texture* light_target_ = nullptr;  // 빛 지도: 밝기를 칠하는 640x360 도화지
     std::unordered_map<std::uint32_t, SDL_Texture*> textures_;  // 번호표 -> 스티커 종이 보관함
     std::uint32_t next_texture_id_ = 1;  // 다음에 줄 번호표 (0은 "없음"이라 1부터)
     Vec2 logical_size_;

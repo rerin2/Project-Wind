@@ -92,19 +92,6 @@ TEST(ParticleEffectLoader, RejectsEffectThatSpawnsNothing) {
     EXPECT_TRUE(has_error_at(result.errors, "burst"));
 }
 
-// 색 글자 읽기: #rrggbb, #rrggbbaa만 받아요.
-TEST(ParticleEffectLoader, ParsesHexColors) {
-    const auto c = wind::engine::parse_hex_color("#FF8000");
-    ASSERT_TRUE(c.has_value());
-    EXPECT_EQ(c->r, 255);
-    EXPECT_EQ(c->g, 128);
-    EXPECT_EQ(c->b, 0);
-    EXPECT_EQ(c->a, 255);
-    EXPECT_FALSE(wind::engine::parse_hex_color("FF8000").has_value());
-    EXPECT_FALSE(wind::engine::parse_hex_color("#FF80").has_value());
-    EXPECT_FALSE(wind::engine::parse_hex_color("#GG8000").has_value());
-}
-
 // 효과 파일 위치가 콘텐츠 폴더 밖이면 열지 않아요.
 TEST(ParticleEffectLoader, RejectsPathOutsideContent) {
     const auto result = wind::engine::load_particle_effect_file(WIND_TEST_CONTENT_DIR, "../secret.json");
@@ -114,7 +101,7 @@ TEST(ParticleEffectLoader, RejectsPathOutsideContent) {
 // 저장소에 들어 있는 진짜 효과 파일들도 검사를 통과해야 해요.
 TEST(ParticleEffectLoader, RepositoryEffectsAreValid) {
     for (const char* path : {"fx/dust_walk.json", "fx/dust_dodge.json", "fx/petals.json",
-                             "fx/fireflies.json"}) {
+                             "fx/fireflies.json", "fx/torch_embers.json"}) {
         const auto result = wind::engine::load_particle_effect_file(WIND_TEST_CONTENT_DIR, path);
         EXPECT_TRUE(result.ok()) << path << ": "
                                  << (result.errors.empty() ? "" : wind::content::to_string(result.errors[0]));

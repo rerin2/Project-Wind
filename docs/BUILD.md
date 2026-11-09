@@ -50,7 +50,7 @@ Executables are written to `build\<preset>\bin\`.
 .\scripts\run_tests.ps1             # = ctest --preset windows-debug
 ```
 
-The run on 2026-11-09 passed 131/131 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
+The run on 2026-11-09 passed 153/153 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
 
 ## 4. Run
 
@@ -83,13 +83,15 @@ The placeholder art and test map are produced by a script (original shapes, no t
 powershell -NoProfile -File tools\test_content\generate_test_content.ps1
 ```
 
-It rewrites `content/tilesets/test_tiles.bmp`, `content/sprites/test_hero.bmp` and `content/maps/test_meadow.json`. The tileset and sprite JSON files are hand-edited and not touched. Re-run the tests afterwards — `MapLoader.RepositoryTestMapIsValid` validates the generated map.
+It rewrites `content/tilesets/test_tiles.bmp`, `content/sprites/test_hero.bmp`, `content/maps/test_meadow.json` and `content/maps/test_cave.json`. The tileset and sprite JSON files are hand-edited and not touched. Re-run the tests afterwards — `MapLoader.RepositoryTestMapIsValid` validates the generated map.
 
 Smoke-test flags (used for verification, not gameplay):
 
 - `wind_client --max-frames N` closes the window after N frames.
 - `wind_client --screenshot-at N` saves a screenshot after frame N (repeatable); `--screenshot-dir DIR` picks the folder.
 - `wind_client --fx-stress N` keeps about N extra particles on screen (0–4000) to check particle performance on the F3 panel.
+- `wind_client --light-stress N` adds N lights (0–64) around the start of a lit map, e.g. `--map maps/test_cave.json --light-stress 32`.
+- `wind_client --auto-move left` holds Left for the whole run; from the meadow start the hero walks into the cave mouth and back (map travel check without pressing keys).
 
 ## Troubleshooting
 

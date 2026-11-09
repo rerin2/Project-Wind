@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Way into the test cave (early part of phase 7)
+- Map `exits` (area in tiles, `to_map`, `to_spawn`) with validation, including "at least one walkable tile".
+- Walking onto an exit fades to black, loads the target map at the named spawn, and fades back in
+  (`ScreenFade`, 0.35 s each way). If the target cannot load, the hero stays and the error is logged.
+- Exits arm only after stepping off exit tiles, so arriving next to one never bounces back.
+- Meadow: cave mouth (new tile 12) at the left end of the dirt path; cave: arch exit back on its left wall.
+- `FieldState::create` takes a spawn id; each field frees its generated textures when replaced.
+- Test option `--auto-move <dir>`; verified meadow → cave → meadow with screenshots.
+- 153 CTest tests.
+
+### Phase 5 — lighting
+- Light map pass on the SDL renderer: ambient colour, lights added (`ADD`), then multiplied over the frame (`MOD`).
+  Foreground and debug layers draw after it. Decision: ADR 0008.
+- Engine `light` module: `Light`, flicker and pulse animation, `queue_lights` (off-screen cull, 64 per frame cap).
+- Map `ambience` gains `ambient_light`, `player_light` and `lights` (with optional `flicker`, `pulse`, `fx`);
+  parsed by the new `ambience_loader`. Colour parsing moved to shared `hex_color`.
+- `FieldLighting`: map lights, a light that follows the hero, ember sparks at torches.
+- Content: torch tile (11), `fx/torch_embers.json`, test cave map `maps/test_cave.json`.
+- F3 shows light counts; `--light-stress N`: 42 lights (37 drawn) at 60.0 FPS.
+- Refactors for the 300-line rule: `surface_painter` (procedural textures), `field_effects` (effect loading),
+  shared `log_content_errors`.
+- 147 CTest tests.
+
 ### Phase 4 — particle system
 - Particle effects are data: `content/fx/*.json` with validation (file + field path errors). Fields: shape, blend,
   lifetime/speed/size ranges, direction, spread, gravity, drag, spawn radius, colour gradient, fade in/out,

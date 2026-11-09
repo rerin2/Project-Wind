@@ -119,6 +119,28 @@ foreach ($p in @(@(6, 8), @(20, 5), @(12, 20), @(24, 22))) {
     $g.FillRectangle((Brush 70 120 40), $o[0] + $p[0] + 1, $o[1] + $p[1] + 4, 2, 3)
 }
 
+# 11 횃불 (낮은 물건, 못 지나감): 나무 기둥 + 쇠 받침 + 불꽃. 빛은 맵의 "lights"가 따로 비춰요.
+$o = TileOrigin 11
+$g.FillRectangle((Brush 92 60 40), $o[0] + 14, $o[1] + 12, 4, 18)    # 나무 기둥
+$g.FillRectangle((Brush 70 44 30), $o[0] + 14, $o[1] + 12, 1, 18)    # 기둥 그늘
+$g.FillRectangle((Brush 60 60 70), $o[0] + 11, $o[1] + 10, 10, 3)    # 쇠 받침
+$g.FillRectangle((Brush 60 60 70), $o[0] + 12, $o[1] + 28, 8, 2)     # 바닥 받침
+$g.FillEllipse((Brush 232 106 58), $o[0] + 11, $o[1] + 1, 10, 11)    # 불꽃 바깥 (ember)
+$g.FillEllipse((Brush 242 181 68), $o[0] + 13, $o[1] + 4, 6, 7)      # 불꽃 안쪽 (gold)
+$g.FillRectangle((Brush 255 240 168), $o[0] + 15, $o[1] + 7, 2, 3)   # 불꽃 심지 (sun)
+
+# 12 동굴 입구 (지나갈 수 있음): 돌담에 어두운 아치형 구멍. 이 칸을 밟으면 다른 맵으로 가요.
+$o = TileOrigin 12
+$g.FillRectangle((Brush 96 96 104), $o[0], $o[1], $tile, $tile)                 # 돌담 바탕
+$g.FillRectangle((Brush 140 140 150), $o[0] + 1, $o[1] + 1, 6, 6)                # 벽돌 몇 장
+$g.FillRectangle((Brush 140 140 150), $o[0] + 25, $o[1] + 1, 6, 6)
+$g.FillRectangle((Brush 140 140 150), $o[0] + 1, $o[1] + 25, 4, 6)
+$g.FillRectangle((Brush 140 140 150), $o[0] + 27, $o[1] + 25, 4, 6)
+$g.FillEllipse((Brush 36 30 48), $o[0] + 5, $o[1] + 4, 22, 20)                   # 아치 윗부분
+$g.FillRectangle((Brush 36 30 48), $o[0] + 5, $o[1] + 14, 22, 18)                # 구멍 아래쪽
+$g.FillEllipse((Brush 20 16 28), $o[0] + 9, $o[1] + 9, 14, 14)                   # 안쪽 더 깊은 어둠
+$g.FillRectangle((Brush 20 16 28), $o[0] + 9, $o[1] + 16, 14, 16)
+
 Save-Bmp $bmp (Join-Path $content 'tilesets\test_tiles.bmp')
 $g.Dispose(); $bmp.Dispose()
 
@@ -350,6 +372,9 @@ for ($y = 18; $y -le 24; $y++) { for ($x = 26; $x -le 33; $x++) { $ground[(Idx $
 # 맵 가장자리를 돌담으로 둘러서 캐릭터가 맵 밖으로 못 나가게 해요.
 for ($x = 0; $x -lt $W; $x++) { $ground[(Idx $x 0)] = 5; $ground[(Idx $x ($H - 1))] = 5 }
 for ($y = 0; $y -lt $H; $y++) { $ground[(Idx 0 $y)] = 5; $ground[(Idx ($W - 1) $y)] = 5 }
+# 흙길 왼쪽 끝 벽에 동굴 입구를 뚫어요. 입구 칸(0, 12)을 밟으면 시험 동굴로 가요.
+$ground[(Idx 1 12)] = 3
+$ground[(Idx 0 12)] = 12
 
 # 나무: (x, y)에 밑동을 놓고, 바로 위 칸 (x, y-1)에 나뭇잎을 놓아요.
 $trees = @(@(5,5), @(9,4), @(14,7), @(24,5), @(30,8), @(35,5), @(6,20), @(11,24),
@@ -395,9 +420,12 @@ $json = @"
   "width": $W,
   "height": $H,
   "spawn_points": [
-    { "id": "default", "x": 6, "y": 12 }
+    { "id": "default", "x": 6, "y": 12 },
+    { "id": "from_cave", "x": 2, "y": 12 }
   ],
-  "exits": [],
+  "exits": [
+    { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance" }
+  ],
   "ambience": {
     "ambient_fx": ["fx/petals.json", "fx/fireflies.json"]
   },
@@ -411,5 +439,81 @@ $mapPath = Join-Path $content 'maps\test_meadow.json'
 New-Item -ItemType Directory -Force (Split-Path $mapPath) | Out-Null
 # 맵 파일 저장: 글자 방식은 UTF-8(BOM 없음), 줄바꿈은 LF로 통일해요.
 # (그래야 어느 컴퓨터에서 봐도 똑같고, 바뀐 곳 비교도 깔끔해요.)
+[System.IO.File]::WriteAllText($mapPath, ($json -replace "`r`n", "`n") + "`n", (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "wrote $mapPath"
+
+# --------------------------------------------------------------- 시험 동굴 ----
+# 조명을 시험하는 어두운 동굴 맵 (가로 30칸 x 세로 20칸). 바닥은 흙, 벽은 돌담.
+# 횃불 타일을 놓고, 같은 자리에 "lights"로 빛을 둬요. 연못 옆에는 푸른 마법 빛이 숨 쉬듯 깜빡여요.
+$W = 30; $H = 20
+$ground = New-Object 'int[]' ($W * $H)
+$objects = New-Object 'int[]' ($W * $H)
+$rng = New-Object System.Random 99
+
+for ($y = 0; $y -lt $H; $y++) {
+    for ($x = 0; $x -lt $W; $x++) {
+        $ground[(Idx $x $y)] = if ($rng.NextDouble() -lt 0.12) { 10 } else { 3 }
+    }
+}
+# 가장자리 벽과 안쪽 벽 덩어리 (굴 모양을 만들어요)
+for ($x = 0; $x -lt $W; $x++) { $ground[(Idx $x 0)] = 5; $ground[(Idx $x ($H - 1))] = 5 }
+for ($y = 0; $y -lt $H; $y++) { $ground[(Idx 0 $y)] = 5; $ground[(Idx ($W - 1) $y)] = 5 }
+foreach ($block in @(@(8, 1, 3, 6), @(8, 12, 3, 7), @(17, 5, 2, 9), @(23, 1, 6, 4))) {
+    for ($y = $block[1]; $y -lt $block[1] + $block[3]; $y++) {
+        for ($x = $block[0]; $x -lt $block[0] + $block[2]; $x++) { $ground[(Idx $x $y)] = 5 }
+    }
+}
+# 왼쪽 벽의 출구 (0, 10): 밟으면 초원의 동굴 입구 앞으로 돌아가요.
+$ground[(Idx 0 10)] = 12
+$ground[(Idx 1 10)] = 3
+# 지하 연못
+for ($y = 13; $y -le 16; $y++) { for ($x = 22; $x -le 26; $x++) { $ground[(Idx $x $y)] = 4 } }
+# 바위
+foreach ($r in @(@(4,4), @(13,15), @(20,2), @(26,9), @(5,16))) { $objects[(Idx $r[0] $r[1])] = 8 }
+# 횃불 자리 (빛도 같은 자리에 둬요)
+$torches = @(@(3,2), @(6,9), @(12,3), @(14,11), @(21,7), @(27,11), @(19,17), @(3,17))
+foreach ($t in $torches) { $objects[(Idx $t[0] $t[1])] = 11 }
+
+# 빛 목록: 횃불 불꽃은 칸의 위쪽(y + 0.2)에 있어요.
+$lightLines = foreach ($t in $torches) {
+    '      { "x": ' + $t[0] + '.5, "y": ' + $t[1] + '.2, "radius": 110, "color": "#ffb060", "intensity": 1, "flicker": 0.35, "fx": "fx/torch_embers.json" }'
+}
+$lightLines += '      { "x": 24.5, "y": 14.5, "radius": 140, "color": "#5878ff", "intensity": 0.9, "pulse": { "frequency": 0.4, "depth": 0.5 } }'
+
+$layers = @(
+    (Format-Layer 'ground' 'ground' $ground),
+    (Format-Layer 'objects' 'low_objects' $objects)
+) -join ",`n"
+
+$json = @"
+{
+  "schema_version": 1,
+  "map_id": "test_cave",
+  "display_name": "Test Cave",
+  "tileset": "tilesets/test_tiles.json",
+  "tile_size": 32,
+  "width": $W,
+  "height": $H,
+  "spawn_points": [
+    { "id": "default", "x": 4, "y": 10 },
+    { "id": "entrance", "x": 2, "y": 10 }
+  ],
+  "exits": [
+    { "area": { "x": 0, "y": 10, "w": 1, "h": 1 }, "to_map": "maps/test_meadow.json", "to_spawn": "from_cave" }
+  ],
+  "ambience": {
+    "ambient_light": "#1c1a30",
+    "player_light": { "radius": 80, "color": "#ffe2b8", "intensity": 0.55 },
+    "lights": [
+$($lightLines -join ",`n")
+    ]
+  },
+  "layers": [
+$layers
+  ]
+}
+"@
+
+$mapPath = Join-Path $content 'maps\test_cave.json'
 [System.IO.File]::WriteAllText($mapPath, ($json -replace "`r`n", "`n") + "`n", (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "wrote $mapPath"

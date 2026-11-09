@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -22,6 +23,10 @@ struct ContentError {
 
 // 오류 하나를 "파일: 칸 주소: 이유" 모양의 한 줄 글로 바꿔요.
 [[nodiscard]] std::string to_string(const ContentError& error);
+
+// 불러오기에 실패했을 때 무엇이 왜 틀렸는지 한 줄씩 기록(로그)에 남겨요.
+// what: 무엇을 읽다가 실패했는지 (예: "map", "particle effect fx/petals.json")
+void log_content_errors(std::string_view what, const std::vector<ContentError>& errors);
 
 // 오류를 적는 공책.
 // 같은 실수가 수천 번 나와도 공책이 넘치지 않게 20개까지만 적어요.

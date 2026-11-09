@@ -15,6 +15,8 @@
     { "id": 7, "name": "tree_canopy", "walkable": true },
     { "id": 8, "name": "rock", "walkable": false },
     { "id": 9, "name": "flowers", "walkable": true },
-    { "id": 10, "name": "sand", "walkable": true }
+    { "id": 10, "name": "sand", "walkable": true },
+    { "id": 11, "name": "torch", "walkable": false },
+    { "id": 12, "name": "cave_entrance", "walkable": true }
   ]
 }
