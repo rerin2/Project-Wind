@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Phase 3 — rendering foundation
+- The frame is drawn into a 640×360 frame target, then scaled to the window. Verified pixel-identical
+  to direct drawing outside the F3 panel.
+- `SpriteDraw::tint` (colour multiply + opacity, replaces `alpha`) and `SpriteDraw::blend` (`Normal`, `Add`, `Multiply`).
+- Tween library: `Ease` curves (`linear`, quad, cubic, `out_back`, `out_elastic`) and `Tween`.
+- Screenshots: F12 or `--screenshot-at N` (repeatable), `--screenshot-dir`; default `%APPDATA%\ProjectWIND\screenshots`;
+  640×360 BMP; white flash and label afterwards.
+- `SdlPlatform::user_data_dir()`.
+- `docs/VISUALS.md`: 32-colour palette draft, blend modes, screenshot feedback.
+- 105 CTest tests.
+
 ### Spec 2.1 — finer phase plan
 - Spec section 19 now has 21 phases (0–20) with a summary table; phases 0–2 stay complete.
 - Spec section 22 replaced by one common prompt plus per-phase cautions.

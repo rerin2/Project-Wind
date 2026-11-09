@@ -10,6 +10,7 @@
 #include "engine/render/render_types.hpp"
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -30,7 +31,8 @@ public:
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
 
-    // 게임 화면 크기(논리 해상도)를 정해요. 창이 더 크면 정수 배로 키우고 남는 곳은 검게 둬요.
+    // 게임 화면 크기(논리 해상도)를 정하고, 그 크기의 작은 도화지(렌더 타깃)를 만들어요.
+    // 매 화면은 작은 도화지에 먼저 그리고, 끝나면 창에 정수 배로 키워 붙여요. 남는 곳은 검게 둬요.
     bool set_logical_size(std::int32_t width, std::int32_t height);
     [[nodiscard]] Vec2 logical_size() const { return logical_size_; }
 
@@ -68,18 +70,26 @@ public:
     // 바로 전 화면을 그릴 때의 통계 (디버그 화면용)
     [[nodiscard]] const RenderStats& last_frame_stats() const { return last_stats_; }
 
+    // 스크린샷 예약: 이번 화면을 다 그리면(end_frame) path에 BMP 그림으로 저장해요.
+    // 저장 결과는 기록(로그)에 남겨요. 실패해도 게임은 계속돼요.
+    void request_screenshot(std::filesystem::path path);
+
 private:
     // 새 스티커 종이에 번호표를 붙여 보관함에 넣어요.
     TextureHandle register_texture(SDL_Texture* texture);
     // 붓의 색을 바꿔요.
     void set_draw_color(Color color);
+    // 예약된 스크린샷이 있으면 지금 그려진 화면을 저장해요.
+    void save_pending_screenshot();
 
     SDL_Renderer* renderer_;  // 빌려 쓰는 SDL 붓
+    SDL_Texture* frame_target_ = nullptr;  // 게임 화면을 먼저 그리는 640x360 작은 도화지
     std::unordered_map<std::uint32_t, SDL_Texture*> textures_;  // 번호표 -> 스티커 종이 보관함
     std::uint32_t next_texture_id_ = 1;  // 다음에 줄 번호표 (0은 "없음"이라 1부터)
     Vec2 logical_size_;
     RenderStats stats_;       // 지금 그리고 있는 화면의 통계
     RenderStats last_stats_;  // 바로 전 화면의 통계
+    std::optional<std::filesystem::path> pending_screenshot_;  // 저장 예약된 스크린샷 위치
 };
 
 }  // namespace wind::engine

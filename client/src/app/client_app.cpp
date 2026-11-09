@@ -6,6 +6,8 @@
 #include "app/client_app.hpp"
 
 #include "app/debug_overlay.hpp"
+#include "app/screenshot_flash.hpp"
+#include "app/screenshot_name.hpp"
 #include "engine/core/frame_clock.hpp"
 #include "engine/input/input_state.hpp"
 #include "engine/platform/sdl_platform.hpp"
@@ -17,7 +19,10 @@
 #include "wind/log.hpp"
 #include "wind/version.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <filesystem>
+#include <optional>
 #include <string>
 
 namespace wind::client {
@@ -41,6 +46,19 @@ constexpr std::int32_t kLogicalHeight = 360;
 constexpr std::string_view kPlayerSheet = "sprites/test_hero.json";
 // 화면을 지울 때 칠하는 바탕색 (아주 어두운 남색)
 constexpr engine::Color kClearColor{12, 16, 24, 255};
+
+// 스크린샷 폴더 정하기: --screenshot-dir가 있으면 그곳, 없으면 사용자 자료 폴더 안의 screenshots.
+// 둘 다 없으면(자료 폴더를 못 찾음) 스크린샷을 찍지 않아요.
+std::optional<std::filesystem::path> resolve_screenshot_dir(const ClientOptions& options) {
+    if (!options.screenshot_dir.empty()) {
+        return options.screenshot_dir;
+    }
+    const auto user_dir = engine::SdlPlatform::user_data_dir();
+    if (user_dir.empty()) {
+        return std::nullopt;
+    }
+    return user_dir / "screenshots";
+}
 
 }  // namespace
 
@@ -80,6 +98,8 @@ int ClientApp::run() {
     engine::FixedStepClock clock(kFixedStepSeconds, kMaxFrameSeconds, kMaxStepsPerFrame);  // 박자 시계
     engine::RenderQueue queue;                               // 그릴 것 목록
     DebugOverlay overlay;                                    // F3 정보판
+    const auto screenshot_dir = resolve_screenshot_dir(options_);  // 스크린샷 저장 폴더
+    ScreenshotFlash screenshot_flash;                        // 찍은 뒤 "찰칵" 효과
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.
@@ -127,7 +147,22 @@ int ClientApp::run() {
         // 8. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
         overlay.record_frame(frame_seconds);
         overlay.draw(renderer, field->debug_info(), resources.stats(), clock.dropped_frames());
+        // 지난번 "찰칵" 효과가 아직 남아 있으면 맨 위에 그려요.
+        screenshot_flash.update(static_cast<float>(frame_seconds));
+        screenshot_flash.draw(renderer);
+        // F12를 눌렀거나 --screenshot-at 장 번호가 되면, 이번 화면을 그림 파일로 저장해요.
+        const bool timed_shot = std::ranges::find(options_.screenshot_at, frames_rendered_ + 1) !=
+                                options_.screenshot_at.end();
+        const bool shot = bindings.pressed(game::Action::Screenshot, input) || timed_shot;
+        if (shot && screenshot_dir) {
+            renderer.request_screenshot(*screenshot_dir / screenshot_file_name(local_now()));
+        } else if (shot) {
+            log::warn("Screenshot skipped: no screenshot folder is available");
+        }
         renderer.end_frame();  // 다 그린 그림을 화면에 "짠" 하고 보여 줘요
+        if (shot && screenshot_dir) {
+            screenshot_flash.trigger();  // 사진은 이미 찍혔으니, 다음 화면부터 번쩍여요
+        }
         ++frames_rendered_;
     }
 

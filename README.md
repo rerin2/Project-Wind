@@ -6,9 +6,9 @@ All game content and branding are original. See [docs/MASTER_SPEC.md](docs/MASTE
 
 ## Status
 
-**Phase 2 — free movement.** The client shows a test map where the hero walks in 8 directions with acceleration, slides along walls, and dodge-rolls with afterimages and dust. The camera looks slightly ahead. Engine design: [docs/ENGINE.md](docs/ENGINE.md). Movement rules: [docs/GAMEPLAY.md](docs/GAMEPLAY.md). Effect values: [docs/VISUALS.md](docs/VISUALS.md).
+**Phase 3 — rendering foundation.** The game draws into a 640×360 frame target, supports blend modes, tweens and F12 screenshots. From phase 2: the client shows a test map where the hero walks in 8 directions with acceleration, slides along walls, and dodge-rolls with afterimages and dust. The camera looks slightly ahead. Engine design: [docs/ENGINE.md](docs/ENGINE.md). Movement rules: [docs/GAMEPLAY.md](docs/GAMEPLAY.md). Effect values: [docs/VISUALS.md](docs/VISUALS.md).
 
-Controls: arrow keys / WASD move, **Space** (or K / X) dodge, **F3** debug overlay, **F4** collision overlay, **Esc** quit.
+Controls: arrow keys / WASD move, **Space** (or K / X) dodge, **F3** debug overlay, **F4** collision overlay, **F12** screenshot, **Esc** quit.
 
 ## Quick start (Windows)
 

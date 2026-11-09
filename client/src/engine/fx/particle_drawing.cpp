@@ -30,7 +30,7 @@ std::uint32_t queue_particles(const ParticlePool& pool, const Camera2D& camera,
         // 도트 느낌을 살리려고 위치와 크기를 정수 픽셀로 맞춰요.
         const float pixel_size = std::max(1.0f, std::round(size));
         sprite.dest = {std::round(screen.x), std::round(screen.y), pixel_size, pixel_size};
-        sprite.alpha = static_cast<std::uint8_t>(static_cast<float>(p.start_alpha) * (1.0f - t));
+        sprite.tint.a = static_cast<std::uint8_t>(static_cast<float>(p.start_alpha) * (1.0f - t));
         queue.push_sprite(layer, p.position.y, sprite);
         ++queued;
     }

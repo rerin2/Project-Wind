@@ -50,7 +50,7 @@ Executables are written to `build\<preset>\bin\`.
 .\scripts\run_tests.ps1             # = ctest --preset windows-debug
 ```
 
-The run on 2026-11-09 passed 94/94 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
+The run on 2026-11-09 passed 105/105 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
 
 ## 4. Run
 
@@ -61,7 +61,13 @@ The run on 2026-11-09 passed 94/94 tests: GoogleTest cases for the shared and cl
 
 Pass `-Preset windows-release` to run the Release build. The client lists its options with `--help`.
 
-Controls: arrow keys / WASD move, Space (or K / X) dodge, F3 debug overlay, F4 collision overlay, Esc quit.
+Controls: arrow keys / WASD move, Space (or K / X) dodge, F3 debug overlay, F4 collision overlay, F12 screenshot, Esc quit.
+
+Screenshots go to `%APPDATA%\ProjectWIND\screenshots` (640×360 BMP). For automated checks, save frames without pressing keys:
+
+```powershell
+.\scripts\run_client.ps1 --screenshot-at 60 --max-frames 65 --screenshot-dir .\shots
+```
 
 The client reads content from the repository's `content/` folder by default (path baked in at build time). To use another copy or map:
 
@@ -82,6 +88,7 @@ It rewrites `content/tilesets/test_tiles.bmp`, `content/sprites/test_hero.bmp` a
 Smoke-test flags (used for verification, not gameplay):
 
 - `wind_client --max-frames N` closes the window after N frames.
+- `wind_client --screenshot-at N` saves a screenshot after frame N (repeatable); `--screenshot-dir DIR` picks the folder.
 
 ## Troubleshooting
 

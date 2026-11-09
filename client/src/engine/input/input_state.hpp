@@ -31,6 +31,7 @@ enum class Key : std::uint8_t {
     X,
     F3,
     F4,
+    F12,
     Count  // 키가 몇 개인지 세는 용도 (진짜 키가 아니에요)
 };
 

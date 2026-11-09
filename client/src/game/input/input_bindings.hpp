@@ -17,7 +17,7 @@ namespace wind::game {
 // "동작 ↔ 키" 연결표
 class InputBindings {
 public:
-    // 기본 바인딩: 방향키/WASD 이동, Space/K/X 구르기, F3 디버그, F4 충돌 표시, Esc 종료
+    // 기본 바인딩: 방향키/WASD 이동, Space/K/X 구르기, F3 디버그, F4 충돌 표시, F12 스크린샷, Esc 종료
     [[nodiscard]] static InputBindings defaults();
 
     // 동작에 키를 하나 더 연결해요. (한 동작에 키 여러 개 가능)

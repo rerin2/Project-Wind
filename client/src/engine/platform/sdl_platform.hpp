@@ -10,6 +10,7 @@
 #include "engine/render/renderer.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -47,6 +48,10 @@ public:
 
     // 그림 그리는 화가를 빌려줘요.
     [[nodiscard]] Renderer& renderer() { return *renderer_; }
+
+    // 사용자 자료 폴더 (Windows: %APPDATA%\ProjectWIND). 스크린샷·저장·설정을 여기에 둬요.
+    // 알 수 없으면 빈 경로를 돌려주고 이유를 기록해요.
+    [[nodiscard]] static std::filesystem::path user_data_dir();
 
 private:
     SdlPlatform() = default;  // create()로만 만들 수 있어요 (실패 확인을 빼먹지 않도록)

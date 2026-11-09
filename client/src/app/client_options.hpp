@@ -12,6 +12,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace wind::client {
 
@@ -26,6 +27,11 @@ struct ClientOptions {
     std::filesystem::path content_dir = WIND_DEFAULT_CONTENT_DIR;
     // 처음 들어갈 맵 (콘텐츠 폴더 기준 위치)
     std::string map = "maps/test_meadow.json";
+    // 이 장(프레임) 번호들을 그린 뒤 스크린샷을 저장해요. (자동 시험용, 키를 누르지 않아도 돼요)
+    // --screenshot-at을 여러 번 쓰면 여러 장을 찍어요.
+    std::vector<std::uint64_t> screenshot_at;
+    // 스크린샷 저장 폴더. 비어 있으면 %APPDATA%\ProjectWIND\screenshots
+    std::filesystem::path screenshot_dir;
 };
 
 // 주문서를 읽은 결과. 셋 중 하나예요: 성공 / 실패 / 도움말 보여 주기

@@ -60,4 +60,14 @@ TEST(ClientOptions, RejectsInvalidValues) {
     EXPECT_FALSE(parse({"--width"}).options.has_value());
 }
 
+// 스크린샷 시험용 옵션: 몇 번째 장에서 찍을지, 어디에 저장할지
+TEST(ClientOptions, ParsesScreenshotOptions) {
+    const auto result =
+        parse({"--screenshot-at", "60", "--screenshot-at", "66", "--screenshot-dir", "D:/shots"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->screenshot_at, (std::vector<std::uint64_t>{60, 66}));
+    EXPECT_EQ(result.options->screenshot_dir, std::filesystem::path("D:/shots"));
+    EXPECT_FALSE(parse({"--screenshot-at", "0"}).options.has_value());
+}
+
 }  // namespace

@@ -6,8 +6,10 @@
 # engine/resources 안에서만 써요. 나머지 엔진·게임 코드는 SDL 없이도 테스트할 수 있어요.
 # (창을 띄우지 않고 숙제 검사를 할 수 있다는 뜻이에요.)
 
-# 묶음 1: 실행 설정 읽기 (SDL 없음). 기본 자료 폴더는 저장소의 content/ 폴더예요.
-add_library(wind_client_options STATIC src/app/client_options.cpp)
+# 묶음 1: 실행 설정 읽기, 스크린샷 파일 이름 만들기 (SDL 없음). 기본 자료 폴더는 저장소의 content/ 폴더예요.
+add_library(wind_client_options STATIC
+    src/app/client_options.cpp
+    src/app/screenshot_name.cpp)
 target_include_directories(wind_client_options PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(wind_client_options PUBLIC wind::shared)
 # 코드 안의 WIND_DEFAULT_CONTENT_DIR 자리에 content 폴더의 실제 위치를 채워 넣어요.
@@ -29,7 +31,9 @@ add_library(wind_engine_core STATIC
     src/engine/animation/sprite_sheet_loader.cpp
     src/engine/render/render_queue.cpp
     src/engine/fx/particle_pool.cpp
-    src/engine/fx/particle_drawing.cpp)
+    src/engine/fx/particle_drawing.cpp
+    src/engine/tween/easing.cpp
+    src/engine/tween/tween.cpp)
 target_include_directories(wind_engine_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(wind_engine_core PUBLIC wind::shared)
 wind_set_warnings(wind_engine_core)
@@ -56,6 +60,7 @@ add_executable(wind_client
     src/main.cpp
     src/app/client_app.cpp
     src/app/debug_overlay.cpp
+    src/app/screenshot_flash.cpp
     src/engine/platform/sdl_platform.cpp
     src/engine/render/renderer.cpp
     src/engine/resources/resource_manager.cpp
@@ -84,7 +89,10 @@ if(WIND_BUILD_TESTS)
         tests/mover_tests.cpp
         tests/particle_pool_tests.cpp
         tests/look_ahead_tests.cpp
-        tests/dust_emitter_tests.cpp)
+        tests/dust_emitter_tests.cpp
+        tests/easing_tests.cpp
+        tests/tween_tests.cpp
+        tests/screenshot_name_tests.cpp)
     target_link_libraries(wind_client_tests PRIVATE wind_client_options wind_game_core GTest::gtest_main)
     # 테스트가 저장소의 진짜 자료(content 폴더)를 찾을 수 있게 위치를 알려 줘요.
     target_compile_definitions(wind_client_tests PRIVATE

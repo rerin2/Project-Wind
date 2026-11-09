@@ -75,6 +75,17 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
             }
             options.map = std::move(*normalized);
         } 
+        else if (arg == "--screenshot-at") {
+            const auto parsed =
+                cli::parse_uint(value, 1, std::numeric_limits<std::uint64_t>::max());
+            if (!parsed) {
+                return fail("--screenshot-at must be a positive integer");
+            }
+            options.screenshot_at.push_back(*parsed);
+        }
+        else if (arg == "--screenshot-dir") {
+            options.screenshot_dir = std::filesystem::path(value);
+        }
         else if (arg == "--log-level") {
             const auto parsed = log::parse_level(value);
             if (!parsed) {
@@ -101,6 +112,9 @@ std::string_view client_usage() {
            "  --map <path>         map to enter, relative to the content root\n"
            "                       (default maps/test_meadow.json)\n"
            "  --log-level <level>  trace|debug|info|warn|error|critical|off (default info)\n"
+           "  --screenshot-at <n>  save a screenshot after frame n; may repeat (for checks)\n"
+           "  --screenshot-dir <dir>\n"
+           "                       screenshot folder (default %APPDATA%\\ProjectWIND\\screenshots)\n"
            "  --help               show this message\n";
 }
 

@@ -12,6 +12,8 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <system_error>
+#include <utility>
 
 namespace wind::engine {
 namespace {
@@ -24,6 +26,17 @@ SDL_FlipMode to_sdl(Flip flip) {
         case Flip::None: break;
     }
     return SDL_FLIP_NONE;
+}
+
+// 우리 엔진의 "섞기 방법"을 SDL이 알아듣는 값으로 바꿔요.
+// Multiply는 MUL을 써요: 투명한 부분은 아래 그림을 그대로 두고, 진한 부분만 곱해서 어둡게 해요.
+SDL_BlendMode to_sdl(BlendMode blend) {
+    switch (blend) {
+        case BlendMode::Add: return SDL_BLENDMODE_ADD;
+        case BlendMode::Multiply: return SDL_BLENDMODE_MUL;
+        case BlendMode::Normal: break;
+    }
+    return SDL_BLENDMODE_BLEND;
 }
 
 }  // namespace
@@ -43,30 +56,91 @@ Renderer::~Renderer() {
     for (const auto& [id, texture] : textures_) {
         SDL_DestroyTexture(texture);
     }
+    if (frame_target_ != nullptr) {
+        SDL_DestroyTexture(frame_target_);
+    }
 }
 
 bool Renderer::set_logical_size(std::int32_t width, std::int32_t height) {
     // INTEGER_SCALE: 1배, 2배, 3배처럼 정수 배로만 키워요. 1.5배처럼 키우면 픽셀 크기가 들쭉날쭉해져요.
+    // 이 설정은 마지막에 "작은 도화지"를 창에 붙일 때만 쓰여요.
     if (!SDL_SetRenderLogicalPresentation(renderer_, width, height,
                                           SDL_LOGICAL_PRESENTATION_INTEGER_SCALE)) {
         log::error("SDL_SetRenderLogicalPresentation failed: {}", SDL_GetError());
         return false;
     }
+    // 작은 도화지(렌더 타깃) = 640x360 크기의 그림 종이. 게임 화면은 모두 여기에 먼저 그려요.
+    // 나중에 조명·화면 효과를 이 종이 위에 덧칠한 다음, 통째로 창에 크게 붙일 거예요. (명세 5.2)
+    if (frame_target_ != nullptr) {
+        SDL_DestroyTexture(frame_target_);
+    }
+    frame_target_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
+                                      SDL_TEXTUREACCESS_TARGET, width, height);
+    if (frame_target_ == nullptr) {
+        log::error("Cannot create the {}x{} frame target: {}", width, height, SDL_GetError());
+        return false;
+    }
+    SDL_SetTextureScaleMode(frame_target_, SDL_SCALEMODE_NEAREST);  // 키울 때 또렷하게
+    SDL_SetTextureBlendMode(frame_target_, SDL_BLENDMODE_NONE);     // 창에 붙일 때 그대로 덮어쓰기
     logical_size_ = {static_cast<float>(width), static_cast<float>(height)};
     return true;
 }
 
 void Renderer::begin_frame(Color clear_color) {
     stats_ = {};  // 이번 화면 통계를 0부터 다시 세요
+    // 이번 화면은 창이 아니라 작은 도화지에 그려요.
+    if (!SDL_SetRenderTarget(renderer_, frame_target_)) {
+        log::error("Cannot draw into the frame target: {}", SDL_GetError());
+    }
     set_draw_color(clear_color);
     SDL_RenderClear(renderer_);  // 도화지 전체를 한 색으로 칠하기
 }
 
 void Renderer::end_frame() {
+    // 화면에 보여 주기 전에 스크린샷부터 찍어요. 작은 도화지 그대로(640x360) 저장돼요.
+    save_pending_screenshot();
+    // 작은 도화지를 창에 정수 배로 크게 붙여요. 남는 곳은 검은 띠로 채워요.
+    SDL_SetRenderTarget(renderer_, nullptr);
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+    SDL_RenderClear(renderer_);
+    SDL_RenderTexture(renderer_, frame_target_, nullptr, nullptr);
     // 지금까지 보이지 않는 뒷면 도화지에 그렸어요. 이제 앞면으로 휙 뒤집어 보여 줘요.
     // (그리는 중간 모습이 보이면 깜빡거려서 이렇게 해요)
     SDL_RenderPresent(renderer_);
     last_stats_ = stats_;
+}
+
+void Renderer::request_screenshot(std::filesystem::path path) {
+    pending_screenshot_ = std::move(path);
+}
+
+void Renderer::save_pending_screenshot() {
+    if (!pending_screenshot_) {
+        return;
+    }
+    const std::filesystem::path path = std::move(*pending_screenshot_);
+    pending_screenshot_.reset();
+
+    // 저장할 폴더가 없으면 만들어요.
+    std::error_code ec;
+    std::filesystem::create_directories(path.parent_path(), ec);
+    if (ec) {
+        log::error("Cannot create screenshot folder {}: {}", path.parent_path().string(), ec.message());
+        return;
+    }
+    // 지금 도화지의 픽셀을 그래픽 카드에서 읽어 와요.
+    SDL_Surface* surface = SDL_RenderReadPixels(renderer_, nullptr);
+    if (surface == nullptr) {
+        log::error("Cannot read pixels for screenshot: {}", SDL_GetError());
+        return;
+    }
+    const auto utf8 = path.u8string();
+    if (SDL_SaveBMP(surface, reinterpret_cast<const char*>(utf8.c_str()))) {
+        log::info("Saved screenshot {} ({}x{})", path.string(), surface->w, surface->h);
+    } else {
+        log::error("Cannot save screenshot {}: {}", path.string(), SDL_GetError());
+    }
+    SDL_DestroySurface(surface);
 }
 
 // 순서표에 적힌 대로 하나씩 그려요.
@@ -98,7 +172,10 @@ void Renderer::draw_sprite(const SpriteDraw& sprite) {
     const SDL_FRect src{static_cast<float>(sprite.source.x), static_cast<float>(sprite.source.y),
                         static_cast<float>(sprite.source.w), static_cast<float>(sprite.source.h)};
     const SDL_FRect dst{sprite.dest.x, sprite.dest.y, sprite.dest.w, sprite.dest.h};
-    SDL_SetTextureAlphaMod(it->second, sprite.alpha);  // 투명도 정하기
+    // 색 곱하기, 투명도, 섞기 방법을 정해요. (스티커 종이마다 기억되므로 매번 다시 정해요)
+    SDL_SetTextureColorMod(it->second, sprite.tint.r, sprite.tint.g, sprite.tint.b);
+    SDL_SetTextureAlphaMod(it->second, sprite.tint.a);
+    SDL_SetTextureBlendMode(it->second, to_sdl(sprite.blend));
     // 스티커 종이의 src 부분을 오려서, 화면의 dst 자리에 (회전·뒤집기 포함) 붙여요.
     // source 크기가 0이면 "그림 전체"를 써요 (부드러운 동그라미처럼 통째로 쓰는 그림).
     const bool whole_texture = sprite.source.w <= 0 || sprite.source.h <= 0;

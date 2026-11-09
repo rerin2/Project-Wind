@@ -31,6 +31,12 @@ struct TextureHandle {
 // 그림 뒤집기: 안 뒤집음 / 좌우로 뒤집음 / 위아래로 뒤집음
 enum class Flip : std::uint8_t { None, Horizontal, Vertical };
 
+// 섞기 방법: 새 그림을 이미 그려진 그림 위에 어떻게 얹을지 (명세 5.2)
+// - Normal  : 보통 스티커처럼 덮어요 (투명한 부분은 비쳐 보임)
+// - Add     : 색을 더해서 밝게 만들어요. 빛, 불꽃, 반짝임에 써요. 검은색은 아무 변화가 없어요.
+// - Multiply: 색을 곱해서 어둡게 만들어요. 그림자, 밤의 어둠에 써요. 흰색은 아무 변화가 없어요.
+enum class BlendMode : std::uint8_t { Normal, Add, Multiply };
+
 // 스프라이트(화면에 붙이는 작은 그림 조각) 하나를 그리는 데 필요한 정보
 struct SpriteDraw {
     TextureHandle texture;  // 어느 스티커 종이에서
@@ -38,7 +44,10 @@ struct SpriteDraw {
     RectF dest;             // 화면의 어디에, 얼마나 크게 붙일지
     Flip flip = Flip::None;
     float rotation_degrees = 0.0f;  // 붙일 곳 한가운데를 중심으로 시계 방향 회전 각도
-    std::uint8_t alpha = 255;       // 투명도
+    // 색 곱하기와 투명도. 흰색(255,255,255)이면 원래 색 그대로, (255,0,0)이면 빨간 기운만 남아요.
+    // a는 투명도예요 (255 = 안 비침, 0 = 안 보임).
+    Color tint{255, 255, 255, 255};
+    BlendMode blend = BlendMode::Normal;
 };
 
 // 그리는 순서 단계 (명세 5.5). 숫자가 작을수록 먼저(아래에) 그려져요.

@@ -30,6 +30,7 @@ Key translate(SDL_Scancode code) {
         case SDL_SCANCODE_X: return Key::X;
         case SDL_SCANCODE_F3: return Key::F3;
         case SDL_SCANCODE_F4: return Key::F4;
+        case SDL_SCANCODE_F12: return Key::F12;
         default: return Key::Unknown;  // 우리 게임이 안 쓰는 키
     }
 }
@@ -123,6 +124,20 @@ bool SdlPlatform::pump_events(InputState& input) {
         }
     }
     return keep_running;
+}
+
+std::filesystem::path SdlPlatform::user_data_dir() {
+    // SDL이 운영체제에 맞는 "내 자료 폴더"를 알려 줘요. 회사 이름(org)을 비우면
+    // Windows에서는 %APPDATA%\ProjectWIND\ 가 돼요.
+    char* raw = SDL_GetPrefPath("", "ProjectWIND");
+    if (raw == nullptr) {
+        log::error("Cannot find the user data folder: {}", SDL_GetError());
+        return {};
+    }
+    // SDL은 UTF-8 글자를 줘요. 한국어 사용자 이름이 있어도 깨지지 않게 UTF-8로 읽어요.
+    const std::u8string utf8(reinterpret_cast<const char8_t*>(raw));
+    SDL_free(raw);
+    return std::filesystem::path(utf8);
 }
 
 }  // namespace wind::engine

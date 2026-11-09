@@ -45,4 +45,12 @@ TEST(InputBindings, DefaultsMapDodgeKeys) {
     }
 }
 
+// 기본 버튼표에서 F12는 "스크린샷"이에요.
+TEST(InputBindings, DefaultsMapScreenshotKey) {
+    const auto bindings = InputBindings::defaults();
+    InputState input;
+    input.set_key(Key::F12, true);
+    EXPECT_TRUE(bindings.pressed(Action::Screenshot, input));
+}
+
 }  // namespace

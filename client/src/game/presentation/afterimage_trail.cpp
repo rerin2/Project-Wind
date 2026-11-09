@@ -46,7 +46,7 @@ void AfterimageTrail::queue(const engine::Camera2D& camera, engine::TextureHandl
                        std::round(screen.y - static_cast<float>(origin.y)),
                        static_cast<float>(frame_size.x), static_cast<float>(frame_size.y)};
         const float fade = 1.0f - std::clamp(s.age / kFadeSeconds, 0.0f, 1.0f);
-        sprite.alpha = static_cast<std::uint8_t>(kStartAlpha * fade);
+        sprite.tint.a = static_cast<std::uint8_t>(kStartAlpha * fade);
         // 진짜 캐릭터보다 아주 살짝 위(뒤)에 줄을 세워서, 캐릭터가 잔상 앞에 보이게 해요.
         queue.push_sprite(engine::DrawLayer::YSorted, s.feet.y - 0.01f, sprite);
     }

@@ -1,6 +1,6 @@
 # Engine Design (client)
 
-Status: phase 2 (free movement, dodge, first effects). Spec reference: master spec section 5.
+Status: phase 3 (rendering foundation: frame target, blend modes, tweens, screenshots). Spec reference: master spec section 5.
 
 The client engine is our own code on top of SDL3. SDL3 is used only for the window, OS events, the GPU-backed 2D renderer, and BMP decoding. Everything else (loop, map, camera, animation, input model, particles, resources, debug view) lives in this repository.
 
@@ -14,8 +14,9 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/engine/input` | `wind_engine_core` | no | `InputState`: held/pressed/released, UI capture flag |
 | `client/src/engine/animation` | `wind_engine_core` | no | `AnimationClip`, `SpriteSheet`, `Animator` (one file each), sprite sheet JSON loader |
 | `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticlePool` (fixed capacity, drag, gravity, drop counter), `queue_particles` |
+| `client/src/engine/tween` | `wind_engine_core` | no | `Ease` + `ease()` (easing curves), `Tween` (one float from → to over time) |
 | `client/src/engine/render` (`render_queue`, `render_types`) | `wind_engine_core` | no | draw commands and their sort order |
-| `client/src/engine/render/renderer.*` | `wind_client` | **yes** | `Renderer`: draws sprites/rects/debug text, owns textures, makes soft-ellipse textures (shadow, dust) |
+| `client/src/engine/render/renderer.*` | `wind_client` | **yes** | `Renderer`: draws into the 640×360 frame target, blend modes and tint, rects/debug text, owns textures, soft-ellipse textures, screenshots |
 | `client/src/engine/resources` | `wind_client` | **yes** (via `Renderer`) | `ResourceManager`: safe paths, cache, fallback texture, stats |
 | `client/src/engine/platform` | `wind_client` | **yes** | `SdlPlatform`: SDL init, window, event → `InputState` |
 | `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
@@ -36,9 +37,9 @@ Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.
 3. `FieldState::handle_input`: movement intent, dodge press into the input buffer, F4 toggle
 4. Fixed-step simulation (`FieldState::fixed_update`): `FixedStepClock` at **60 Hz**; a frame counts at most **0.25 s** and runs at most **5** steps, extra time is dropped (no catch-up spiral)
 5. Per-frame presentation (`FieldState::frame_update(dt, alpha)`): animation, dust, afterimages, look-ahead, camera follow. Positions are drawn interpolated between the last two simulation steps using the clock's `alpha`, so movement is smooth at any frame rate.
-6. Render: scene pushes draw commands into a `RenderQueue`, the queue is sorted, `Renderer::submit` draws it
+6. Render: scene pushes draw commands into a `RenderQueue`, the queue is sorted, `Renderer::submit` draws it into the frame target
 7. *(audio — later phase)*
-8. Debug overlay drawn last
+8. Debug overlay, then the screenshot flash, drawn last; `end_frame` saves a requested screenshot, then scales the frame target to the window
 
 The render rate follows VSync (60 FPS measured on the dev machine; not guaranteed).
 
@@ -47,7 +48,8 @@ The render rate follows VSync (60 FPS measured on the dev machine; not guarantee
 - Simulation positions are world pixels (`Vec2`, floats). `TileCoord` (x right, y down, (0,0) top-left) is used for map lookups and collision.
 - `engine/map/coordinates.hpp` is the only tile↔world-pixel conversion; `Camera2D` is the only world↔screen conversion.
 - `world_to_tile` uses `floor`, so negative world pixels map to negative tiles correctly.
-- The game renders at a fixed **logical resolution of 640×360**, scaled by an integer factor to the window (`SDL_LOGICAL_PRESENTATION_INTEGER_SCALE`); extra space is letterboxed.
+- The game renders at a fixed **logical resolution of 640×360** into an off-screen **frame target** (`SDL_TEXTUREACCESS_TARGET`). At the end of the frame the target is copied to the window, scaled by an integer factor (`SDL_LOGICAL_PRESENTATION_INTEGER_SCALE`); extra space is letterboxed black. Later phases draw lighting and screen effects onto the target before it is shown.
+- Phase 3 check: a frame drawn through the target matched the direct-to-window frame pixel for pixel outside the F3 panel (0 differing pixels; only the live FPS digits differed).
 - Textures use nearest-neighbour sampling. The camera's top-left is rounded to whole pixels, and sprite positions are rounded, so pixel art does not shimmer.
 
 ## Draw order (spec 5.5)
@@ -126,7 +128,7 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 ## Input (spec 5.8)
 
 - `SdlPlatform` translates SDL **scancodes** (physical keys, layout-independent) into engine `Key`s; OS key-repeat events are ignored.
-- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Space/K/X dodge, F3 debug overlay, F4 collision overlay, Esc quit.
+- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Space/K/X dodge, F3 debug overlay, F4 collision overlay, F12 screenshot, Esc quit.
 - `MovementIntent` turns held move keys into an 8-way unit vector (diagonals are normalized). When opposite keys are both held, the most recently pressed one wins.
 - `InputBuffer` remembers a dodge press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
 - `InputState::set_ui_capture(true)` makes all game queries return false (for menus and text input, phases 15 and 17).
@@ -147,9 +149,21 @@ Values are listed in [VISUALS.md](VISUALS.md).
 
 Effects read simulation state and events only; they never move the character.
 
+## Blend modes and tint (spec 5.2)
+
+`SpriteDraw` has `tint` (colour multiply + opacity in `a`) and `blend` (`Normal`, `Add`, `Multiply`). The renderer sets colour mod, alpha mod and blend mode on the texture for every draw. Uses and values: [VISUALS.md](VISUALS.md#blend-modes).
+
+## Tweens (spec 5.6)
+
+`Tween(from, to, seconds, ease)` changes one float over time; `update(dt)` clamps at the end and ignores negative time; a zero-length tween is finished immediately. `ease()` clamps `t` to 0–1, returns 0 at the start and 1 at the end for every curve (`out_back` and `out_elastic` overshoot in between). `parse_ease` maps data names such as `"out_back"`.
+
+## Screenshots
+
+F12, or `--screenshot-at N` (repeatable) for automated checks, saves the frame target as a 640×360 BMP named `wind_YYYYMMDD_HHMMSS_mmm.bmp` (local time). The folder is `--screenshot-dir`, or `%APPDATA%\ProjectWIND\screenshots` (`SdlPlatform::user_data_dir`, via `SDL_GetPrefPath`). Pixels are read in `end_frame` before presenting. A white flash and a "screenshot saved" label follow on the next frames.
+
 ## Debug overlay (spec 5.10)
 
-F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/dodging), facing, speed, draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures. F4 toggles the red collision overlay and the cyan feet box.
+F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/dodging), facing, speed, draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures. F4 toggles the red collision overlay and the cyan feet box. The panel is visible when the game starts.
 
 ## Known limitations
 
