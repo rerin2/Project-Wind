@@ -42,7 +42,12 @@ add_library(wind_engine_core STATIC
     src/engine/light/light_animation.cpp
     src/engine/light/light_drawing.cpp
     src/engine/tween/easing.cpp
-    src/engine/tween/tween.cpp)
+    src/engine/tween/tween.cpp
+    src/engine/text/utf8.cpp
+    src/engine/text/text_layout.cpp
+    src/engine/ui/nine_slice.cpp
+    src/engine/ui/focus_list.cpp
+    src/engine/ui/ui_theme_loader.cpp)
 target_include_directories(wind_engine_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(wind_engine_core PUBLIC wind::shared)
 wind_set_warnings(wind_engine_core)
@@ -61,8 +66,11 @@ add_library(wind_game_core STATIC
     src/game/physics/tile_collision.cpp
     src/game/entities/facing.cpp
     src/game/entities/mover.cpp
+    src/game/entities/stamina.cpp
+    src/game/entities/player_motion.cpp
     src/game/presentation/dust_emitter.cpp
     src/game/presentation/afterimage_trail.cpp
+    src/game/presentation/player_sprite.cpp
     src/game/presentation/ambient_particles.cpp
     src/game/presentation/field_lighting.cpp
     src/game/presentation/field_effects.cpp
@@ -71,6 +79,8 @@ add_library(wind_game_core STATIC
     src/game/presentation/field_atmosphere.cpp
     src/game/world/game_clock.cpp
     src/game/world/map_travel.cpp
+    src/game/ui/area_banner.cpp
+    src/game/ui/delayed_bar.cpp
     src/game/states/field_assets.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
@@ -82,12 +92,18 @@ add_executable(wind_client
     src/app/debug_overlay.cpp
     src/app/screenshot_flash.cpp
     src/app/scripted_input.cpp
+    src/app/field_ui.cpp
+    src/app/ui_test_panel.cpp
+    src/app/ui_resources.cpp
+    src/app/transition_view.cpp
+    src/engine/ui/ui_painter.cpp
     src/engine/platform/sdl_platform.cpp
     src/engine/render/renderer.cpp
     src/engine/render/surface_painter.cpp
+    src/engine/render/text_renderer.cpp
     src/engine/resources/resource_manager.cpp
     src/game/states/field_state.cpp)
-target_link_libraries(wind_client PRIVATE wind_client_options wind_game_core SDL3::SDL3)
+target_link_libraries(wind_client PRIVATE wind_client_options wind_game_core SDL3_ttf::SDL3_ttf SDL3::SDL3)
 wind_set_warnings(wind_client)
 
 if(WIND_BUILD_TESTS)
@@ -110,11 +126,20 @@ if(WIND_BUILD_TESTS)
         tests/tile_collision_tests.cpp
         tests/facing_tests.cpp
         tests/mover_tests.cpp
+        tests/stamina_tests.cpp
+        tests/player_motion_tests.cpp
         tests/particle_pool_tests.cpp
         tests/look_ahead_tests.cpp
         tests/dust_emitter_tests.cpp
         tests/easing_tests.cpp
         tests/tween_tests.cpp
+        tests/utf8_tests.cpp
+        tests/text_layout_tests.cpp
+        tests/nine_slice_tests.cpp
+        tests/focus_list_tests.cpp
+        tests/ui_theme_loader_tests.cpp
+        tests/area_banner_tests.cpp
+        tests/delayed_bar_tests.cpp
         tests/screenshot_name_tests.cpp
         tests/particle_effect_loader_tests.cpp
         tests/particle_spawn_tests.cpp

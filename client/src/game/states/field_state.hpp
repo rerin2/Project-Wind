@@ -11,8 +11,6 @@
 // 4) render        : 그릴 것들을 그리기 목록에 넣기
 // 연출은 규칙 계산 결과를 "보기만" 해요. 연출 때문에 캐릭터 위치가 바뀌는 일은 없어요.
 
-#include "engine/animation/animator.hpp"
-#include "engine/animation/sprite_sheet.hpp"
 #include "engine/camera/camera2d.hpp"
 #include "engine/camera/look_ahead.hpp"
 #include "engine/fx/particle_drawing.hpp"
@@ -21,11 +19,10 @@
 #include "engine/fx/particle_random.hpp"
 #include "engine/render/render_queue.hpp"
 #include "engine/resources/resource_manager.hpp"
-#include "game/entities/mover.hpp"
+#include "game/entities/player_motion.hpp"
 #include "game/input/input_bindings.hpp"
-#include "game/input/input_buffer.hpp"
 #include "game/input/movement_intent.hpp"
-#include "game/presentation/afterimage_trail.hpp"
+#include "game/presentation/player_sprite.hpp"
 #include "game/presentation/ambient_particles.hpp"
 #include "game/presentation/field_atmosphere.hpp"
 #include "game/presentation/field_effects.hpp"
@@ -67,6 +64,9 @@ struct FieldDebugInfo {
     float night = 0.0f;                                // 밤 정도 0~1
     std::string weather;                               // 날씨 이름 ("none"이면 날씨 표 없음, 바뀌는 중이면 "a -> b")
     float weather_intensity = 0.0f;                    // 날씨 세기 0~1
+    float stamina = 0.0f;                              // 지금 스태미나
+    float stamina_max = 0.0f;                          // 최대 스태미나
+    bool exhausted = false;                            // 지침 상태인가
 };
 
 // 성능 시험용 부하 (실행 옵션 --fx-stress, --light-stress). 평소에는 0이에요.
@@ -120,6 +120,11 @@ public:
         return request;
     }
 
+    // 맵의 보여 줄 이름 (지역 이름 배너용, 예: "시험 초원")
+    [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }
+    // 주인공 스태미나 (HUD 바용)
+    [[nodiscard]] const Stamina& stamina() const { return player_.stamina(); }
+
     // 주인공 몸 가운데가 보이는 화면 위치 (아이리스 전환의 가운데)
     [[nodiscard]] engine::Vec2 focus_on_screen() const;
 
@@ -141,23 +146,18 @@ private:
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
-    void update_animation(double dt_seconds);
-    void queue_player(engine::RenderQueue& queue, engine::Vec2 feet) const;
     void queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) const;
 
     engine::Renderer* renderer_;             // 그림을 만들고 정리할 화가 (빌려 씀)
     content::LoadedMap map_;                 // 맵과 타일셋 정보
-    engine::SpriteSheet sheet_;              // 캐릭터 그림 설명서
+    PlayerSprite sprite_;                    // 캐릭터 그림: 동작 넘기기, 구르기 잔상, 그리기
     engine::TextureHandle tileset_texture_;  // 맵 타일 그림
-    engine::TextureHandle player_texture_;   // 캐릭터 그림
     EffectTextures textures_;                // 그림자·파티클 그림
     FieldEffects effects_;                   // 파티클 효과 요리법들 (아래 먼지·분위기가 빌려 써요)
     engine::Camera2D camera_;                // 사진사: 맵의 어느 부분을 화면에 보여 줄지
     engine::LookAhead look_ahead_;           // 가는 쪽을 조금 더 보여 주기
-    Mover player_;                           // 캐릭터의 다리 (이동 규칙)
+    PlayerMotion player_;                    // 캐릭터의 몸: 다리(이동) + 스태미나 + 구르기 버튼 메모장
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
-    InputBuffer buffer_;                     // 구르기 버튼 메모장
-    engine::Animator animator_;              // 캐릭터 그림 넘기기
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요
     engine::ParticlePool air_fx_;            // 공중 효과 통 (꽃잎, 반딧불): 나뭇잎보다 위
@@ -167,7 +167,6 @@ private:
     FieldAtmosphere atmosphere_;             // 시간 색, 날씨, 안개, 밤 효과
     const engine::LightingFrame* lighting_frame_ = nullptr;  // render()가 만든 조명 준비물
     engine::LightingFrame no_lighting_;      // render() 전에 물어보면 돌려줄 "조명 없음"
-    AfterimageTrail trail_;                  // 구르기 잔상
     std::optional<engine::Vec2> dodge_burst_;  // 이번 박자에 구르기를 시작했으면 그 방향
     double alpha_ = 1.0;                     // 지금 화면이 두 박자 사이 어디쯤인지
     bool show_collision_ = false;            // F4 충돌 표시가 켜져 있나

@@ -6,6 +6,7 @@
 # 사용법 (저장소 맨 위 폴더에서):  powershell -NoProfile -File tools\test_content\generate_test_content.ps1
 # 만들어지는 파일:
 #   content/tilesets/test_tiles.bmp   타일 스티커 판: 32x32 칸, 가로 8개 x 세로 3줄 (1번 = 왼쪽 위)
+#   content/ui/ui_frames.bmp          UI 창·버튼 9조각 테두리 (72x24)
 #   content/sprites/test_hero.bmp     주인공(고양이 귀 은발 소녀) 그림 판: 32x48 칸, 가로 4개(걸음) x 세로 4줄(아래·왼쪽·오른쪽·위)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
 #   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
@@ -208,6 +209,35 @@ $g.FillEllipse((Brush 36 96 48), $o[0] + 3, $o[1] + 2, 24, 22)
 $g.FillEllipse((Brush 56 124 60), $o[0] + 8, $o[1] + 5, 10, 9)
 
 Save-Bmp $bmp (Join-Path $content 'tilesets\test_tiles.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ------------------------------------------------------------- UI 테두리 ----
+# 9조각 창·버튼 테두리 그림 판 (72x24). 위치와 테두리 두께는 content/ui/theme.json에 적어요.
+#   창(0,0,24,24, 테두리 8) / 버튼(24,0,24,16, 테두리 5) / 고른 버튼(48,0,24,16, 테두리 5)
+# 네 모서리는 1픽셀씩 깎아서(분홍 = 투명) 살짝 둥글게 보여요.
+$canvas = New-Canvas 72 24
+$bmp = $canvas[0]; $g = $canvas[1]
+
+# 둥근 네모 테두리 하나: 바깥 검은 선 -> 테두리 색 -> 안쪽 선 -> 바탕
+function Draw-Frame([int]$x, [int]$y, [int]$w, [int]$h, $edge, $inner, $fill, $highlight) {
+    $outline = Brush 16 19 28
+    $g.FillRectangle($outline, $x + 1, $y, $w - 2, $h)
+    $g.FillRectangle($outline, $x, $y + 1, $w, $h - 2)
+    $g.FillRectangle($edge, $x + 1, $y + 1, $w - 2, $h - 2)
+    $g.FillRectangle($inner, $x + 2, $y + 2, $w - 4, $h - 4)
+    $g.FillRectangle($fill, $x + 3, $y + 3, $w - 6, $h - 6)
+    $g.FillRectangle($highlight, $x + 3, $y + 3, $w - 6, 1)   # 위쪽 빛 받는 줄
+}
+# 창: 짙은 남색 바탕에 은색 테두리, 네 모서리에 금색 점
+Draw-Frame 0 0 24 24 (Brush 150 160 184) (Brush 58 66 92) (Brush 28 32 50) (Brush 40 46 68)
+foreach ($c in @(@(3, 3), @(19, 3), @(3, 19), @(19, 19))) {
+    $g.FillRectangle((Brush 232 200 120), $c[0], $c[1], 2, 2)
+}
+# 버튼: 보통은 차분한 남색, 고른 버튼은 밝은 바탕에 금색 테두리
+Draw-Frame 24 0 24 16 (Brush 96 106 132) (Brush 52 58 84) (Brush 44 50 74) (Brush 70 78 108)
+Draw-Frame 48 0 24 16 (Brush 232 200 120) (Brush 120 100 64) (Brush 64 72 106) (Brush 96 104 140)
+
+Save-Bmp $bmp (Join-Path $content 'ui\ui_frames.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # ----------------------------------------------------- 캐릭터 스프라이트 ----
@@ -489,7 +519,7 @@ $json = @"
 {
   "schema_version": 1,
   "map_id": "test_meadow",
-  "display_name": "Test Meadow",
+  "display_name": "시험 초원",
   "tileset": "tilesets/test_tiles.json",
   "tile_size": 32,
   "width": $W,
@@ -572,7 +602,7 @@ $json = @"
 {
   "schema_version": 1,
   "map_id": "test_cave",
-  "display_name": "Test Cave",
+  "display_name": "시험 동굴",
   "tileset": "tilesets/test_tiles.json",
   "tile_size": 32,
   "width": $W,
@@ -675,7 +705,7 @@ $json = @"
 {
   "schema_version": 1,
   "map_id": "test_forest",
-  "display_name": "Test Forest",
+  "display_name": "시험 숲",
   "tileset": "tilesets/test_tiles.json",
   "tile_size": 32,
   "width": $W,

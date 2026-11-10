@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Phase 8 — text, UI and stamina
+- SDL3_ttf `release-3.2.2` (static, vendored FreeType 2.13.2 only) and the Galmuri11 Korean pixel font
+  (v2.40.4, OFL 1.1, regular + bold) at 12 px with mono hinting. Licences and the FreeType credit line in DEPENDENCIES.md.
+- `TextRenderer` (SDL_ttf, cached text), SDL-free `utf8` helpers and `layout_text`: wrap at spaces, break long words
+  by glyph, align, clip with `...`; clipped UI text is counted on F3 and logged once.
+- UI: theme file `content/ui/theme.json` with loader, generated 9-slice frames (`content/ui/ui_frames.bmp`),
+  `nine_slice`, `FocusList`, `UiPainter`; F7 UI test panel (buttons with focus, blocks game input, Esc closes it).
+- Area name banner on map entry; maps now have Korean display names (시험 초원 / 시험 동굴 / 시험 숲).
+  The "cannot enter" travel notice is now Korean.
+- Stamina (spec 7.2.1): `Stamina`, `PlayerMotion`; Shift run at 165 px/s (25/s), dodge costs 25, 0.6 s regen delay,
+  30/s regen, exhaustion until 25. HUD stamina bar with delayed trail, auto-dim when full, red blink when exhausted.
+- `PlayerSprite` split out of `field_state.cpp` (364 → 316 lines); `ui_resources` and `transition_view` split out of
+  `client_app.cpp`. F3 panel now starts hidden (HUD is in that corner) and shows stamina and UI text stats;
+  its help is two lines so it fits 640 px. Key names table completed.
+- Test option `--hold key@from-to`; `--press` accepts f7, shift, enter, esc.
+- 240 CTest tests.
+
 ### Phase 7 — living world and region travel
 - Tileset `animation` (frames + seconds per frame) and `sway` (pixels + period). Water shimmers (4 → 14 → 15 → 14),
   flowers lean (9 ↔ 16), tree canopies and tall grass sway 1 px in a wave of wind. Neighbouring cells are staggered.

@@ -33,7 +33,8 @@ void DebugOverlay::record_frame(double frame_seconds) {
 
 void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& field,
                         const engine::ResourceStats& resources,
-                        std::uint64_t dropped_frames, std::string_view clock_text) const {
+                        std::uint64_t dropped_frames, std::string_view clock_text,
+                        std::string_view ui_text) const {
     if (!visible_) {
         return;  // 숨김 상태
     }
@@ -45,8 +46,9 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
         std::format("map {}  pos ({:.1f}, {:.1f})  tile ({}, {})", field.map_id,
                     field.player_feet.x, field.player_feet.y, field.player_tile.x,
                     field.player_tile.y),
-        std::format("{}  facing {}  speed {:.0f} px/s", field.state,
-                    world::to_string(field.facing), field.speed),
+        std::format("{}  facing {}  speed {:.0f} px/s  stamina {:.0f}/{:.0f}{}", field.state,
+                    world::to_string(field.facing), field.speed, field.stamina, field.stamina_max,
+                    field.exhausted ? " (exhausted)" : ""),
         std::format("draw calls {}  culled {}  tiles {}", stats.draw_calls, stats.culled,
                     field.tiles_queued),
         std::format("particles {}  dropped {}  ambient fx {}", field.particles,
@@ -61,7 +63,9 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
             : std::format("time {}  indoors (no day cycle)", clock_text),
         std::format("textures {}  cache hits {}  load failures {}", resources.textures_loaded,
                     resources.cache_hits, resources.load_failures),
-        std::string("arrows/WASD move  Space dodge  F3 debug  F4 coll  F5 time  F6 weather  F12 shot  Esc"),
+        std::string(ui_text),
+        std::string("arrows/WASD move  Shift run  Space dodge  Esc quit"),
+        std::string("F3 debug  F4 coll  F5 time  F6 weather  F7 ui test  F12 shot"),
     };
 
     // 글자 뒤에 반투명 검은 판을 깔아서, 풀밭 위에서도 글자가 잘 읽히게 해요.

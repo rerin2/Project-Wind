@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "map_id": "test_meadow",
-  "display_name": "Test Meadow",
+  "display_name": "시험 초원",
   "tileset": "tilesets/test_tiles.json",
   "tile_size": 32,
   "width": 40,

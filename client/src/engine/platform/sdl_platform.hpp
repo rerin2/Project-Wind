@@ -8,6 +8,7 @@
 
 #include "engine/input/input_state.hpp"
 #include "engine/render/renderer.hpp"
+#include "engine/render/text_renderer.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -48,6 +49,8 @@ public:
 
     // 그림 그리는 화가를 빌려줘요.
     [[nodiscard]] Renderer& renderer() { return *renderer_; }
+    // 글자 그리는 화가를 빌려줘요 (SDL_ttf).
+    [[nodiscard]] TextRenderer& text() { return *text_; }
 
     // 사용자 자료 폴더 (Windows: %APPDATA%\ProjectWIND). 스크린샷·저장·설정을 여기에 둬요.
     // 알 수 없으면 빈 경로를 돌려주고 이유를 기록해요.
@@ -59,6 +62,8 @@ private:
     SDL_Window* window_ = nullptr;          // 게임 창
     SDL_Renderer* sdl_renderer_ = nullptr;  // SDL 붓
     std::unique_ptr<Renderer> renderer_;    // 우리 엔진의 화가 (SDL 붓을 빌려 씀)
+    std::unique_ptr<TextRenderer> text_;    // 글자 화가 (같은 SDL 붓을 빌려 씀)
+    bool ttf_started_ = false;              // SDL_ttf를 시작했나 (끝낼 때 TTF_Quit)
 };
 
 }  // namespace wind::engine

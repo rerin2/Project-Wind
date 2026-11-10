@@ -31,11 +31,14 @@ InputBindings InputBindings::defaults() {
     b.bind(Action::Dodge, Key::Space);
     b.bind(Action::Dodge, Key::K);
     b.bind(Action::Dodge, Key::X);
+    b.bind(Action::Run, Key::Shift);
     b.bind(Action::ToggleDebug, Key::F3);
     b.bind(Action::ToggleCollision, Key::F4);
     b.bind(Action::Screenshot, Key::F12);
     b.bind(Action::SkipTime, Key::F5);
     b.bind(Action::NextWeather, Key::F6);
+    b.bind(Action::ToggleUiTest, Key::F7);
+    b.bind(Action::Confirm, Key::Enter);
     b.bind(Action::Quit, Key::Escape);
     return b;
 }

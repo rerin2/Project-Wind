@@ -29,10 +29,12 @@ enum class Key : std::uint8_t {
     Space,
     K,
     X,
+    Shift,  // 왼쪽·오른쪽 Shift 둘 다
     F3,
     F4,
     F5,
     F6,
+    F7,
     F12,
     Count  // 키가 몇 개인지 세는 용도 (진짜 키가 아니에요)
 };

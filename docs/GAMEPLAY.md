@@ -41,6 +41,26 @@ Code: `client/src/game/entities/mover.*`, `movement_tuning.hpp`, `client/src/gam
 | `dodge_invulnerable_seconds` | 0.16 s | Most of the roll; the tail end is vulnerable |
 | input buffer | 0.15 s | Spec 5.8 default |
 
+## Stamina and running
+
+Code: `client/src/game/entities/stamina.*`, `player_motion.*`; spec 7.2.1. Tested in `stamina_tests.cpp` and `player_motion_tests.cpp`.
+
+- **Run:** hold Shift while moving. Top speed becomes `max_speed × 1.5` = **165 px/s**; letting go eases back to 110 px/s at the normal acceleration. Running drains stamina only while actually moving; holding Shift while standing costs nothing.
+- **Dodge cost:** a dodge needs and spends **25** stamina. With less than 25 the buffered press waits (0.15 s) and is then dropped.
+- **Regeneration:** after the last spend, stamina waits **0.6 s**, then refills at **30/s** (also while walking). A long step splits into "remaining wait" and "refill".
+- **Exhaustion:** reaching 0 makes the hero exhausted; running and dodging stay off until stamina is back to **25**. This stops running from flickering on and off near 0. The HUD bar turns red and blinks while exhausted.
+- Stamina never leaves 0…max (boundary tests). Negative spends are ignored. Stamina is not saved and resets to full on map entry for now (phase 16 moves it into the player state).
+
+| Tuning | Value | Why |
+|---|---|---|
+| `max` | 100 | Spec 7.2.1 start value (endurance 10 in phase 13) |
+| `run_multiplier` | 1.5 (165 px/s) | Clearly faster than walking but still under the 280 px/s dodge |
+| `run_cost_per_second` | 25 | 4 s of continuous running from full |
+| `dodge_cost` | 25 | Four dodges from full; dodge-spamming empties the bar quickly |
+| `regen_delay_seconds` | 0.6 | Short pause so stopping to breathe matters |
+| `regen_per_second` | 30 | Full again in ≈ 3.9 s (including the wait) |
+| `exhausted_until` | 25 | Enough for one dodge as soon as exhaustion ends |
+
 ## Time
 
 - The game clock runs at 60 real seconds per game hour (a game day is 24 real minutes), starting at 09:00 for a new game. It advances in the fixed simulation step and continues across map travel. Saving the time comes with saves (phase 16).

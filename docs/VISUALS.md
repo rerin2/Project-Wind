@@ -187,7 +187,25 @@ Code: `client/src/engine/fx/screen_fade.cpp`, `iris_mask.cpp`, drawn in `client/
 | fade (default) | meadow ↔ forest | full-screen black, alpha follows `in_quad` closing / `out_quad` opening, 0.35 s each |
 | iris | meadow ↔ cave | opaque black outside a circle centred on the hero's body; radius from the farthest screen corner to 0 with the same easing and timing; opens on the hero in the new map |
 
-The iris edge is built per pixel row and rounded to whole pixels, so it stays crisp at any integer window scale. Walking into a cave mouth reads as "going in"; open-air paths use the softer fade. A failed exit shows a red one-line notice on a dark band near the bottom for 4 s.
+The iris edge is built per pixel row and rounded to whole pixels, so it stays crisp at any integer window scale. Walking into a cave mouth reads as "going in"; open-air paths use the softer fade. A failed exit shows a red one-line notice on a dark band near the bottom for 4 s ("갈 수 없는 곳이에요: …", Galmuri11 since phase 8).
+
+## HUD and text (phase 8)
+
+Code: `client/src/app/field_ui.cpp`, `ui_test_panel.cpp`, `client/src/engine/ui/ui_painter.cpp`; look data in `content/ui/theme.json`; frames drawn by the test-content generator (`content/ui/ui_frames.bmp`, 72×24).
+
+| Element | Look | Why |
+|---|---|---|
+| Font | Galmuri11 12 px regular/bold, mono hinting, 1 px shadow `#10131c` below | Designed for 12 px, so every glyph is a clean pixel shape at 640×360; the shadow keeps text readable on bright grass |
+| Text colours | `#f2efe6` text, `#9aa3b5` dim, `#ffe9a8` focused/title | Warm off-white and gold sit with the palette instead of pure white |
+| Panel | 24×24 9-slice, border 8: dark outline, silver edge `#96a0b8`, navy body `#1c2032`, gold corner dots, 92 % opacity | Readable over any map, a little of the world shows through |
+| Buttons | 24×16, border 5; normal navy with grey edge, focused brighter with gold edge and gold text | Focus is clear without an extra cursor |
+| Stamina bar | top-left (12, 12), 82×7 with 1 px dark outline; fill `#7ece5c`, trail `#faeec4`, empty `#282c3c` | Small and out of the way (spec 13.2); the cream trail shows how much was just spent |
+| Stamina auto-hide | dims to 30 % after 1.2 s at full, back to full opacity on the first spend | Stays visible only when it matters |
+| Exhausted | fill and outline `#de5c48`, blinking 4 Hz | Visible even when the bar is empty |
+| Area banner | bold name centred at y = 44, two 36 px gold lines 8 px from the text, translucent black band behind; 0.5 s slide-in (8 px) and fade, 2.2 s hold, 0.7 s fade-out | Announces the place without covering the hero |
+| UI test panel (F7) | 240×178, pops in over 0.2 s (`out_back` from 85 % size) | Spec 6.9: windows open with a 0.15–0.25 s tween |
+
+HUD and banner are drawn after lighting (never darkened by night or caves) but under the transition cover, so they fade out and in with the map.
 
 ## Dodge afterimages
 

@@ -105,4 +105,17 @@ TEST(ClientOptions, ParsesTimeAndWeather) {
     EXPECT_FALSE(parse({"--time", "-1"}).options.has_value());
 }
 
+// 시험용 키 누르고 있기: "shift@30-200". 끝이 시작보다 앞이거나 모르는 키면 거절해요.
+TEST(ClientOptions, ParsesHold) {
+    const auto result = parse({"--hold", "shift@30-200"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    ASSERT_EQ(result.options->holds.size(), 1u);
+    EXPECT_EQ(result.options->holds[0].key, "shift");
+    EXPECT_EQ(result.options->holds[0].from, 30u);
+    EXPECT_EQ(result.options->holds[0].to, 200u);
+    EXPECT_FALSE(parse({"--hold", "shift@200-30"}).options.has_value());
+    EXPECT_FALSE(parse({"--hold", "ctrl@1-2"}).options.has_value());
+    EXPECT_FALSE(parse({"--hold", "shift@30"}).options.has_value());
+}
+
 }  // namespace

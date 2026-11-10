@@ -6,13 +6,17 @@ All game content and branding are original. See [docs/MASTER_SPEC.md](docs/MASTE
 
 ## Status
 
+**Phase 8 — text, UI and stamina.** Korean text with the Galmuri11 pixel font: an area name banner slides in when you enter a map (시험 초원, 시험 동굴, 시험 숲), and the F7 UI test panel shows 9-slice windows, wrapped and clipped text and buttons you pick with ↑/↓ and Enter. Hold **Shift** to run (165 px/s); running and dodging use stamina, shown by the bar at the top left, and running dry leaves the heroine exhausted until it refills to 25.
+
+**Phase 7 — living world and travel.** Water shimmers, flowers lean, leaves and tall grass sway in a wave of wind. The right end of the meadow path fades into a test forest; the cave mouth uses an iris (a circle closing on the heroine). A broken exit keeps you on the current map and shows a notice.
+
 **Phase 6 — time and weather.** The meadow goes from day to sunset to night (1 real minute = 1 game hour); lanterns and fireflies come out at night; rain, snow and fog come and go. F5 skips 3 hours, F6 changes the weather, `--time 21 --weather rain` starts at a chosen moment.
 
 **Phase 5 — lighting.** A dark test cave with flickering torches, ember sparks, a pulsing blue light and a small light that follows the heroine. From phase 4: petals and fireflies drift over the meadow, and walking and dodging kick up dust; every effect is a JSON file in `content/fx/`. From phase 3: the game draws into a 640×360 frame target, with blend modes, tweens and F12 screenshots. From phase 2: the client shows a test map where the hero walks in 8 directions with acceleration, slides along walls, and dodge-rolls with afterimages and dust. The camera looks slightly ahead. Engine design: [docs/ENGINE.md](docs/ENGINE.md). Movement rules: [docs/GAMEPLAY.md](docs/GAMEPLAY.md). Effect values: [docs/VISUALS.md](docs/VISUALS.md).
 
-To reach the cave, walk left along the dirt path from the start into the dark arch in the wall; the arch inside the cave leads back.
+To reach the cave, walk left along the dirt path from the start into the dark arch in the wall; the arch inside the cave leads back. Walk right to the end of the path to reach the forest.
 
-Controls: arrow keys / WASD move, **Space** (or K / X) dodge, **F3** debug overlay, **F4** collision overlay, **F5** time, **F6** weather, **F12** screenshot, **Esc** quit.
+Controls: arrow keys / WASD move, **Shift** run, **Space** (or K / X) dodge, **F3** debug overlay, **F4** collision overlay, **F5** time, **F6** weather, **F7** UI test panel, **F12** screenshot, **Esc** quit.
 
 ## Quick start (Windows)
 

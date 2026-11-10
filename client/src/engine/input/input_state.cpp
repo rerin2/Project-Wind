@@ -20,6 +20,14 @@ std::string_view to_string(Key key) {
         case Key::Enter: return "Enter";
         case Key::F3: return "F3";
         case Key::F4: return "F4";
+        case Key::F5: return "F5";
+        case Key::F6: return "F6";
+        case Key::F7: return "F7";
+        case Key::F12: return "F12";
+        case Key::Space: return "Space";
+        case Key::K: return "K";
+        case Key::X: return "X";
+        case Key::Shift: return "Shift";
         case Key::Unknown:
         case Key::Count: break;
     }

@@ -31,7 +31,8 @@ constexpr float kIdleSpeed = 1.0f;
 Mover::Mover(Vec2 feet, world::Direction facing, MovementTuning tuning)
     : tuning_(tuning), feet_(feet), previous_feet_(feet), facing_(facing) {}
 
-bool Mover::step(double dt_seconds, Vec2 move_input, bool dodge, const world::MapData& map) {
+bool Mover::step(double dt_seconds, Vec2 move_input, bool dodge, const world::MapData& map,
+                 bool run) {
     const auto dt = static_cast<float>(dt_seconds);
     previous_feet_ = feet_;  // 화면 보간용으로 전 박자 위치를 기억해요
     dodge_cooldown_ = std::max(0.0f, dodge_cooldown_ - dt);
@@ -52,7 +53,7 @@ bool Mover::step(double dt_seconds, Vec2 move_input, bool dodge, const world::Ma
             dodge_cooldown_ = tuning_.dodge_cooldown_seconds;
         }
     } else {
-        update_velocity(dt, move_input);
+        update_velocity(dt, move_input, run);
         update_facing(move_input);
     }
 
@@ -68,7 +69,9 @@ bool Mover::step(double dt_seconds, Vec2 move_input, bool dodge, const world::Ma
     }
 
     if (state_ != State::Dodging) {
-        state_ = speed() > kIdleSpeed ? State::Walking : State::Idle;
+        const bool moving = speed() > kIdleSpeed;
+        const bool pushing = engine::length(move_input) > 0.0f;
+        state_ = !moving ? State::Idle : (run && pushing ? State::Running : State::Walking);
     }
     return started_dodge;
 }
@@ -101,13 +104,15 @@ void Mover::start_dodge(Vec2 move_input) {
     dodge_elapsed_ = 0.0f;
 }
 
-void Mover::update_velocity(float dt, Vec2 move_input) {
+void Mover::update_velocity(float dt, Vec2 move_input, bool run) {
     // 입력이 1보다 길면 1로 줄여요 (대각선 속도 보호)
     Vec2 input = move_input;
     if (engine::length(input) > 1.0f) {
         input = engine::normalized(input);
     }
-    const Vec2 target = input * tuning_.max_speed;
+    // 달리면 최고 속도가 더 높아요. 달리기를 멈추면 걷기 속도까지 가속도만큼 부드럽게 줄어요.
+    const float top_speed = tuning_.max_speed * (run ? tuning_.run_multiplier : 1.0f);
+    const Vec2 target = input * top_speed;
     const bool has_input = engine::length(input) > 0.0f;
     const float rate = has_input ? tuning_.acceleration : tuning_.deceleration;
     velocity_ = move_towards(velocity_, target, rate * dt);

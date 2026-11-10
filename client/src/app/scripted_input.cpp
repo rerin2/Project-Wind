@@ -22,8 +22,12 @@ engine::Key scripted_key(std::string_view name) {
     if (name == "f4") return engine::Key::F4;
     if (name == "f5") return engine::Key::F5;
     if (name == "f6") return engine::Key::F6;
+    if (name == "f7") return engine::Key::F7;
+    if (name == "enter") return engine::Key::Enter;
+    if (name == "esc") return engine::Key::Escape;
     if (name == "f12") return engine::Key::F12;
     if (name == "space") return engine::Key::Space;
+    if (name == "shift") return engine::Key::Shift;
     if (name == "up") return engine::Key::Up;
     if (name == "down") return engine::Key::Down;
     if (name == "left") return engine::Key::Left;
@@ -39,6 +43,18 @@ void apply_scripted_presses(const std::vector<ClientOptions::KeyPress>& presses,
             input.set_key(scripted_key(press.key), true);
         } else if (press.frame + 1 == frame) {
             input.set_key(scripted_key(press.key), false);
+        }
+    }
+}
+
+// frame번째 장: 누르고 있는 구간(from~to) 안이면 누르고, 구간이 막 끝났으면 떼요.
+void apply_scripted_holds(const std::vector<ClientOptions::KeyHold>& holds, std::uint64_t frame,
+                          engine::InputState& input) {
+    for (const auto& hold : holds) {
+        if (frame >= hold.from && frame <= hold.to) {
+            input.set_key(scripted_key(hold.key), true);
+        } else if (frame == hold.to + 1) {
+            input.set_key(scripted_key(hold.key), false);
         }
     }
 }

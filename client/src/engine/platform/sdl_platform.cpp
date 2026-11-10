@@ -6,6 +6,7 @@
 #include "wind/log.hpp"
 
 #include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 namespace wind::engine {
 namespace {
@@ -28,10 +29,13 @@ Key translate(SDL_Scancode code) {
         case SDL_SCANCODE_SPACE: return Key::Space;
         case SDL_SCANCODE_K: return Key::K;
         case SDL_SCANCODE_X: return Key::X;
+        case SDL_SCANCODE_LSHIFT:
+        case SDL_SCANCODE_RSHIFT: return Key::Shift;
         case SDL_SCANCODE_F3: return Key::F3;
         case SDL_SCANCODE_F4: return Key::F4;
         case SDL_SCANCODE_F5: return Key::F5;
         case SDL_SCANCODE_F6: return Key::F6;
+        case SDL_SCANCODE_F7: return Key::F7;
         case SDL_SCANCODE_F12: return Key::F12;
         default: return Key::Unknown;  // 우리 게임이 안 쓰는 키
     }
@@ -71,8 +75,15 @@ std::unique_ptr<SdlPlatform> SdlPlatform::create(const WindowConfig& config) {
         log::warn("VSync unavailable: {}", SDL_GetError());
     }
 
+    // 글꼴 도구(SDL_ttf) 시작. 실패하면 글자가 안 보일 뿐 게임은 계속돼요.
+    platform->ttf_started_ = TTF_Init();
+    if (!platform->ttf_started_) {
+        log::error("TTF_Init failed: {}", SDL_GetError());
+    }
+
     // 우리 엔진의 화가를 만들고, 게임 화면 크기(640x360 등)를 정해요.
     platform->renderer_ = std::make_unique<Renderer>(platform->sdl_renderer_);
+    platform->text_ = std::make_unique<TextRenderer>(platform->sdl_renderer_);
     if (!platform->renderer_->set_logical_size(config.logical_width, config.logical_height)) {
         return nullptr;
     }
@@ -89,12 +100,16 @@ std::unique_ptr<SdlPlatform> SdlPlatform::create(const WindowConfig& config) {
 SdlPlatform::~SdlPlatform() {
     // 엔진 화가가 가진 스티커 종이(텍스처)는 SDL 붓으로 만든 거예요.
     // 붓을 먼저 버리면 스티커 종이를 치울 방법이 없어지니까, 화가(와 스티커)를 먼저 정리해요.
+    text_.reset();
     renderer_.reset();
     if (sdl_renderer_ != nullptr) {
         SDL_DestroyRenderer(sdl_renderer_);
     }
     if (window_ != nullptr) {
         SDL_DestroyWindow(window_);
+    }
+    if (ttf_started_) {
+        TTF_Quit();
     }
     SDL_Quit();  // 마지막으로 SDL 끝내기
 }

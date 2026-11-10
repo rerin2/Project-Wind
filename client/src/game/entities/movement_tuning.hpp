@@ -14,6 +14,7 @@ struct MovementTuning {
     float max_speed = 110.0f;      // 걷기 최고 속도 (픽셀/초). 약 3.4칸/초
     float acceleration = 1100.0f;  // 출발할 때 빨라지는 정도 (픽셀/초²). 약 0.1초면 최고 속도
     float deceleration = 1400.0f;  // 키를 뗐을 때 느려지는 정도. 출발보다 조금 빨리 멈춰요
+    float run_multiplier = 1.5f;   // 달리기(Shift) 속도 = 걷기 최고 속도 × 이 값 (165 픽셀/초)
 
     float dodge_speed = 280.0f;          // 구르기 속도 (픽셀/초)
     float dodge_seconds = 0.20f;         // 구르기 시간. 280 × 0.2 = 약 56픽셀(2칸 조금 안 됨)

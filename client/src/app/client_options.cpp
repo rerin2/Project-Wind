@@ -25,7 +25,8 @@ constexpr std::uint64_t kMaxLightStress = 64;
 
 // --press로 누를 수 있는 키 이름인가요?
 bool is_scriptable_key(std::string_view name) {
-    for (const std::string_view known : {"f3", "f4", "f5", "f6", "f12", "space", "up", "down", "left", "right"}) {
+    for (const std::string_view known :
+         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right"}) {
         if (name == known) {
             return true;
         }
@@ -127,9 +128,26 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
                                                      std::numeric_limits<std::uint64_t>::max());
             const std::string_view key = at == std::string_view::npos ? value : value.substr(0, at);
             if (!frame || !is_scriptable_key(key)) {
-                return fail("--press must look like f6@60 (keys: f3 f4 f5 f6 f12 space up down left right)");
+                return fail("--press must look like f6@60 (keys: f3 f4 f5 f6 f7 f12 space shift enter esc up down left right)");
             }
             options.presses.push_back({std::string(key), *frame});
+        }
+        else if (arg == "--hold") {
+            // 시험용 키 누르고 있기: "키이름@시작장-끝장" (예: shift@30-200)
+            const auto at = value.find('@');
+            const auto dash = at == std::string_view::npos ? std::string_view::npos : value.find('-', at);
+            const auto max = std::numeric_limits<std::uint64_t>::max();
+            const auto from = dash == std::string_view::npos
+                                  ? std::nullopt
+                                  : cli::parse_uint(value.substr(at + 1, dash - at - 1), 1, max);
+            const auto to = dash == std::string_view::npos
+                                ? std::nullopt
+                                : cli::parse_uint(value.substr(dash + 1), 1, max);
+            const std::string_view key = at == std::string_view::npos ? value : value.substr(0, at);
+            if (!from || !to || *to < *from || !is_scriptable_key(key)) {
+                return fail("--hold must look like shift@30-200 (same keys as --press, start <= end)");
+            }
+            options.holds.push_back({std::string(key), *from, *to});
         }
         else if (arg == "--time") {
             // 시작 시각: 0 이상 24 미만의 숫자 (18.5 = 오후 6시 30분)
@@ -190,6 +208,7 @@ std::string_view client_usage() {
            "  --light-stress <n>   add n lights around the start, 0-64; needs a lit map (perf check)\n"
            "  --auto-move <dir>    hold up|down|left|right for the whole run (for checks)\n"
            "  --press <key@frame>  tap a key at a frame, e.g. f6@60; may repeat (for checks)\n"
+           "  --hold <key@a-b>     hold a key from frame a to b, e.g. shift@30-200; may repeat\n"
            "  --time <hours>       start time of day, 0 to below 24 (default 9)\n"
            "  --weather <id>       start weather from the map's table, e.g. rain\n"
            "  --help               show this message\n";

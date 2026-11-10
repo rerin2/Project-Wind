@@ -43,6 +43,13 @@ struct ClientOptions {
         std::uint64_t frame = 0;
     };
     std::vector<KeyPress> presses;
+    // 시험용: from번째 장부터 to번째 장까지 키를 누르고 있어요. 예: --hold shift@30-200
+    struct KeyHold {
+        std::string key;
+        std::uint64_t from = 0;
+        std::uint64_t to = 0;
+    };
+    std::vector<KeyHold> holds;
     // 시작 시각 (0~24). 비어 있으면 아침 9시.
     std::optional<float> start_hour;
     // 처음 날씨 이름 ("rain" 등). 비어 있으면 날씨 표의 확률대로.

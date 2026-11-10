@@ -16,14 +16,20 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticleEffect` + loader, `ParticlePool` (fixed capacity, drop counter), `ParticleRandom`, `make_particle`/`emit_burst`, `ParticleEmitter` (continuous), `queue_particles`, `ScreenFade` (fade / iris progress), `iris_mask` |
 | `client/src/engine/light` | `wind_engine_core` | no | `Light`, `light_strength`/`light_radius_scale` (flicker, pulse), `queue_lights` (cull, 64-per-frame cap), `LightingFrame`, `LightStats` |
 | `client/src/engine/tween` | `wind_engine_core` | no | `Ease` + `ease()` (easing curves), `Tween` (one float from → to over time) |
+| `client/src/engine/text` | `wind_engine_core` | no | `utf8` (glyph boundaries, safe on bad bytes), `layout_text` (wrap at spaces, char-break long words, align, clip with `...`, `truncated` flag) |
+| `client/src/engine/ui` (`nine_slice`, `focus_list`, `ui_theme*`) | `wind_engine_core` | no | 9-slice rects, `FocusList` (up/down, wrap, skip disabled), `UiTheme` + `content/ui/theme.json` loader |
+| `client/src/engine/ui/ui_painter.*` | `wind_client` | no (uses `Renderer`, `TextRenderer`) | `UiPainter`: panels, buttons, laid-out text with shadow, clipped-text count and one-time warning |
 | `client/src/engine/render` (`render_queue`, `render_types`) | `wind_engine_core` | no | draw commands and their sort order |
+| `client/src/engine/render/text_renderer.*` | `wind_client` | **yes** (SDL_ttf) | `TextRenderer`: loads TTF fonts (mono hinting), measures and draws one line, caches `TTF_Text` objects (cleared at 512) |
 | `client/src/engine/render/renderer.*` | `wind_client` | **yes** | `Renderer`: draws into the 640×360 frame target, blend modes and tint, rects/debug text, owns textures, soft-ellipse textures, screenshots |
 | `client/src/engine/resources` | `wind_client` | **yes** (via `Renderer`) | `ResourceManager`: safe paths, cache, fallback texture, stats |
-| `client/src/engine/platform` | `wind_client` | **yes** | `SdlPlatform`: SDL init, window, event → `InputState` |
+| `client/src/engine/platform` | `wind_client` | **yes** | `SdlPlatform`: SDL and SDL_ttf init, window, `Renderer`, `TextRenderer`, event → `InputState` |
 | `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
-| `client/src/game/entities` | `wind_game_core` | no | `Mover` (speed, acceleration, dodge), `MovementTuning`, facing helpers |
-| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
+| `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `PlayerMotion` (mover + stamina + dodge buffer in one fixed step), facing helpers |
+| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
+| `client/src/game/ui` | `wind_game_core` | no | `AreaBanner` (in → hold → out timeline), `DelayedBar` (trail, smooth fill, auto-hide) |
+| `client/src/app` (`field_ui`, `ui_test_panel`, `ui_resources`, `transition_view`) | `wind_client` | no (uses `UiPainter`) | HUD stamina bar, area banner, F7 UI test panel, UI resource loading, fade/iris/notice drawing |
 | `client/src/game/world` | `wind_game_core` | no | `GameClock` (time of day), `MapTravel` (cover screen → enter map → uncover, failure notice) |
 | `client/src/game/states` | `wind_game_core` (`field_assets`), `wind_client` (`field_state`) | no | `load_field_assets` (reads and checks map, sheet, effects, time, weather); `FieldState` scene: wires simulation, effects, camera, drawing |
 | `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths |
@@ -182,15 +188,47 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 ## Input (spec 5.8)
 
 - `SdlPlatform` translates SDL **scancodes** (physical keys, layout-independent) into engine `Key`s; OS key-repeat events are ignored.
-- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Space/K/X dodge, F3 debug overlay, F4 collision overlay, F12 screenshot, Esc quit.
+- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Shift run (held), Space/K/X dodge, Enter confirm (UI), F3 debug overlay, F4 collision overlay, F5 skip time, F6 next weather, F7 UI test panel, F12 screenshot, Esc quit (closes the UI test panel instead when it is open). Left and right Shift both map to `Key::Shift`.
 - `MovementIntent` turns held move keys into an 8-way unit vector (diagonals are normalized). When opposite keys are both held, the most recently pressed one wins.
 - `InputBuffer` remembers a dodge press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
-- `InputState::set_ui_capture(true)` makes all game queries return false (for menus and text input, phases 15 and 17).
+- `InputState::set_ui_capture(true)` makes all game queries return false (for menus and text input, phases 15 and 17). In phase 8 the game loop gives the field an empty input while `FieldUi::captures_input()` (UI test panel open) or a map transition is running; the UI itself reads the real input first.
 - Saving custom bindings is not implemented yet.
 
-## Movement (phase 2)
+## Movement (phase 2, running and stamina in phase 8)
 
 Rules and tuning numbers are in [GAMEPLAY.md](GAMEPLAY.md#movement). In short: `Mover` keeps a float feet position and velocity; each 60 Hz step it accelerates toward `input × max_speed`, then `move_and_slide` moves the feet box in sub-steps of at most 1 px, x then y, so the body slides along walls and never tunnels. When moving along one axis and blocked by a corner by a few pixels, corner assist nudges the body sideways. Out-of-map counts as a wall. A dodge moves at a fixed speed for a fixed time, then hands back to walking at max speed and starts a cooldown.
+
+Running (phase 8): `Mover::step(..., run)` raises the top speed to `max_speed × run_multiplier` and reports `State::Running` while moving with run held. `PlayerMotion` owns the `Mover`, the `Stamina` and the dodge `InputBuffer` and decides each step whether a dodge or a run is allowed by stamina (rules and numbers in [GAMEPLAY.md](GAMEPLAY.md#stamina-and-running)). Stamina lives in the field for now and is reset to full when a new map is entered; it moves to the player state when saves arrive (phase 16).
+
+## Text (phase 8, spec 6.9)
+
+- Font: Galmuri11 (regular and bold, OFL 1.1, `content/fonts/`), drawn at **12 px**, the size its pixel grid is designed for. `TextRenderer` sets `TTF_HINTING_MONO`, so glyphs are 1-bit and crisp; positions are rounded to whole pixels.
+- `TextRenderer` uses SDL_ttf's renderer text engine (glyph atlas inside SDL_ttf) and keeps one `TTF_Text` per (font, string), cleared when it reaches 512 entries. Input longer than 4096 bytes is cut. If SDL_ttf or a font fails to load, the error is logged and text is simply not drawn.
+- `layout_text` (SDL-free) splits on `\n`, wraps at spaces (Korean wraps by word, i.e. 어절), breaks a single word longer than the box by UTF-8 glyph, aligns left/center/right (center rounds down to a whole pixel) and, when `max_lines` or the box height is exceeded, ends the last line with `...` and sets `truncated`.
+- **Clipped-text check:** `UiPainter::text` counts truncated boxes per frame (shown on F3) and logs `UI text clipped (box WxH): <text>` once per distinct string.
+
+## UI (phase 8, spec 6.9, 13.3)
+
+UI theme (`content/ui/theme.json`):
+
+```json
+{ "schema_version": 1, "image": "ui/ui_frames.bmp",
+  "fonts": { "regular": { "file": "fonts/Galmuri11.ttf", "size": 12 },
+             "bold": { "file": "fonts/Galmuri11-Bold.ttf", "size": 12 } },
+  "panel": { "source": [0, 0, 24, 24], "border": 8 },
+  "button": { "source": [24, 0, 24, 16], "border": 5 },
+  "button_focused": { "source": [48, 0, 24, 16], "border": 5 },
+  "panel_alpha": 235,
+  "colors": { "text": "#f2efe6", "text_dim": "#9aa3b5", "text_focused": "#ffe9a8", "text_shadow": "#10131c" } }
+```
+
+- Paths must stay inside the content root; `source` is `[x, y, w, h]` with w, h ≥ 1 and each value ≤ 1024; `border` may not exceed half the frame's width or height; font size 6–64; colours `#rrggbb[aa]` (optional, defaults in `UiTheme`); `panel_alpha` 0–255. A broken theme is logged and the UI falls back to flat rectangles with no text.
+- `nine_slice` keeps corners at their pixel size, stretches edges along one axis and the centre both ways, and shrinks the border when the target is smaller than two borders.
+- `FocusList` moves focus up/down with wrap-around and skips disabled items. The F7 UI test panel (debug) shows a panel, a bold title, a wrapped paragraph, a deliberately clipped line and three buttons; ↑/↓ (or W/S) move focus, Enter presses, Esc or F7 closes. While it is open the field receives no input.
+- `AreaBanner`: on entering a map (start and every successful travel) the map's `display_name` appears at the top: 0.5 s in (`out_cubic`, sliding down 8 px), 2.2 s hold, 0.7 s out (`in_quad`).
+- `DelayedBar`: a drop shows instantly, the trail waits 0.35 s then shrinks at 1.2 bar/s; a rise fills at 2.5 bar/s; with auto-hide the bar dims to 30 % after 1.2 s at full. HP and MP bars (phases 9 and 12) reuse it.
+- Draw order after lighting: world `Glow…DebugOverlay` → HUD + banner → transition cover → travel notice → UI test panel → F3 panel → screenshot flash.
+- Test-only `--hold <key>@<from>-<to>` holds a key for a range of frames (same key names as `--press`, plus `shift`, `enter`, `esc`, `f7`).
 
 ## Effects (phases 2 and 4)
 
@@ -254,12 +292,14 @@ F12, or `--screenshot-at N` (repeatable) for automated checks, saves the frame t
 
 ## Debug overlay (spec 5.10)
 
-F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/dodging), facing, speed, draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures. F4 toggles the red collision overlay and the cyan feet box. The panel is visible when the game starts.
+F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/running/dodging), facing, speed, stamina (and "exhausted"), draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures, UI text draws / cached texts / clipped texts this frame, and two lines of key help. F4 toggles the red collision overlay and the cyan feet box. Since phase 8 the panel starts **hidden**, because the HUD now sits in the top-left corner (`--press f3@2` shows it in scripted runs).
 
 ## Known limitations
 
 - Images are BMP only (no PNG decoder dependency yet).
-- The debug font is SDL's built-in 8×8 ASCII font; Korean text needs a real font renderer (later phase).
+- The F3 panel still uses SDL's built-in 8×8 ASCII debug font; game UI text uses Galmuri11 through `TextRenderer`.
+- UI strings (UI test panel, travel notice) are still written in code; spec 6.9 wants them in a data file, which comes with the first real menus (phase 15).
+- Text is laid out by our code and drawn line by line; no right-to-left or complex shaping (HarfBuzz is off), which Korean Hangul and Latin do not need.
 - No audio yet (spec 5.9).
 - UI and world share the logical resolution; a separate UI scale comes with real UI work.
 - Key binding persistence is not implemented.

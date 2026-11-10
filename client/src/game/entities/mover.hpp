@@ -23,14 +23,16 @@ namespace wind::game {
 class Mover {
 public:
     // 지금 무엇을 하고 있나
-    enum class State : std::uint8_t { Idle, Walking, Dodging };
+    enum class State : std::uint8_t { Idle, Walking, Running, Dodging };
 
     Mover(engine::Vec2 feet, world::Direction facing, MovementTuning tuning);
 
     // 한 박자 움직여요.
     // move_input: 가고 싶은 방향 (길이 0~1), dodge: 이번 박자에 구르기를 시작할지
+    // run: 달리기(더 빠른 최고 속도). 스태미나가 있는지는 부르는 쪽(PlayerMotion)이 확인해요.
     // 구르기를 실제로 시작했으면 true를 돌려줘요.
-    bool step(double dt_seconds, engine::Vec2 move_input, bool dodge, const world::MapData& map);
+    bool step(double dt_seconds, engine::Vec2 move_input, bool dodge, const world::MapData& map,
+              bool run = false);
 
     // 지금 구르기를 시작할 수 있나요? (구르는 중이 아니고, 쉬는 시간도 끝났으면)
     [[nodiscard]] bool can_dodge() const;
@@ -50,7 +52,7 @@ public:
 
 private:
     void start_dodge(engine::Vec2 move_input);
-    void update_velocity(float dt, engine::Vec2 move_input);
+    void update_velocity(float dt, engine::Vec2 move_input, bool run);
     void update_facing(engine::Vec2 move_input);
 
     MovementTuning tuning_;

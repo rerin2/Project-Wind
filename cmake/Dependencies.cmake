@@ -36,6 +36,22 @@ if(WIND_BUILD_CLIENT)
         GIT_TAG        release-3.4.18
         GIT_SHALLOW    TRUE)
     FetchContent_MakeAvailable(SDL3)
+
+    # --- SDL3_ttf: 글꼴(TTF) 글자 그리기 (단계 8, 한글 픽셀 글꼴 Galmuri11) -----
+    # 함께 들어 있는 FreeType만 쓴다(정적). 한글 완성형은 글자 모양 다듬기(HarfBuzz)가
+    # 필요 없고, 컬러 이모지(plutosvg)도 쓰지 않아서 끈다. 그래서 FreeType 하위 모듈만 받는다.
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_VENDORED ON CACHE BOOL "" FORCE)
+    set(SDLTTF_HARFBUZZ OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_PLUTOSVG OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDLTTF_INSTALL OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(SDL3_ttf
+        GIT_REPOSITORY https://github.com/libsdl-org/SDL_ttf.git
+        GIT_TAG        release-3.2.2
+        GIT_SHALLOW    TRUE
+        GIT_SUBMODULES "external/freetype")
+    FetchContent_MakeAvailable(SDL3_ttf)
 endif()
 
 # --- GoogleTest: 단위 테스트 -------------------------------------------------

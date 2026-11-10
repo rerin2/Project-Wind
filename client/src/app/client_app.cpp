@@ -6,11 +6,13 @@
 #include "app/client_app.hpp"
 
 #include "app/debug_overlay.hpp"
+#include "app/field_ui.hpp"
 #include "app/screenshot_flash.hpp"
 #include "app/screenshot_name.hpp"
 #include "app/scripted_input.hpp"
+#include "app/transition_view.hpp"
+#include "app/ui_resources.hpp"
 #include "engine/core/frame_clock.hpp"
-#include "engine/fx/iris_mask.hpp"
 #include "engine/fx/screen_fade.hpp"
 #include "engine/input/input_state.hpp"
 #include "engine/platform/sdl_platform.hpp"
@@ -26,6 +28,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <format>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -59,47 +62,8 @@ constexpr float kDefaultStartHour = 9.0f;
 constexpr float kSkipHours = 3.0f;
 // 맵을 옮길 때 화면이 어두워지는(또는 밝아지는) 시간 (초)
 constexpr float kFadeSeconds = 0.35f;
-// 아이리스 가리개 색 (불투명 검정)
-constexpr engine::Color kTransitionColor{0, 0, 0, 255};
-// 못 간 출구 알림: 글자 색(빨강), 화면 아래에서 띄울 거리, 띠 안쪽 여백 (픽셀)
-constexpr engine::Color kNoticeColor{255, 120, 110, 255};
-constexpr float kNoticeBottom = 28.0f;
-constexpr float kNoticePadding = 4.0f;
-
-// 화면 가리기 그리기: 페이드는 화면 전체를 반투명 검정으로, 아이리스는 둥근 구멍 바깥을 새까맣게.
-void draw_transition(engine::Renderer& renderer, const engine::ScreenFade& fade, engine::Vec2 focus) {
-    const float darkness = fade.darkness();
-    if (darkness <= 0.0f) {
-        return;
-    }
-    const engine::Vec2 size = renderer.logical_size();
-    if (fade.style() == world::ScreenTransition::Iris) {
-        const float radius = engine::iris_radius(focus, size, darkness);
-        for (const auto& rect : engine::iris_cover_rects(focus, radius, size)) {
-            renderer.fill_rect(rect, kTransitionColor);
-        }
-        return;
-    }
-    renderer.fill_rect({0.0f, 0.0f, size.x, size.y},
-                       {0, 0, 0, static_cast<std::uint8_t>(darkness * 255.0f)});
-}
-
-// 못 간 출구 알림: 화면 아래쪽 가운데에 검은 띠를 깔고 빨간 글자로 보여 줘요.
-// (지금은 영어 디버그 글꼴이에요. 진짜 글자 그리기는 8단계에서 만들어요.)
-void draw_notice(engine::Renderer& renderer, const std::string& notice) {
-    if (notice.empty()) {
-        return;
-    }
-    const engine::Vec2 size = renderer.logical_size();
-    const float text_w = static_cast<float>(notice.size()) * engine::Renderer::kDebugCharSize;
-    const float x = std::max(0.0f, (size.x - text_w) * 0.5f);
-    const float y = size.y - kNoticeBottom;
-    renderer.fill_rect({x - kNoticePadding, y - kNoticePadding, text_w + kNoticePadding * 2.0f,
-                        engine::Renderer::kDebugCharSize + kNoticePadding * 2.0f},
-                       {0, 0, 0, 200});
-    renderer.draw_debug_text({x, y}, notice, kNoticeColor);
-}
-
+// UI 테마 파일 (창 테두리, 글꼴, 글자 색)
+constexpr std::string_view kUiTheme = "ui/theme.json";
 // 스크린샷 폴더 정하기: --screenshot-dir가 있으면 그곳, 없으면 사용자 자료 폴더 안의 screenshots.
 // 둘 다 없으면(자료 폴더를 못 찾음) 스크린샷을 찍지 않아요.
 std::optional<std::filesystem::path> resolve_screenshot_dir(const ClientOptions& options) {
@@ -138,6 +102,10 @@ int ClientApp::run() {
     }
     engine::Renderer& renderer = platform->renderer();           // 그림 그리는 담당
     engine::ResourceManager resources(renderer, options_.content_dir);  // 그림 파일 보관 담당
+    // UI 준비물: 테마·글꼴·테두리 그림. 화가(painter)는 이걸 빌려 쓰니까 먼저 만들어요.
+    const UiResources ui_resources = load_ui_resources(resources, platform->text(), kUiTheme);
+    engine::UiPainter painter(renderer, platform->text(), ui_resources.theme, ui_resources.frames);
+    FieldUi field_ui;  // HUD 스태미나 바, 지역 이름 배너, UI 시험판(F7)
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
@@ -151,6 +119,7 @@ int ClientApp::run() {
         log::critical("Client cannot start without a valid map; see errors above");
         return 1;  // 맵이 잘못되면 시작할 수 없어요 (자세한 이유는 위쪽 로그에 있어요)
     }
+    field_ui.enter_area(field->display_name());  // 첫 지역 이름 배너
 
     const auto bindings = game::InputBindings::defaults();  // 키 버튼표
     engine::InputState input;                                // 지금 키보드 상태
@@ -170,6 +139,7 @@ int ClientApp::run() {
             return false;
         }
         field = std::move(next);
+        field_ui.enter_area(field->display_name());  // 새 지역 이름 배너
         return true;
     };
 
@@ -183,7 +153,11 @@ int ClientApp::run() {
         }
         // 시험용 --press: 정해진 장에서 키를 누르고, 다음 장에서 떼요.
         apply_scripted_presses(options_.presses, frames_rendered_ + 1, input);
-        if (bindings.pressed(game::Action::Quit, input)) {
+        apply_scripted_holds(options_.holds, frames_rendered_ + 1, input);
+        // UI가 먼저 키를 봐요. 시험판이 열려 있으면 Esc는 게임을 끄지 않고 시험판만 닫아요.
+        bool ui_used_quit = false;
+        const UiCommand command = field_ui.handle_input(input, bindings, ui_used_quit);
+        if (!ui_used_quit && bindings.pressed(game::Action::Quit, input)) {
             log::info("Quit requested");
             break;  // Esc
         }
@@ -194,12 +168,12 @@ int ClientApp::run() {
         if (bindings.pressed(game::Action::ToggleDebug, input)) {
             overlay.toggle();  // F3
         }
-        if (bindings.pressed(game::Action::SkipTime, input)) {
-            game_clock.skip_hours(kSkipHours);  // F5: 시간 3시간 앞으로
+        if (bindings.pressed(game::Action::SkipTime, input) || command == UiCommand::SkipTime) {
+            game_clock.skip_hours(kSkipHours);  // F5 (또는 시험판 버튼): 시간 3시간 앞으로
             log::info("Time skipped to {}", game_clock.text());
         }
-        if (bindings.pressed(game::Action::NextWeather, input)) {
-            field->next_weather();  // F6: 다음 날씨
+        if (bindings.pressed(game::Action::NextWeather, input) || command == UiCommand::NextWeather) {
+            field->next_weather();  // F6 (또는 시험판 버튼): 다음 날씨
         }
 
         // 지난 장을 그린 뒤로 시간이 얼마나 흘렀는지 재요.
@@ -211,8 +185,9 @@ int ClientApp::run() {
         if (options_.auto_move) {
             input.set_key(move_key(*options_.auto_move), true);
         }
-        // 맵을 옮기는 중(페이드)에는 캐릭터가 움직이지 않게 키를 막아요.
-        const engine::InputState& game_input = travel.busy() ? no_input : input;
+        // 맵을 옮기는 중(페이드)이거나 UI 창이 열려 있으면 캐릭터가 움직이지 않게 키를 막아요.
+        const bool blocked = travel.busy() || field_ui.captures_input();
+        const engine::InputState& game_input = blocked ? no_input : input;
 
         // 3. 누른 키를 필드에 알려 줘요 (구르기 버튼은 메모장에 적어 둬요).
         field->handle_input(game_input, bindings);
@@ -233,25 +208,36 @@ int ClientApp::run() {
             }
         }
         travel.update(static_cast<float>(frame_seconds), enter_map);
+        field_ui.update(static_cast<float>(frame_seconds),
+                        {field->stamina().fraction(), field->stamina().exhausted()});
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();
         field->render(queue);
         queue.sort();
         renderer.begin_frame(kClearColor);  // 바탕색으로 화면 지우기
+        platform->text().begin_frame();
+        painter.begin_frame();
         // 월드(땅 ~ 공중 효과)를 먼저 그리고, 그 위에 조명(어둠과 빛)을 입힌 다음,
         // 조명의 영향을 받으면 안 되는 것(스스로 빛나는 것, 전경, 충돌 표시)을 그려요.
         renderer.submit(queue, engine::DrawLayer::Ground, engine::DrawLayer::WorldFx);
         renderer.apply_lighting(field->lighting());
         renderer.submit(queue, engine::DrawLayer::Glow, engine::DrawLayer::DebugOverlay);
-        // 7. 맵을 옮기는 중이면 화면을 검게 가려요 (디버그 정보판은 그 위에 보여요).
+        // 7. HUD(스태미나 바)와 지역 이름 배너. 화면 가리기보다 아래라서 맵과 함께 어두워져요.
+        const engine::Vec2 screen = renderer.logical_size();
+        field_ui.draw_hud(painter, screen);
+        // 8. 맵을 옮기는 중이면 화면을 검게 가려요 (디버그 정보판은 그 위에 보여요).
         //    아이리스는 주인공을 가운데 두고 오므라들어요. 못 간 출구가 있으면 잠깐 알려 줘요.
         draw_transition(renderer, travel.fade(), field->focus_on_screen());
-        draw_notice(renderer, travel.notice());
-        // 8. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
+        draw_notice(painter, travel.notice());
+        field_ui.draw_panels(painter, screen);  // UI 시험판 (F7)
+        // 9. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
         overlay.record_frame(frame_seconds);
+        const std::string ui_line =
+            std::format("ui text draws {}  cached {}  clipped {}", platform->text().draws_this_frame(),
+                        platform->text().cached(), painter.clipped_this_frame());
         overlay.draw(renderer, field->debug_info(), resources.stats(), clock.dropped_frames(),
-                     game_clock.text());
+                     game_clock.text(), ui_line);
         // 지난번 "찰칵" 효과가 아직 남아 있으면 맨 위에 그려요.
         screenshot_flash.update(static_cast<float>(frame_seconds));
         screenshot_flash.draw(renderer);

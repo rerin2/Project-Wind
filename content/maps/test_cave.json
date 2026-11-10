@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "map_id": "test_cave",
-  "display_name": "Test Cave",
+  "display_name": "시험 동굴",
   "tileset": "tilesets/test_tiles.json",
   "tile_size": 32,
   "width": 30,

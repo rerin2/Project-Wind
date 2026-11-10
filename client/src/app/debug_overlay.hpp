@@ -28,10 +28,10 @@ public:
     // 정보판을 그려요. 숨김 상태면 아무것도 안 그려요.
     void draw(engine::Renderer& renderer, const game::FieldDebugInfo& field,
               const engine::ResourceStats& resources, std::uint64_t dropped_frames,
-              std::string_view clock_text) const;
+              std::string_view clock_text, std::string_view ui_text) const;
 
 private:
-    bool visible_ = true;  // 처음엔 보이게 시작해요
+    bool visible_ = false;  // 처음엔 숨겨요 (단계 8부터 왼쪽 위에 HUD가 있어서). F3으로 켜요
     // FPS는 0.5초 동안 모은 평균으로 계산해요. 매 장마다 바꾸면 숫자가 너무 깜빡거려서 못 읽어요.
     double window_seconds_ = 0.0;   // 이번 0.5초 동안 모은 시간
     std::uint32_t window_frames_ = 0;  // 이번 0.5초 동안 그린 장수

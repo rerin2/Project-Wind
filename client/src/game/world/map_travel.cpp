@@ -48,7 +48,7 @@ void MapTravel::update(float dt_seconds, const EnterMap& enter) {
         // 못 열었어요: 지금 맵에 그대로 있고, 왜 못 갔는지 기록하고 화면에도 잠깐 보여 줘요.
         log::error("Cannot enter '{}' (spawn '{}'); staying on the current map", exit.to_map,
                    exit.to_spawn);
-        notice_ = "Cannot enter " + exit.to_map + " (spawn " + exit.to_spawn + ")";
+        notice_ = "갈 수 없는 곳이에요: " + exit.to_map + " (" + exit.to_spawn + ")";
         notice_seconds_ = kNoticeSeconds;
     }
     fade_.fade_in();

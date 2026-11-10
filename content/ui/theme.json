@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "image": "ui/ui_frames.bmp",
+  "fonts": {
+    "regular": { "file": "fonts/Galmuri11.ttf", "size": 12 },
+    "bold": { "file": "fonts/Galmuri11-Bold.ttf", "size": 12 }
+  },
+  "panel": { "source": [0, 0, 24, 24], "border": 8 },
+  "button": { "source": [24, 0, 24, 16], "border": 5 },
+  "button_focused": { "source": [48, 0, 24, 16], "border": 5 },
+  "panel_alpha": 235,
+  "colors": {
+    "text": "#f2efe6",
+    "text_dim": "#9aa3b5",
+    "text_focused": "#ffe9a8",
+    "text_shadow": "#10131c"
+  }
+}

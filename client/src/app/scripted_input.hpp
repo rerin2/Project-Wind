@@ -27,4 +27,8 @@ namespace wind::client {
 void apply_scripted_presses(const std::vector<ClientOptions::KeyPress>& presses, std::uint64_t frame,
                             engine::InputState& input);
 
+// frame번째 장: --hold 구간 안이면 그 키를 누르고 있고, 구간이 끝난 다음 장에 떼요.
+void apply_scripted_holds(const std::vector<ClientOptions::KeyHold>& holds, std::uint64_t frame,
+                          engine::InputState& input);
+
 }  // namespace wind::client
