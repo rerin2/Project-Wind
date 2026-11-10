@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "transition_seconds": 5,
+  "states": [
+    { "id": "clear", "weight": 3, "duration": [90, 180] },
+    { "id": "fog", "weight": 3, "duration": [60, 120],
+      "tint": "#c8d0cc", "fog": 0.8 },
+    { "id": "rain", "weight": 2, "duration": [45, 90],
+      "fx": ["fx/rain.json"], "ground_fx": ["fx/rain_splash.json"],
+      "tint": "#98a4b4", "fog": 0.2 }
+  ]
+}

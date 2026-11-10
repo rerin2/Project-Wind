@@ -63,7 +63,7 @@ TEST(TilemapRenderer, QueuesOnlyVisibleTiles) {
     camera.center_on({0.0f, 0.0f});  // 왼쪽 위 모서리
 
     RenderQueue queue;
-    const auto count = wind::engine::queue_tilemap(map, make_tileset(), {1}, camera, queue);
+    const auto count = wind::engine::queue_tilemap(map, make_tileset(), {1}, camera, 0.0f, queue);
     // 화면 640x360 = 20x11.25칸 -> 경계 포함 최대 21x12칸
     EXPECT_LE(count, 21u * 12u);
     EXPECT_GE(count, 20u * 11u);

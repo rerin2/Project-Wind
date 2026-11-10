@@ -8,7 +8,9 @@
 #include "app/debug_overlay.hpp"
 #include "app/screenshot_flash.hpp"
 #include "app/screenshot_name.hpp"
+#include "app/scripted_input.hpp"
 #include "engine/core/frame_clock.hpp"
+#include "engine/fx/iris_mask.hpp"
 #include "engine/fx/screen_fade.hpp"
 #include "engine/input/input_state.hpp"
 #include "engine/platform/sdl_platform.hpp"
@@ -16,6 +18,7 @@
 #include "engine/resources/resource_manager.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/world/game_clock.hpp"
+#include "game/world/map_travel.hpp"
 #include "game/states/field_state.hpp"
 
 #include "wind/log.hpp"
@@ -56,68 +59,45 @@ constexpr float kDefaultStartHour = 9.0f;
 constexpr float kSkipHours = 3.0f;
 // 맵을 옮길 때 화면이 어두워지는(또는 밝아지는) 시간 (초)
 constexpr float kFadeSeconds = 0.35f;
+// 아이리스 가리개 색 (불투명 검정)
+constexpr engine::Color kTransitionColor{0, 0, 0, 255};
+// 못 간 출구 알림: 글자 색(빨강), 화면 아래에서 띄울 거리, 띠 안쪽 여백 (픽셀)
+constexpr engine::Color kNoticeColor{255, 120, 110, 255};
+constexpr float kNoticeBottom = 28.0f;
+constexpr float kNoticePadding = 4.0f;
 
-// 방향을 그 방향의 화살표 키로 바꿔요 (시험용 --auto-move에서 써요).
-engine::Key move_key(world::Direction dir) {
-    switch (dir) {
-        case world::Direction::Up: return engine::Key::Up;
-        case world::Direction::Down: return engine::Key::Down;
-        case world::Direction::Left: return engine::Key::Left;
-        case world::Direction::Right: return engine::Key::Right;
+// 화면 가리기 그리기: 페이드는 화면 전체를 반투명 검정으로, 아이리스는 둥근 구멍 바깥을 새까맣게.
+void draw_transition(engine::Renderer& renderer, const engine::ScreenFade& fade, engine::Vec2 focus) {
+    const float darkness = fade.darkness();
+    if (darkness <= 0.0f) {
+        return;
     }
-    return engine::Key::Down;
+    const engine::Vec2 size = renderer.logical_size();
+    if (fade.style() == world::ScreenTransition::Iris) {
+        const float radius = engine::iris_radius(focus, size, darkness);
+        for (const auto& rect : engine::iris_cover_rects(focus, radius, size)) {
+            renderer.fill_rect(rect, kTransitionColor);
+        }
+        return;
+    }
+    renderer.fill_rect({0.0f, 0.0f, size.x, size.y},
+                       {0, 0, 0, static_cast<std::uint8_t>(darkness * 255.0f)});
 }
 
-// 시험용 --press 키 이름을 엔진 키로 바꿔요. (이름은 실행 옵션을 읽을 때 이미 검사했어요)
-engine::Key scripted_key(std::string_view name) {
-    if (name == "f3") return engine::Key::F3;
-    if (name == "f4") return engine::Key::F4;
-    if (name == "f5") return engine::Key::F5;
-    if (name == "f6") return engine::Key::F6;
-    if (name == "f12") return engine::Key::F12;
-    if (name == "space") return engine::Key::Space;
-    if (name == "up") return engine::Key::Up;
-    if (name == "down") return engine::Key::Down;
-    if (name == "left") return engine::Key::Left;
-    if (name == "right") return engine::Key::Right;
-    return engine::Key::Unknown;
-}
-
-// frame번째 장: 그 장에 누르기로 한 키는 누르고, 바로 전 장에 눌렀던 키는 떼요.
-void apply_scripted_presses(const std::vector<ClientOptions::KeyPress>& presses, std::uint64_t frame,
-                            engine::InputState& input) {
-    for (const auto& press : presses) {
-        if (press.frame == frame) {
-            input.set_key(scripted_key(press.key), true);
-        } else if (press.frame + 1 == frame) {
-            input.set_key(scripted_key(press.key), false);
-        }
+// 못 간 출구 알림: 화면 아래쪽 가운데에 검은 띠를 깔고 빨간 글자로 보여 줘요.
+// (지금은 영어 디버그 글꼴이에요. 진짜 글자 그리기는 8단계에서 만들어요.)
+void draw_notice(engine::Renderer& renderer, const std::string& notice) {
+    if (notice.empty()) {
+        return;
     }
-}
-
-// 맵 옮기기 (명세 7.4): 주인공이 출구를 밟으면 화면을 어둡게 하고,
-// 다 까매지면 새 맵을 불러와 바꾼 다음, 다시 밝게 해요.
-// 새 맵을 못 불러오면 지금 맵에 그대로 있고, 이유를 기록해요.
-template <typename MakeField>
-void update_travel(MakeField& make_field, std::unique_ptr<game::FieldState>& field,
-                   engine::ScreenFade& fade, std::optional<world::MapExit>& travel, float dt) {
-    if (!fade.busy()) {
-        if (auto exit = field->take_exit_request()) {
-            log::info("Exit to '{}' (spawn '{}')", exit->to_map, exit->to_spawn);
-            travel = std::move(exit);
-            fade.fade_out();
-        }
-    }
-    fade.update(dt);
-    if (fade.phase() == engine::ScreenFade::Phase::Covered && travel) {
-        if (auto next = make_field(travel->to_map, travel->to_spawn)) {
-            field = std::move(next);
-        } else {
-            log::error("Cannot enter '{}'; staying on the current map", travel->to_map);
-        }
-        travel.reset();
-        fade.fade_in();
-    }
+    const engine::Vec2 size = renderer.logical_size();
+    const float text_w = static_cast<float>(notice.size()) * engine::Renderer::kDebugCharSize;
+    const float x = std::max(0.0f, (size.x - text_w) * 0.5f);
+    const float y = size.y - kNoticeBottom;
+    renderer.fill_rect({x - kNoticePadding, y - kNoticePadding, text_w + kNoticePadding * 2.0f,
+                        engine::Renderer::kDebugCharSize + kNoticePadding * 2.0f},
+                       {0, 0, 0, 200});
+    renderer.draw_debug_text({x, y}, notice, kNoticeColor);
 }
 
 // 스크린샷 폴더 정하기: --screenshot-dir가 있으면 그곳, 없으면 사용자 자료 폴더 안의 screenshots.
@@ -181,9 +161,17 @@ int ClientApp::run() {
     ScreenshotFlash screenshot_flash;                        // 찍은 뒤 "찰칵" 효과
     // 게임 시계: 맵을 옮겨도 이어지도록 필드 화면 밖에 둬요.
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
-    engine::ScreenFade fade(kFadeSeconds);                   // 맵 옮길 때 화면 어둡게·밝게
-    std::optional<world::MapExit> travel;                    // 지금 가는 중인 출구 (페이드 중)
-    const engine::InputState no_input;                       // 페이드 중에는 키를 안 누른 셈 쳐요
+    game::MapTravel travel(kFadeSeconds);                    // 맵 옮기기 (화면 가리기 -> 새 맵 -> 보여 주기)
+    const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
+    // 출구가 가리키는 맵을 열어요. 못 열면 false (지금 필드는 그대로 둬요).
+    const game::MapTravel::EnterMap enter_map = [&](const world::MapExit& exit) {
+        auto next = make_field(exit.to_map, exit.to_spawn);
+        if (!next) {
+            return false;
+        }
+        field = std::move(next);
+        return true;
+    };
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.
@@ -224,7 +212,7 @@ int ClientApp::run() {
             input.set_key(move_key(*options_.auto_move), true);
         }
         // 맵을 옮기는 중(페이드)에는 캐릭터가 움직이지 않게 키를 막아요.
-        const engine::InputState& game_input = fade.busy() ? no_input : input;
+        const engine::InputState& game_input = travel.busy() ? no_input : input;
 
         // 3. 누른 키를 필드에 알려 줘요 (구르기 버튼은 메모장에 적어 둬요).
         field->handle_input(game_input, bindings);
@@ -238,7 +226,13 @@ int ClientApp::run() {
         // 5. 그림 넘기기, 먼지·잔상, 카메라는 화면 한 장마다 해요.
         //    alpha: 지난 박자와 다음 박자 사이 어디쯤인지 -> 위치를 부드럽게 이어 그려요.
         field->frame_update(frame_seconds, clock.alpha(), game_clock.hour());
-        update_travel(make_field, field, fade, travel, static_cast<float>(frame_seconds));
+        // 출구를 밟았으면 맵 옮기기를 시작하고, 화면이 다 가려지면 새 맵을 열어요.
+        if (!travel.busy()) {
+            if (auto exit = field->take_exit_request()) {
+                travel.begin(std::move(*exit));
+            }
+        }
+        travel.update(static_cast<float>(frame_seconds), enter_map);
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();
@@ -250,12 +244,10 @@ int ClientApp::run() {
         renderer.submit(queue, engine::DrawLayer::Ground, engine::DrawLayer::WorldFx);
         renderer.apply_lighting(field->lighting());
         renderer.submit(queue, engine::DrawLayer::Glow, engine::DrawLayer::DebugOverlay);
-        // 7. 맵을 옮기는 중이면 화면 전체를 검게 덮어요 (디버그 정보판은 그 위에 보여요).
-        if (fade.darkness() > 0.0f) {
-            const engine::Vec2 size = renderer.logical_size();
-            renderer.fill_rect({0.0f, 0.0f, size.x, size.y},
-                               {0, 0, 0, static_cast<std::uint8_t>(fade.darkness() * 255.0f)});
-        }
+        // 7. 맵을 옮기는 중이면 화면을 검게 가려요 (디버그 정보판은 그 위에 보여요).
+        //    아이리스는 주인공을 가운데 두고 오므라들어요. 못 간 출구가 있으면 잠깐 알려 줘요.
+        draw_transition(renderer, travel.fade(), field->focus_on_screen());
+        draw_notice(renderer, travel.notice());
         // 8. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
         overlay.record_frame(frame_seconds);
         overlay.draw(renderer, field->debug_info(), resources.stats(), clock.dropped_frames(),

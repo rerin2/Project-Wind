@@ -25,6 +25,7 @@ add_library(wind_shared STATIC
     src/content/day_cycle_loader.cpp
     src/content/weather_loader.cpp
     src/content/json_reader.cpp
+    src/content/tileset_loader.cpp
     src/content/map_loader.cpp)
 add_library(wind::shared ALIAS wind_shared)
 
@@ -46,6 +47,7 @@ if(WIND_BUILD_TESTS)
         tests/direction_tests.cpp
         tests/content_path_tests.cpp
         tests/map_loader_tests.cpp
+        tests/tileset_loader_tests.cpp
         tests/json_reader_tests.cpp
         tests/hex_color_tests.cpp
         tests/ambience_loader_tests.cpp

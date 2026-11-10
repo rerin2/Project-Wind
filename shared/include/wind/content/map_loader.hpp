@@ -9,6 +9,7 @@
 #include "wind/content/json_file.hpp"
 #include "wind/content/json_reader.hpp"
 #include "wind/content/load_result.hpp"
+#include "wind/content/tileset_loader.hpp"
 #include "wind/world/map.hpp"
 
 #include <filesystem>
@@ -19,15 +20,11 @@ namespace wind::content {
 // 지금 읽을 수 있는 설명서 양식의 버전.
 // 나중에 양식이 바뀌면 숫자를 올려서, 옛 양식과 새 양식을 헷갈리지 않게 해요.
 inline constexpr std::int64_t kMapSchemaVersion = 1;
-inline constexpr std::int64_t kTilesetSchemaVersion = 1;
 
 // 맵 크기·구성의 최대값. 이보다 크면 실수이거나 나쁜 파일일 수 있어서 거절해요.
 inline constexpr std::int64_t kMaxMapSide = 512;          // 가로·세로 최대 칸 수
 inline constexpr std::size_t kMaxMapLayers = 8;           // 겹치는 필름 최대 장 수
 inline constexpr std::size_t kMaxSpawnPoints = 64;        // 등장 자리 최대 개수
-inline constexpr std::int64_t kMinTileSize = 8;           // 칸 한 변의 최소 픽셀
-inline constexpr std::int64_t kMaxTileSize = 128;         // 칸 한 변의 최대 픽셀
-inline constexpr std::size_t kMaxTilesetTiles = 4096;     // 타일셋 안 카드 최대 종류
 
 // 맵과, 그 맵이 쓰는 타일셋을 한 상자에 담아요.
 struct LoadedMap {
@@ -35,9 +32,7 @@ struct LoadedMap {
     world::Tileset tileset;
 };
 
-// 이미 JSON으로 바꾼 타일셋 설명서를 검사해서 Tileset으로 만들어요.
-[[nodiscard]] LoadResult<world::Tileset> parse_tileset(const nlohmann::json& document,
-                                                       const std::string& file);
+// 타일셋 읽기(parse_tileset)와 칸 크기 범위(kMinTileSize 등)는 wind/content/tileset_loader.hpp에 있어요.
 
 // 이미 JSON으로 바꾼 맵 설명서를 검사해서 MapData로 만들어요.
 // 맵에 쓰인 카드 번호가 타일셋에 진짜 있는지 확인하고,

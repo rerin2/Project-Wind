@@ -46,3 +46,21 @@ TEST(ScreenFade, ReverseMidwayContinuesFromCurrentDarkness) {
 }
 
 }  // namespace
+
+namespace {
+
+// 아이리스로 닫으면, 다시 열 때도 아이리스 모양이에요. 다음 페이드는 다시 기본(페이드)이에요.
+TEST(ScreenFade, RemembersTransitionStyle) {
+    using wind::world::ScreenTransition;
+    ScreenFade fade(0.1f);
+    EXPECT_EQ(fade.style(), ScreenTransition::Fade);
+    fade.fade_out(ScreenTransition::Iris);
+    fade.update(0.1f);
+    fade.fade_in();
+    EXPECT_EQ(fade.style(), ScreenTransition::Iris);
+    fade.update(0.1f);
+    fade.fade_out();
+    EXPECT_EQ(fade.style(), ScreenTransition::Fade);
+}
+
+}  // namespace

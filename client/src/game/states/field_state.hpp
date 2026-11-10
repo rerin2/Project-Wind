@@ -120,6 +120,9 @@ public:
         return request;
     }
 
+    // 주인공 몸 가운데가 보이는 화면 위치 (아이리스 전환의 가운데)
+    [[nodiscard]] engine::Vec2 focus_on_screen() const;
+
     // 디버그 화면용 정보
     [[nodiscard]] FieldDebugInfo debug_info() const;
 
@@ -171,6 +174,7 @@ private:
     bool exit_armed_ = false;                // 출구가 아닌 칸을 밟은 뒤라 출구가 동작하나
     std::optional<world::MapExit> exit_request_;  // 밟은 출구 (게임 루프가 가져가요)
     std::uint32_t tiles_queued_ = 0;         // 이번 화면에 넣은 타일 수
+    float scene_seconds_ = 0.0f;             // 이 맵에 들어온 뒤 흐른 시간 (움직이는 타일용)
 };
 
 }  // namespace wind::game

@@ -65,3 +65,22 @@ TEST(ExitLoader, ReportsBadExits) {
 }
 
 }  // namespace
+
+namespace {
+
+// 화면 가리는 방법: 없으면 페이드, "iris"면 아이리스, 모르는 이름은 거절해요.
+TEST(ExitLoader, ParsesTransition) {
+    auto map = make_map();
+    auto iris = make_exit();
+    iris["transition"] = "iris";
+    auto bad = make_exit();
+    bad["transition"] = "spin";
+    ErrorList errors;
+    parse_exits(json::array({make_exit(), iris, bad}), "meadow.json", map, errors);
+    EXPECT_TRUE(has_error_at(errors, "exits[2].transition"));
+    ASSERT_EQ(map.exits.size(), 2u);
+    EXPECT_EQ(map.exits[0].transition, wind::world::ScreenTransition::Fade);
+    EXPECT_EQ(map.exits[1].transition, wind::world::ScreenTransition::Iris);
+}
+
+}  // namespace

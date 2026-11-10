@@ -1,5 +1,5 @@
 // 이 파일은 무엇을 하나요?
-// 맵 설명서와 타일셋 설명서를 숙제 검사하듯 한 칸씩 확인하면서 읽는 곳이에요.
+// 맵 설명서를 숙제 검사하듯 한 칸씩 확인하면서 읽는 곳이에요. (타일셋 읽기는 tileset_loader.cpp)
 // 순서: 타일셋을 먼저 읽고 -> 맵을 읽으면서 "맵에 쓴 카드가 타일셋에 진짜 있나?" 확인하고
 //       -> 칸마다 지나갈 수 있는지 계산하고 -> 등장 자리가 막힌 칸이 아닌지 확인해요.
 // 틀린 곳이 하나라도 있으면 결과 대신 오류 목록을 돌려줘요.
@@ -21,9 +21,8 @@ namespace {
 using world::RenderLayer;
 using world::TileId;
 
-// 카드 번호로 쓸 수 있는 가장 큰 수, 타일셋 그림 한 줄의 최대 칸 수
+// 카드 번호로 쓸 수 있는 가장 큰 수
 constexpr std::int64_t kMaxTileId = std::numeric_limits<TileId>::max();
-constexpr std::int64_t kMaxTilesetColumns = 256;
 
 // 설명서에 적는 필름 이름(글자)과 실제 필름 종류의 짝 목록
 constexpr std::array<std::pair<std::string_view, RenderLayer>, 5> kRenderLayerNames{{
@@ -44,18 +43,6 @@ std::optional<RenderLayer> parse_render_layer(std::string_view text) {
     return std::nullopt;
 }
 
-// 설명서 양식 버전(schema_version)이 우리가 아는 버전인지 확인해요.
-// 모르는 버전이면 칸 뜻이 다를 수 있어서 읽지 않아요.
-bool check_schema(JsonReader& reader, std::int64_t expected) {
-    const auto version = reader.integer("schema_version", 1, std::numeric_limits<std::int32_t>::max());
-    if (version && *version != expected) {
-        reader.error(reader.field_path("schema_version"),
-                     "unsupported schema version " + std::to_string(*version) + " (expected " +
-                         std::to_string(expected) + ")");
-        return false;
-    }
-    return version.has_value();
-}
 
 // 출구 영역 안에 걸어 들어갈 수 있는 칸이 하나라도 있나요?
 bool exit_is_reachable(const world::MapData& map, const world::MapExit& exit) {
@@ -202,46 +189,6 @@ void parse_spawn_points(JsonReader& reader, world::MapData& map) {
 
 }  // namespace
 
-// 타일셋 설명서 검사: 버전, 이름, 그림 위치, 칸 크기, 카드 목록(번호 중복 없이)
-LoadResult<world::Tileset> parse_tileset(const nlohmann::json& document, const std::string& file) {
-    ErrorList errors;
-    JsonReader reader(document, file, "", errors);
-    world::Tileset tileset;
-
-    if (reader.valid() && check_schema(reader, kTilesetSchemaVersion)) {
-        if (auto id = reader.string("id", 64)) tileset.id = std::move(*id);
-        if (auto image = reader.content_path("image")) tileset.image = std::move(*image);
-        if (auto w = reader.integer("tile_width", kMinTileSize, kMaxTileSize)) tileset.tile_width = static_cast<std::int32_t>(*w);
-        if (auto h = reader.integer("tile_height", kMinTileSize, kMaxTileSize)) tileset.tile_height = static_cast<std::int32_t>(*h);
-        if (auto c = reader.integer("columns", 1, kMaxTilesetColumns)) tileset.columns = static_cast<std::int32_t>(*c);
-
-        if (const auto* tiles = reader.array("tiles", kMaxTilesetTiles)) {
-            std::set<TileId> seen;  // 이미 나온 카드 번호 (중복 찾기용)
-            for (std::size_t i = 0; i < tiles->size(); ++i) {
-                JsonReader tile_reader((*tiles)[i], file, reader.index_path("tiles", i), errors);
-                const auto id = tile_reader.integer("id", 1, kMaxTileId);
-                auto name = tile_reader.string("name", 64);
-                const auto walkable = tile_reader.boolean("walkable");
-                if (!id || !name || !walkable) {
-                    continue;
-                }
-                const auto tile_id = static_cast<TileId>(*id);
-                if (!seen.insert(tile_id).second) {
-                    tile_reader.error(tile_reader.field_path("id"),
-                                      "duplicate tile id " + std::to_string(tile_id));
-                }
-                tileset.tiles.push_back({tile_id, std::move(*name), *walkable});
-            }
-        }
-    }
-
-    // 오류가 하나라도 있으면 결과 대신 오류 목록을 돌려줘요.
-    if (!errors.empty()) {
-        return {std::nullopt, errors.take()};
-    }
-    return {std::move(tileset), {}};
-}
-
 // 맵 설명서 검사: 버전, 이름, 타일셋 위치, 칸 크기, 가로·세로, 필름들, 등장 자리
 LoadResult<world::MapData> parse_map(const nlohmann::json& document, const std::string& file,
                                      const world::Tileset& tileset) {
@@ -249,7 +196,7 @@ LoadResult<world::MapData> parse_map(const nlohmann::json& document, const std::
     JsonReader reader(document, file, "", errors);
     world::MapData map;
 
-    if (reader.valid() && check_schema(reader, kMapSchemaVersion)) {
+    if (reader.valid() && reader.schema_version(kMapSchemaVersion)) {
         if (auto id = reader.string("map_id", 64)) map.map_id = std::move(*id);
         if (auto name = reader.string("display_name", 128)) map.display_name = std::move(*name);
         if (auto path = reader.content_path("tileset")) map.tileset_path = std::move(*path);

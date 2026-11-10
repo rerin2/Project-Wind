@@ -4,6 +4,7 @@
 #include "engine/map/tilemap_renderer.hpp"
 
 #include "engine/map/coordinates.hpp"
+#include "engine/map/tile_animation.hpp"
 
 #include <algorithm>
 
@@ -45,7 +46,8 @@ TileRange visible_tiles(const world::MapData& map, const Camera2D& camera) {
 }
 
 std::uint32_t queue_tilemap(const world::MapData& map, const world::Tileset& tileset,
-                            TextureHandle texture, const Camera2D& camera, RenderQueue& queue) {
+                            TextureHandle texture, const Camera2D& camera, float time_seconds,
+                            RenderQueue& queue) {
     const TileRange range = visible_tiles(map, camera);
     const auto size = static_cast<float>(map.tile_size);
     std::uint32_t count = 0;
@@ -62,10 +64,19 @@ std::uint32_t queue_tilemap(const world::MapData& map, const world::Tileset& til
                 // 맵 위 위치 -> 화면 위 위치로 바꿔서 어디에 그릴지 정해요.
                 const Vec2 world_pos = tile_to_world({x, y}, map.tile_size);
                 const Vec2 screen = camera.world_to_screen(world_pos);
+                // 움직이는 카드면 지금 보여 줄 그림으로 바꾸고, 흔들리는 카드면 좌우로 조금 밀어요.
+                world::TileId shown = tile;
+                float sway = 0.0f;
+                if (const auto* props = tileset.find(tile)) {
+                    shown = animated_tile(*props, time_seconds, {x, y});
+                    if (props->sway) {
+                        sway = sway_offset(*props->sway, time_seconds, {x, y});
+                    }
+                }
                 SpriteDraw draw;
                 draw.texture = texture;
-                draw.source = tile_source_rect(tileset, tile);
-                draw.dest = {screen.x, screen.y, size, size};
+                draw.source = tile_source_rect(tileset, shown);
+                draw.dest = {screen.x + sway, screen.y, size, size};
                 // 순서를 정하는 기준은 칸의 아래쪽 끝 (물건이 땅에 닿는 곳)
                 queue.push_sprite(draw_layer, world_pos.y + size, draw);
                 ++count;

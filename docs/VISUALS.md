@@ -160,6 +160,35 @@ File: `content/weather/meadow.json`, 5 s transitions.
 
 Lessons from tuning: pale 1 px streaks and soft 2–4 px snow dots vanish on bright grass. Rain needed brighter, longer, denser streaks plus a darker tint; snow needed crisp pixel flakes. Effect `rate` was raised to allow up to 2000 per second for heavy rain.
 
+Forest table (`content/weather/forest.json`, 5 s transitions): clear 3 (90–180 s), fog 3 (60–120 s, tint `#c8d0cc`, fog 0.8), rain 2 (45–90 s, same effects as the meadow, tint `#98a4b4`, fog 0.2). The forest leans foggy. Its ambient effect is `fx/leaves.json` (green-to-amber pixel leaves, 5 per second, slow wobbling fall).
+
+## Living tiles and wind (phase 7)
+
+Data: `content/tilesets/test_tiles.json`. Code: `client/src/engine/map/tile_animation.cpp`.
+
+| Tile | Effect | Setting | Why |
+|---|---|---|---|
+| 4 water | frames 4 → 14 → 15 → 14 | 0.35 s per frame | Ripple lines slide 2 px per frame and 1–2 small highlights appear; ping-pong order avoids a visible jump back to the first frame |
+| 9 flowers | frames 9 ↔ 16 | 0.7 s per frame | Only the flower heads lean 1 px; stems stay, so it reads as a breeze, not a jitter |
+| 7 tree canopy (meadow) | sway | 1 px, 3.5 s period | Slow and small: leaves move, trunks stay planted |
+| 21 dark canopy (forest) | sway | 1 px, 4.2 s period | Slightly slower than the meadow trees, heavier crowns |
+| 17 tall grass (forest) | sway | 1 px, 2.4 s period | Faster than trees so the ground layer feels lighter |
+
+- Neighbouring cells start on different animation frames (stagger 7·x + 13·y frames), so a pond never blinks in unison.
+- The sway wave lags 0.45 rad per column and 0.2 rad per row, so gusts appear to roll left to right.
+- Offsets are whole pixels (no blurry half-pixel draws). More than 1–2 px looks like the tiles are sliding; keep it small.
+
+## Screen transitions (phase 7)
+
+Code: `client/src/engine/fx/screen_fade.cpp`, `iris_mask.cpp`, drawn in `client/src/app/client_app.cpp`.
+
+| Style | Used by | Look |
+|---|---|---|
+| fade (default) | meadow ↔ forest | full-screen black, alpha follows `in_quad` closing / `out_quad` opening, 0.35 s each |
+| iris | meadow ↔ cave | opaque black outside a circle centred on the hero's body; radius from the farthest screen corner to 0 with the same easing and timing; opens on the hero in the new map |
+
+The iris edge is built per pixel row and rounded to whole pixels, so it stays crisp at any integer window scale. Walking into a cave mouth reads as "going in"; open-air paths use the softer fade. A failed exit shows a red one-line notice on a dark band near the bottom for 4 s.
+
 ## Dodge afterimages
 
 Code: `client/src/game/presentation/afterimage_trail.cpp`.

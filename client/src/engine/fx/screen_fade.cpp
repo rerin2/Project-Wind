@@ -7,7 +7,8 @@ namespace wind::engine {
 
 ScreenFade::ScreenFade(float seconds) : seconds_(seconds) {}
 
-void ScreenFade::fade_out() {
+void ScreenFade::fade_out(world::ScreenTransition style) {
+    style_ = style;
     // 어두워질 때는 처음엔 천천히, 끝에 빠르게 (InQuad)
     tween_ = Tween(darkness(), 1.0f, seconds_, Ease::InQuad);
     phase_ = Phase::FadingOut;

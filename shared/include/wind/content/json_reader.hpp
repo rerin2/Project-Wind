@@ -64,6 +64,10 @@ public:
     // 그 칸이 있는지만 살짝 확인해요 (없어도 공책에 적지 않아요).
     [[nodiscard]] bool has(std::string_view key) const;
 
+    // 설명서 양식 버전("schema_version")이 expected와 같은지 확인해요.
+    // 모르는 버전이면 칸 뜻이 다를 수 있어서 false(읽지 말기)를 돌려줘요.
+    [[nodiscard]] bool schema_version(std::int64_t expected);
+
     // 칸 주소 만들기. 예: 이 묶음이 "layers[2]"이면 field_path("name") -> "layers[2].name"
     [[nodiscard]] std::string field_path(std::string_view key) const;
     // 목록 안 항목 주소 만들기. 예: index_path("tiles", 5) -> "tiles[5]"

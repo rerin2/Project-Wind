@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "leaves",
+  "shape": "pixel",
+  "blend": "normal",
+  "lifetime": [7, 10],
+  "speed": [8, 14],
+  "direction": 100,
+  "spread": 25,
+  "gravity": 3,
+  "drag": 0.25,
+  "start_size": [3, 4],
+  "end_size": 3,
+  "start_color": "#8cb048ff",
+  "end_color": "#d09840ff",
+  "fade_in": 0.08,
+  "fade_out": 0.2,
+  "wobble": { "amplitude": 9, "frequency": 0.4 },
+  "rate": 5
+}

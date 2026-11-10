@@ -3,10 +3,13 @@
 // 이 파일은 무엇을 하나요?
 // 화면 전환 페이드예요. (명세 6.8)
 // 맵을 옮길 때: 화면이 서서히 까매지고(어두워지기) -> 까만 동안 새 맵을 불러오고
+//              (아이리스면 둥근 구멍이 오므라들어 까매지고, 다시 넓어지며 밝아져요)
 //              -> 다시 서서히 밝아져요(밝아지기).
 // 그리는 일은 하지 않고 "지금 얼마나 까만지"(0~1)만 계산해요. 그래서 창 없이 테스트할 수 있어요.
 
 #include "engine/tween/tween.hpp"
+
+#include "wind/world/map.hpp"
 
 namespace wind::engine {
 
@@ -18,12 +21,15 @@ public:
     explicit ScreenFade(float seconds);
 
     // 어두워지기 시작. 다 까매지면 Covered가 돼요.
-    void fade_out();
+    // style: 화면 전체를 어둡게(Fade) 할지, 둥근 구멍이 오므라들게(Iris) 할지
+    void fade_out(world::ScreenTransition style = world::ScreenTransition::Fade);
     // 밝아지기 시작. 다 밝아지면 Clear가 돼요.
     void fade_in();
     void update(float dt_seconds);
 
     [[nodiscard]] Phase phase() const { return phase_; }
+    // 지금(또는 마지막) 전환의 모양. 밝아질 때도 어두워질 때와 같은 모양을 써요.
+    [[nodiscard]] world::ScreenTransition style() const { return style_; }
     // 화면을 덮는 검은색 진하기 0(안 보임) ~ 1(완전히 까맘)
     [[nodiscard]] float darkness() const;
     // 페이드 중이거나 덮여 있나요? (이때는 게임 입력을 막아요)
@@ -32,6 +38,7 @@ public:
 private:
     float seconds_;
     Phase phase_ = Phase::Clear;
+    world::ScreenTransition style_ = world::ScreenTransition::Fade;
     Tween tween_;
 };
 

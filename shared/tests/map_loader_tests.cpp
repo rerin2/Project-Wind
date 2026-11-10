@@ -1,5 +1,5 @@
 // 이 파일은 무엇을 하나요?
-// 맵·타일셋 설명서 숙제 검사(map_loader)가 제대로 채점하는지 시험하는 시험지예요.
+// 맵 설명서 숙제 검사(map_loader)가 제대로 채점하는지 시험하는 시험지예요. (타일셋은 tileset_loader_tests.cpp)
 // 작은 연습용 맵을 코드로 직접 만들어 놓고, 일부러 틀리게 고쳐서 잘 잡아내는지 봐요.
 // 마지막에는 저장소에 들어 있는 진짜 시험 맵도 검사를 통과하는지 확인해요.
 #include "wind/content/map_loader.hpp"
@@ -59,26 +59,6 @@ wind::world::Tileset load_tileset() {
 // 오류 목록에 "이 칸 주소"에 대한 오류가 들어 있는지 확인하는 도우미
 bool has_error_at(const std::vector<wind::content::ContentError>& errors, std::string_view field) {
     return std::ranges::any_of(errors, [field](const auto& e) { return e.field == field; });
-}
-
-// 올바른 타일셋은 잘 읽히고, 벽(2번)은 못 가는 카드로 기억되어야 해요. 없는 9번은 못 찾아야 해요.
-TEST(TilesetLoader, ParsesValidTileset) {
-    const auto tileset = load_tileset();
-    EXPECT_EQ(tileset.id, "test");
-    ASSERT_NE(tileset.find(2), nullptr);
-    EXPECT_FALSE(tileset.find(2)->walkable);
-    EXPECT_EQ(tileset.find(9), nullptr);
-}
-
-// 카드 번호가 겹치거나, 그림 위치가 상자 밖("../")을 가리키면 잡아내야 해요.
-TEST(TilesetLoader, RejectsDuplicateIdsAndBadPaths) {
-    auto doc = make_tileset();
-    doc["tiles"].push_back(json{{"id", 1}, {"name", "dup"}, {"walkable", true}});
-    doc["image"] = "../outside.bmp";
-    const auto result = wind::content::parse_tileset(doc, "test.json");
-    EXPECT_FALSE(result.ok());
-    EXPECT_TRUE(has_error_at(result.errors, "tiles[3].id"));
-    EXPECT_TRUE(has_error_at(result.errors, "image"));
 }
 
 // 올바른 맵은 잘 읽히고, 칸마다 "지나갈 수 있나?"가 규칙대로 계산되어야 해요.

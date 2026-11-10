@@ -71,6 +71,22 @@ void parse_exits(const nlohmann::json& list, const std::string& file, world::Map
             ok = false;
         }
 
+        // 화면 가리는 방법은 없어도 돼요 (없으면 페이드). "fade" 또는 "iris"만 받아요.
+        if (exit_reader.has("transition")) {
+            const auto transition = exit_reader.string("transition", 16);
+            if (transition == "fade") {
+                exit.transition = world::ScreenTransition::Fade;
+            } else if (transition == "iris") {
+                exit.transition = world::ScreenTransition::Iris;
+            } else {
+                if (transition) {
+                    exit_reader.error(exit_reader.field_path("transition"),
+                                      "transition must be fade or iris: " + *transition);
+                }
+                ok = false;
+            }
+        }
+
         if (ok) {
             map.exits.push_back(std::move(exit));
         }

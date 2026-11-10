@@ -27,11 +27,26 @@ inline constexpr TileId kEmptyTile = 0;
 // 캐릭터는 낮은 물건(LowObjects)과 높은 물건(HighObjects) 사이에 그려져요.
 enum class RenderLayer : std::uint8_t { Ground, GroundDecor, LowObjects, HighObjects, Foreground };
 
+// 움직이는 타일 (명세 7.1): 그림 카드 몇 장을 차례로 바꿔 보여 줘요. (물 반짝임, 꽃 흔들림)
+// 보여 주기 전용이라 지나갈 수 있는지는 맵에 적힌 원래 카드로 정해요.
+struct TileAnimation {
+    std::vector<TileId> frames;   // 차례로 보여 줄 카드 번호들 (모두 같은 타일셋에 있어야 해요)
+    float frame_seconds = 0.25f;  // 카드 한 장을 보여 주는 시간 (초)
+};
+
+// 바람에 흔들리는 타일 (풀, 나뭇잎): 좌우로 몇 픽셀씩 살랑살랑 움직여요.
+struct TileSway {
+    float pixels = 1.0f;          // 가장 많이 움직일 때 몇 픽셀
+    float period_seconds = 3.0f;  // 한 번 왔다 갔다 하는 데 걸리는 시간 (초)
+};
+
 // 타일 카드 한 종류의 성질 (예: "풀", 지나갈 수 있음)
 struct TileProperties {
     TileId id = kEmptyTile;
     std::string name;
     bool walkable = true;  // false면 이 카드가 놓인 칸으로는 걸어갈 수 없어요 (벽, 물 등)
+    std::optional<TileAnimation> animation;  // 있으면 카드를 바꿔 가며 보여 줘요
+    std::optional<TileSway> sway;            // 있으면 바람에 흔들려요
 };
 
 // 타일셋: 타일 그림 한 장과, 그 안에 있는 카드 하나하나의 성질 목록
@@ -63,6 +78,10 @@ struct SpawnPoint {
     TileCoord position;
 };
 
+// 맵을 옮길 때 화면을 가리는 방법 (명세 6.8)
+// Fade: 화면 전체가 서서히 까매져요. Iris: 주인공을 가운데 두고 둥근 구멍이 오므라들어요.
+enum class ScreenTransition : std::uint8_t { Fade, Iris };
+
 // 다른 맵으로 가는 출구 (명세 7.4)
 // 캐릭터의 발이 area 칸들 중 하나에 들어가면 to_map 맵의 to_spawn 자리로 옮겨 가요.
 struct MapExit {
@@ -70,6 +89,7 @@ struct MapExit {
     TileCoord area_max;  // 출구 영역의 오른쪽 아래 칸 (포함)
     std::string to_map;    // 갈 맵 파일 위치 (콘텐츠 폴더 기준)
     std::string to_spawn;  // 그 맵의 어느 등장 자리로 갈지
+    ScreenTransition transition = ScreenTransition::Fade;  // 화면 가리는 방법 (없으면 페이드)
 
     [[nodiscard]] bool contains(TileCoord tile) const {
         return tile.x >= area_min.x && tile.x <= area_max.x && tile.y >= area_min.y &&

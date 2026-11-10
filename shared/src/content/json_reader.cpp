@@ -9,6 +9,7 @@
 #include "wind/content/hex_color.hpp"
 
 #include <cmath>
+#include <limits>
 #include <string>
 
 namespace wind::content {
@@ -38,6 +39,17 @@ void JsonReader::error(std::string field, std::string message) {
 
 bool JsonReader::has(std::string_view key) const {
     return valid_ && object_.contains(key);
+}
+
+bool JsonReader::schema_version(std::int64_t expected) {
+    const auto version = integer("schema_version", 1, std::numeric_limits<std::int32_t>::max());
+    if (version && *version != expected) {
+        error(field_path("schema_version"), "unsupported schema version " +
+                                                std::to_string(*version) + " (expected " +
+                                                std::to_string(expected) + ")");
+        return false;
+    }
+    return version.has_value();
 }
 
 // 꼭 있어야 하는 칸을 찾아요. 없으면 공책에 적어요.

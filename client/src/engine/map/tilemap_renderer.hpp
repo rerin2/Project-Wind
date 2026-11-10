@@ -30,8 +30,10 @@ struct TileRange {
 [[nodiscard]] TileRange visible_tiles(const world::MapData& map, const Camera2D& camera);
 
 // 보이는 칸의 타일 그림들을 순서표에 넣고, 몇 개 넣었는지 알려 줘요.
+// time_seconds: 맵에 들어온 뒤 흐른 시간. 움직이는 타일(물·꽃)과 흔들리는 타일(풀·나뭇잎)이 이걸 따라가요.
 std::uint32_t queue_tilemap(const world::MapData& map, const world::Tileset& tileset,
-                            TextureHandle texture, const Camera2D& camera, RenderQueue& queue);
+                            TextureHandle texture, const Camera2D& camera, float time_seconds,
+                            RenderQueue& queue);
 
 // 못 지나가는 칸 위에 반투명 빨간 네모를 덮어서 보여 줘요. (F4 키, 명세 5.10)
 void queue_collision_overlay(const world::MapData& map, const Camera2D& camera, RenderQueue& queue);

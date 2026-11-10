@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Phase 7 — living world and region travel
+- Tileset `animation` (frames + seconds per frame) and `sway` (pixels + period). Water shimmers (4 → 14 → 15 → 14),
+  flowers lean (9 ↔ 16), tree canopies and tall grass sway 1 px in a wave of wind. Neighbouring cells are staggered.
+- Exit `transition`: `fade` (default) or `iris` (a pixel-exact circle closing on the hero, opening on her in the new map).
+  Meadow ↔ cave uses iris.
+- New test forest (36×24): forest floor, tall grass, mushrooms, dark trees, a shimmering stream, bush border,
+  falling leaves, foggy weather table. Reached from the right end of the meadow path (fade).
+- `MapTravel` (SDL-free) runs cover → enter → uncover. A bad exit target keeps the current map, logs the reason and
+  shows a red notice for 4 s. Tests cover the bad target and follow every shipped exit.
+- Tileset parsing moved to `tileset_loader` (map_loader.cpp 360 → 307 lines); `JsonReader::schema_version`.
+  `load_field_assets` moved into `wind_game_core` so it can be tested. Test key helpers moved to `scripted_input`.
+- 202 CTest tests.
+
 ### Fix: F6 seemed to do nothing
 - F6 used the table's 5 s fade out + 5 s fade in, so from clear nothing visible happened for 5 s.
   F6 now fades 0.4 s each way; natural weather changes keep the table's slower fade.

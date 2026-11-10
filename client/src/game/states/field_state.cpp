@@ -205,6 +205,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
 // 화면을 한 장 그릴 때마다 한 번씩 불려요. (1초에 약 60번)
 void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     alpha_ = alpha;
+    scene_seconds_ += static_cast<float>(dt_seconds);  // 물 반짝임·풀 흔들림 시계
     const auto dt = static_cast<float>(dt_seconds);
     const engine::Vec2 feet = drawn_feet();
 
@@ -268,7 +269,8 @@ void FieldState::render(engine::RenderQueue& queue) {
     const engine::Vec2 feet = drawn_feet();
 
     // 1) 맵 타일 (화면에 보이는 칸만)
-    tiles_queued_ = engine::queue_tilemap(map_.map, map_.tileset, tileset_texture_, camera_, queue);
+    tiles_queued_ = engine::queue_tilemap(map_.map, map_.tileset, tileset_texture_, camera_,
+                                          scene_seconds_, queue);
 
     // 2) 발밑 그림자: 바닥 위, 캐릭터 아래 단계에 그려요.
     if (textures_.shadow.valid()) {
@@ -326,6 +328,12 @@ void FieldState::queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) c
 
 engine::Vec2 FieldState::drawn_feet() const {
     return player_.interpolated_feet(static_cast<float>(alpha_));
+}
+
+// 주인공 몸 가운데가 화면(640x360)의 어디에 보이는지. 아이리스 전환이 이 점을 향해 오므라들어요.
+engine::Vec2 FieldState::focus_on_screen() const {
+    const float half_tile = static_cast<float>(map_.map.tile_size) * 0.5f;
+    return camera_.world_to_screen(drawn_feet() - engine::Vec2{0.0f, half_tile});
 }
 
 // 디버그 화면(F3)에 보여 줄 정보를 모아 줘요.

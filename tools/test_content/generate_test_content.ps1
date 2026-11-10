@@ -5,9 +5,11 @@
 #
 # 사용법 (저장소 맨 위 폴더에서):  powershell -NoProfile -File tools\test_content\generate_test_content.ps1
 # 만들어지는 파일:
-#   content/tilesets/test_tiles.bmp   타일 스티커 판: 32x32 칸, 가로 8개 x 세로 2줄 (1번 = 왼쪽 위)
+#   content/tilesets/test_tiles.bmp   타일 스티커 판: 32x32 칸, 가로 8개 x 세로 3줄 (1번 = 왼쪽 위)
 #   content/sprites/test_hero.bmp     주인공(고양이 귀 은발 소녀) 그림 판: 32x48 칸, 가로 4개(걸음) x 세로 4줄(아래·왼쪽·오른쪽·위)
-#   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵
+#   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
+#   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
+#   content/maps/test_forest.json     가로 36칸 x 세로 24칸 시험 숲 (키 큰 풀·나뭇잎이 바람에 흔들려요)
 # 타일 성질(test_tiles.json)과 애니메이션 설명(test_hero.json)은 사람이 직접 고치는 파일이라 만들지 않아요.
 # 분홍색(마젠타, 255,0,255)은 "투명"이라는 약속이에요.
 # 가장자리를 부드럽게 섞는 기능(안티앨리어싱)을 끄고 그려요. 섞이면 분홍 테두리가 남거든요.
@@ -45,7 +47,7 @@ function Save-Bmp($bmp, [string]$path) {
 # ---------------------------------------------------------------- 타일셋 ----
 # 맵 바닥에 깔 타일 스티커 판을 그려요.
 $tile = 32
-$canvas = New-Canvas (8 * $tile) (2 * $tile)
+$canvas = New-Canvas (8 * $tile) (3 * $tile)
 $bmp = $canvas[0]; $g = $canvas[1]
 # 주사위(무작위 숫자)인데, 시작 번호(시드)를 정해 두면 매번 똑같은 순서로 나와요.
 # 그래서 스크립트를 다시 돌려도 똑같은 그림이 나와요.
@@ -71,13 +73,24 @@ Fill-Ground 2 (Brush 78 150 62) (Brush 58 120 48) 26      # 2 짙은 풀
 Fill-Ground 3 (Brush 168 128 82) (Brush 140 104 64) 22    # 3 흙길
 Fill-Ground 10 (Brush 222 204 150) (Brush 196 178 124) 20 # 10 모래
 
-# 4 물: 파란 바탕에 물결선
-$o = TileOrigin 4
-$g.FillRectangle((Brush 52 108 196), $o[0], $o[1], $tile, $tile)
-foreach ($y in 6, 16, 26) {
-    $g.FillRectangle((Brush 120 168 232), $o[0] + 4, $o[1] + $y, 10, 2)
-    $g.FillRectangle((Brush 120 168 232), $o[0] + 18, $o[1] + $y + 4, 10, 2)
+# 4 물: 파란 바탕에 물결선. 14, 15번은 물결이 조금씩 옮겨 가고 반짝이가 생긴 그림이에요.
+# 타일셋 설명서(animation)가 4 -> 14 -> 15 -> 14 순서로 바꿔 보여 줘서 물이 출렁이며 반짝여요.
+# shift: 물결을 오른쪽으로 몇 픽셀 옮길지, sparkles: 반짝이 자리 (x, y) 목록
+function Draw-Water([int]$id, [int]$shift, $sparkles) {
+    $o = TileOrigin $id
+    $g.FillRectangle((Brush 52 108 196), $o[0], $o[1], $tile, $tile)
+    foreach ($y in 6, 16, 26) {
+        $g.FillRectangle((Brush 120 168 232), $o[0] + 4 + $shift, $o[1] + $y, 10, 2)
+        $g.FillRectangle((Brush 120 168 232), $o[0] + 18 - $shift, $o[1] + $y + 4, 10, 2)
+    }
+    foreach ($s in $sparkles) {
+        $g.FillRectangle((Brush 228 242 255), $o[0] + $s[0], $o[1] + $s[1], 2, 2)
+        $g.FillRectangle((Brush 170 206 246), $o[0] + $s[0] - 1, $o[1] + $s[1] + 2, 4, 1)
+    }
 }
+Draw-Water 4 0 @()
+Draw-Water 14 2 @(@(9, 12))
+Draw-Water 15 4 @(@(23, 2), @(5, 22))
 
 # 5 돌담: 회색 벽돌. 줄마다 벽돌을 반 칸씩 엇갈리게 쌓아요 (진짜 벽돌담처럼).
 $o = TileOrigin 5
@@ -110,14 +123,21 @@ $o = TileOrigin 8
 $g.FillEllipse((Brush 104 104 112), $o[0] + 4, $o[1] + 10, 24, 20)
 $g.FillEllipse((Brush 150 150 160), $o[0] + 9, $o[1] + 13, 10, 7)
 
-# 9 꽃 (바닥 장식): 투명 바탕에 작은 꽃 몇 송이
-$o = TileOrigin 9
+# 9 꽃 (바닥 장식): 투명 바탕에 작은 꽃 몇 송이.
+# 16번은 같은 꽃이 바람에 꽃송이만 1픽셀 기운 그림이에요. 9 <-> 16을 번갈아 보여 주면 살랑거려요.
 $petals = @((Brush 236 88 112), (Brush 248 216 72), (Brush 236 236 244))
-foreach ($p in @(@(6, 8), @(20, 5), @(12, 20), @(24, 22))) {
-    $color = $petals[$rng.Next(0, $petals.Count)]
-    $g.FillRectangle($color, $o[0] + $p[0], $o[1] + $p[1], 4, 4)
-    $g.FillRectangle((Brush 70 120 40), $o[0] + $p[0] + 1, $o[1] + $p[1] + 4, 2, 3)
+$flowerSpots = @(@(6, 8), @(20, 5), @(12, 20), @(24, 22))
+$flowerColors = foreach ($p in $flowerSpots) { $petals[$rng.Next(0, $petals.Count)] }
+function Draw-Flowers([int]$id, [int]$lean) {
+    $o = TileOrigin $id
+    for ($i = 0; $i -lt $flowerSpots.Count; $i++) {
+        $p = $flowerSpots[$i]
+        $g.FillRectangle($flowerColors[$i], $o[0] + $p[0] + $lean, $o[1] + $p[1], 4, 4)
+        $g.FillRectangle((Brush 70 120 40), $o[0] + $p[0] + 1, $o[1] + $p[1] + 4, 2, 3)
+    }
 }
+Draw-Flowers 9 0
+Draw-Flowers 16 1
 
 # 11 횃불 (낮은 물건, 못 지나감): 나무 기둥 + 쇠 받침 + 불꽃. 빛은 맵의 "lights"가 따로 비춰요.
 $o = TileOrigin 11
@@ -150,6 +170,42 @@ $g.FillRectangle((Brush 60 60 70), $o[0] + 11, $o[1] + 1, 11, 2)      # 등 지�
 $g.FillRectangle((Brush 60 60 70), $o[0] + 11, $o[1] + 9, 11, 2)      # 등 바닥
 $g.FillRectangle((Brush 242 214 150), $o[0] + 12, $o[1] + 3, 9, 6)    # 유리 (불빛)
 $g.FillRectangle((Brush 255 244 200), $o[0] + 15, $o[1] + 4, 3, 4)    # 심지
+
+# ---- 숲 타일 (17~21) ----
+# 17 키 큰 풀 (바닥 장식, 지나갈 수 있음): 뾰족한 풀잎 다발. 바람에 흔들려요(sway).
+$o = TileOrigin 17
+foreach ($tuft in @(@(4, 18), @(16, 8), @(22, 22), @(10, 26))) {
+    foreach ($blade in @(@(0, 7, 92, 158, 70), @(2, 10, 70, 136, 56), @(4, 6, 110, 176, 84))) {
+        $b = Brush $blade[2] $blade[3] $blade[4]
+        $g.FillRectangle($b, $o[0] + $tuft[0] + $blade[0], $o[1] + $tuft[1] - $blade[1], 2, $blade[1])
+    }
+}
+# 18 덤불 (낮은 물건, 못 지나감): 숲 가장자리를 막는 둥근 덤불
+$o = TileOrigin 18
+$g.FillEllipse((Brush 30 82 40), $o[0] + 1, $o[1] + 6, 30, 25)
+$g.FillEllipse((Brush 44 108 50), $o[0] + 4, $o[1] + 8, 20, 15)
+$g.FillEllipse((Brush 64 134 62), $o[0] + 8, $o[1] + 10, 8, 6)
+$g.FillRectangle((Brush 196 60 72), $o[0] + 20, $o[1] + 18, 2, 2)  # 빨간 열매
+$g.FillRectangle((Brush 196 60 72), $o[0] + 11, $o[1] + 23, 2, 2)
+# 19 숲 바닥 (지나갈 수 있음): 짙은 흙빛 풀에 낙엽 점
+Fill-Ground 19 (Brush 66 112 58) (Brush 54 92 46) 22
+$o = TileOrigin 19
+foreach ($i in 1..5) {
+    $leaf = if ($i % 2) { Brush 150 112 54 } else { Brush 120 132 52 }
+    $g.FillRectangle($leaf, $o[0] + $rng.Next(1, 29), $o[1] + $rng.Next(1, 29), 3, 2)
+}
+# 20 버섯 (바닥 장식): 빨간 갓에 흰 점
+$o = TileOrigin 20
+foreach ($m in @(@(8, 14), @(19, 20))) {
+    $g.FillRectangle((Brush 232 224 204), $o[0] + $m[0] + 2, $o[1] + $m[1] + 3, 3, 4)
+    $g.FillEllipse((Brush 200 56 52), $o[0] + $m[0], $o[1] + $m[1], 7, 5)
+    $g.FillRectangle((Brush 250 240 230), $o[0] + $m[0] + 2, $o[1] + $m[1] + 1, 1, 1)
+}
+# 21 짙은 나뭇잎 (높은 물건): 숲 나무용. 7번보다 어둡고 큼직해요. 바람에 흔들려요.
+$o = TileOrigin 21
+$g.FillEllipse((Brush 24 72 40), $o[0], $o[1], 32, 32)
+$g.FillEllipse((Brush 36 96 48), $o[0] + 3, $o[1] + 2, 24, 22)
+$g.FillEllipse((Brush 56 124 60), $o[0] + 8, $o[1] + 5, 10, 9)
 
 Save-Bmp $bmp (Join-Path $content 'tilesets\test_tiles.bmp')
 $g.Dispose(); $bmp.Dispose()
@@ -385,6 +441,9 @@ for ($y = 0; $y -lt $H; $y++) { $ground[(Idx 0 $y)] = 5; $ground[(Idx ($W - 1) $
 # 흙길 왼쪽 끝 벽에 동굴 입구를 뚫어요. 입구 칸(0, 12)을 밟으면 시험 동굴로 가요.
 $ground[(Idx 1 12)] = 3
 $ground[(Idx 0 12)] = 12
+# 흙길 오른쪽 끝 벽을 터서 숲으로 가는 길을 내요. 끝 칸(39, 12)을 밟으면 시험 숲으로 가요.
+$ground[(Idx 38 12)] = 3
+$ground[(Idx 39 12)] = 3
 
 # 나무: (x, y)에 밑동을 놓고, 바로 위 칸 (x, y-1)에 나뭇잎을 놓아요.
 $trees = @(@(5,5), @(9,4), @(14,7), @(24,5), @(30,8), @(35,5), @(6,20), @(11,24),
@@ -437,10 +496,12 @@ $json = @"
   "height": $H,
   "spawn_points": [
     { "id": "default", "x": 6, "y": 12 },
-    { "id": "from_cave", "x": 2, "y": 12 }
+    { "id": "from_cave", "x": 2, "y": 12 },
+    { "id": "from_forest", "x": 37, "y": 12 }
   ],
   "exits": [
-    { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance" }
+    { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance", "transition": "iris" },
+    { "area": { "x": 39, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_forest.json", "to_spawn": "from_meadow", "transition": "fade" }
   ],
   "ambience": {
     "ambient_fx": ["fx/petals.json"],
@@ -521,7 +582,7 @@ $json = @"
     { "id": "entrance", "x": 2, "y": 10 }
   ],
   "exits": [
-    { "area": { "x": 0, "y": 10, "w": 1, "h": 1 }, "to_map": "maps/test_meadow.json", "to_spawn": "from_cave" }
+    { "area": { "x": 0, "y": 10, "w": 1, "h": 1 }, "to_map": "maps/test_meadow.json", "to_spawn": "from_cave", "transition": "iris" }
   ],
   "ambience": {
     "ambient_light": "#1c1a30",
@@ -537,5 +598,107 @@ $layers
 "@
 
 $mapPath = Join-Path $content 'maps\test_cave.json'
+[System.IO.File]::WriteAllText($mapPath, ($json -replace "`r`n", "`n") + "`n", (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "wrote $mapPath"
+
+# ---------------------------------------------------------------- 시험 숲 ----
+# 바람 흔들림을 시험하는 숲 맵 (가로 36칸 x 세로 24칸). 초원 오른쪽 끝 길로 들어와요.
+# 숲 바닥에 키 큰 풀(흔들림)과 버섯, 짙은 나뭇잎 나무(흔들림)가 빽빽하고,
+# 가운데로 시냇물(반짝임)이 흘러요. 흙길은 시냇물 위 징검다리로 건너요.
+# 가장자리는 덤불로 막혀 있고, 왼쪽 끝 흙길 칸(0, 12)을 밟으면 초원으로 돌아가요.
+$W = 36; $H = 24
+$ground = New-Object 'int[]' ($W * $H)
+$decor = New-Object 'int[]' ($W * $H)
+$objects = New-Object 'int[]' ($W * $H)
+$canopy = New-Object 'int[]' ($W * $H)
+$rng = New-Object System.Random 314
+
+for ($y = 0; $y -lt $H; $y++) {
+    for ($x = 0; $x -lt $W; $x++) {
+        $ground[(Idx $x $y)] = if ($rng.NextDouble() -lt 0.2) { 2 } else { 19 }
+    }
+}
+# 흙길: 왼쪽 입구에서 오른쪽으로, 가운데쯤에서 아래로 굽어요.
+for ($x = 0; $x -le 26; $x++) { $ground[(Idx $x 12)] = 3 }
+for ($y = 12; $y -le 19; $y++) { $ground[(Idx 26 $y)] = 3 }
+for ($x = 26; $x -le 32; $x++) { $ground[(Idx $x 19)] = 3 }
+# 시냇물: x = 17~18, 위에서 아래로. 흙길이 지나는 줄(12)은 징검다리(흙)로 남겨요.
+for ($y = 1; $y -lt $H - 1; $y++) {
+    if ($y -ne 12) { $ground[(Idx 17 $y)] = 4; $ground[(Idx 18 $y)] = 4 }
+}
+# 가장자리 덤불 (입구 칸은 비워요)
+for ($x = 0; $x -lt $W; $x++) { $objects[(Idx $x 0)] = 18; $objects[(Idx $x ($H - 1))] = 18 }
+for ($y = 0; $y -lt $H; $y++) { $objects[(Idx 0 $y)] = 18; $objects[(Idx ($W - 1) $y)] = 18 }
+$objects[(Idx 0 12)] = 0
+
+# 이 칸에 나무를 심어도 되나요? 길·물·가장자리·다른 나무와 붙지 않아야 해요.
+function Can-Plant([int]$x, [int]$y) {
+    if ($x -lt 2 -or $x -gt $W - 3 -or $y -lt 2 -or $y -gt $H - 2) { return $false }
+    for ($dy = -1; $dy -le 1; $dy++) {
+        for ($dx = -1; $dx -le 1; $dx++) {
+            $i = Idx ($x + $dx) ($y + $dy)
+            if ($ground[$i] -eq 3 -or $ground[$i] -eq 4 -or $objects[$i] -ne 0) { return $false }
+        }
+    }
+    return $true
+}
+# 나무: 밑동(6) 위 칸에 짙은 나뭇잎(21). 시작 자리 둘레(2~5, 10~14)는 비워 둬요.
+for ($n = 0; $n -lt 400; $n++) {
+    $x = $rng.Next(2, $W - 2); $y = $rng.Next(2, $H - 1)
+    if ($x -le 5 -and $y -ge 10 -and $y -le 14) { continue }
+    if (Can-Plant $x $y) {
+        $objects[(Idx $x $y)] = 6
+        $canopy[(Idx $x ($y - 1))] = 21
+    }
+}
+# 바닥 장식: 숲 바닥 위 빈칸에 키 큰 풀 16%, 버섯 2%, 꽃 3%
+for ($y = 1; $y -lt $H - 1; $y++) {
+    for ($x = 1; $x -lt $W - 1; $x++) {
+        $i = Idx $x $y
+        if (($ground[$i] -eq 19 -or $ground[$i] -eq 2) -and $objects[$i] -eq 0) {
+            $roll = $rng.NextDouble()
+            if ($roll -lt 0.16) { $decor[$i] = 17 }
+            elseif ($roll -lt 0.18) { $decor[$i] = 20 }
+            elseif ($roll -lt 0.21) { $decor[$i] = 9 }
+        }
+    }
+}
+
+$layers = @(
+    (Format-Layer 'ground' 'ground' $ground),
+    (Format-Layer 'decor' 'ground_decor' $decor),
+    (Format-Layer 'objects' 'low_objects' $objects),
+    (Format-Layer 'canopy' 'high_objects' $canopy)
+) -join ",`n"
+
+$json = @"
+{
+  "schema_version": 1,
+  "map_id": "test_forest",
+  "display_name": "Test Forest",
+  "tileset": "tilesets/test_tiles.json",
+  "tile_size": 32,
+  "width": $W,
+  "height": $H,
+  "spawn_points": [
+    { "id": "default", "x": 3, "y": 12 },
+    { "id": "from_meadow", "x": 2, "y": 12 }
+  ],
+  "exits": [
+    { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_meadow.json", "to_spawn": "from_forest", "transition": "fade" }
+  ],
+  "ambience": {
+    "ambient_fx": ["fx/leaves.json"],
+    "night_fx": ["fx/fireflies.json"],
+    "day_cycle": "time/day_cycle.json",
+    "weather": "weather/forest.json"
+  },
+  "layers": [
+$layers
+  ]
+}
+"@
+
+$mapPath = Join-Path $content 'maps\test_forest.json'
 [System.IO.File]::WriteAllText($mapPath, ($json -replace "`r`n", "`n") + "`n", (New-Object System.Text.UTF8Encoding($false)))
 Write-Host "wrote $mapPath"

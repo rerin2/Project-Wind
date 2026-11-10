@@ -23,6 +23,7 @@ add_library(wind_engine_core STATIC
     src/engine/core/frame_clock.cpp
     src/engine/map/coordinates.cpp
     src/engine/map/tilemap_renderer.cpp
+    src/engine/map/tile_animation.cpp
     src/engine/camera/camera2d.cpp
     src/engine/camera/look_ahead.cpp
     src/engine/input/input_state.cpp
@@ -37,6 +38,7 @@ add_library(wind_engine_core STATIC
     src/engine/fx/particle_effect_loader.cpp
     src/engine/fx/particle_drawing.cpp
     src/engine/fx/screen_fade.cpp
+    src/engine/fx/iris_mask.cpp
     src/engine/light/light_animation.cpp
     src/engine/light/light_drawing.cpp
     src/engine/tween/easing.cpp
@@ -50,6 +52,8 @@ wind_set_warnings(wind_engine_core)
 #   physics/      : 발 상자와 벽 충돌 (미끄러지기, 모서리 보정)
 #   entities/     : 캐릭터 다리(Mover), 바라보는 방향
 #   presentation/ : 먼지, 잔상 같은 보여 주기용 효과 (그리기 목록에 넣기까지만, SDL은 안 씀)
+#   world/        : 게임 시계, 맵 옮기기 순서
+#   states/field_assets : 필드 화면 준비물(맵·캐릭터·효과 파일) 읽기
 add_library(wind_game_core STATIC
     src/game/input/input_bindings.cpp
     src/game/input/movement_intent.cpp
@@ -65,7 +69,9 @@ add_library(wind_game_core STATIC
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
-    src/game/world/game_clock.cpp)
+    src/game/world/game_clock.cpp
+    src/game/world/map_travel.cpp
+    src/game/states/field_assets.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -75,12 +81,12 @@ add_executable(wind_client
     src/app/client_app.cpp
     src/app/debug_overlay.cpp
     src/app/screenshot_flash.cpp
+    src/app/scripted_input.cpp
     src/engine/platform/sdl_platform.cpp
     src/engine/render/renderer.cpp
     src/engine/render/surface_painter.cpp
     src/engine/resources/resource_manager.cpp
-    src/game/states/field_state.cpp
-    src/game/states/field_assets.cpp)
+    src/game/states/field_state.cpp)
 target_link_libraries(wind_client PRIVATE wind_client_options wind_game_core SDL3::SDL3)
 wind_set_warnings(wind_client)
 
@@ -100,6 +106,7 @@ if(WIND_BUILD_TESTS)
         tests/sprite_sheet_loader_tests.cpp
         tests/render_queue_tests.cpp
         tests/tilemap_renderer_tests.cpp
+        tests/tile_animation_tests.cpp
         tests/tile_collision_tests.cpp
         tests/facing_tests.cpp
         tests/mover_tests.cpp
@@ -118,7 +125,10 @@ if(WIND_BUILD_TESTS)
         tests/light_drawing_tests.cpp
         tests/field_lighting_tests.cpp
         tests/screen_fade_tests.cpp
+        tests/iris_mask_tests.cpp
         tests/game_clock_tests.cpp
+        tests/map_travel_tests.cpp
+        tests/field_assets_tests.cpp
         tests/weather_system_tests.cpp
         tests/field_atmosphere_tests.cpp)
     target_link_libraries(wind_client_tests PRIVATE wind_client_options wind_game_core GTest::gtest_main)

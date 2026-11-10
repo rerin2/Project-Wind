@@ -9,11 +9,11 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | Folder | Library | SDL? | Responsibility |
 |---|---|---|---|
 | `client/src/engine/core` | `wind_engine_core` | no | `Vec2`/`RectF` math, `FixedStepClock` |
-| `client/src/engine/map` | `wind_engine_core` | no | tile↔world coordinates, visible-tile culling, tile batching into the render queue |
+| `client/src/engine/map` | `wind_engine_core` | no | tile↔world coordinates, visible-tile culling, tile batching into the render queue, animated and swaying tiles (`tile_animation`) |
 | `client/src/engine/camera` | `wind_engine_core` | no | `Camera2D`: world↔screen, follow, bounds clamp, pixel snapping; `LookAhead`: smoothed offset toward the movement direction |
 | `client/src/engine/input` | `wind_engine_core` | no | `InputState`: held/pressed/released, UI capture flag |
 | `client/src/engine/animation` | `wind_engine_core` | no | `AnimationClip`, `SpriteSheet`, `Animator` (one file each), sprite sheet JSON loader |
-| `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticleEffect` + loader, `ParticlePool` (fixed capacity, drop counter), `ParticleRandom`, `make_particle`/`emit_burst`, `ParticleEmitter` (continuous), `queue_particles` |
+| `client/src/engine/fx` | `wind_engine_core` | no | `Particle`, `ParticleEffect` + loader, `ParticlePool` (fixed capacity, drop counter), `ParticleRandom`, `make_particle`/`emit_burst`, `ParticleEmitter` (continuous), `queue_particles`, `ScreenFade` (fade / iris progress), `iris_mask` |
 | `client/src/engine/light` | `wind_engine_core` | no | `Light`, `light_strength`/`light_radius_scale` (flicker, pulse), `queue_lights` (cull, 64-per-frame cap), `LightingFrame`, `LightStats` |
 | `client/src/engine/tween` | `wind_engine_core` | no | `Ease` + `ease()` (easing curves), `Tween` (one float from → to over time) |
 | `client/src/engine/render` (`render_queue`, `render_types`) | `wind_engine_core` | no | draw commands and their sort order |
@@ -24,7 +24,8 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
 | `client/src/game/entities` | `wind_game_core` | no | `Mover` (speed, acceleration, dodge), `MovementTuning`, facing helpers |
 | `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
-| `client/src/game/states` | `wind_client` | no | `FieldState` scene: wires simulation, effects, camera, drawing |
+| `client/src/game/world` | `wind_game_core` | no | `GameClock` (time of day), `MapTravel` (cover screen → enter map → uncover, failure notice) |
+| `client/src/game/states` | `wind_game_core` (`field_assets`), `wind_client` (`field_state`) | no | `load_field_assets` (reads and checks map, sheet, effects, time, weather); `FieldState` scene: wires simulation, effects, camera, drawing |
 | `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths |
 
 Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.cpp` do. The SDL-free libraries are unit-tested without opening a window.
@@ -81,10 +82,18 @@ All content is JSON with a `schema_version`, validated before use. Errors name t
 ```json
 { "schema_version": 1, "id": "test_tiles", "image": "tilesets/test_tiles.bmp",
   "tile_width": 32, "tile_height": 32, "columns": 8,
-  "tiles": [ { "id": 1, "name": "grass", "walkable": true } ] }
+  "tiles": [ { "id": 1, "name": "grass", "walkable": true },
+             { "id": 4, "name": "water", "walkable": false,
+               "animation": { "frames": [4, 14, 15, 14], "frame_seconds": 0.35 } },
+             { "id": 7, "name": "tree_canopy", "walkable": true,
+               "sway": { "pixels": 1, "period_seconds": 3.5 } } ] }
 ```
 
-Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 means "no tile".
+Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 means "no tile". Parsed by `wind/content/tileset_loader`.
+
+- `animation` (optional, phase 7): 2–16 `frames` (tile ids that must exist in the same tileset) shown in turn for `frame_seconds` (0.05–10) each. Neighbouring cells start on different frames (a fixed stagger from the cell position), so water does not blink in unison. Walkability always comes from the tile id placed in the map, never from a frame.
+- `sway` (optional, phase 7): the tile is shifted sideways by up to `pixels` (0–4) on a sine wave with period `period_seconds` (0.5–30), rounded to whole pixels. The wave lags with the cell position, so wind seems to roll across the map. Only the drawn position moves; collision does not.
+- Both are presentation only. `engine/map/tile_animation` (`animated_tile`, `sway_offset`) computes them from the field's scene clock (seconds since entering the map).
 
 ### Map (`content/maps/*.json`)
 
@@ -92,7 +101,8 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 { "schema_version": 1, "map_id": "test_meadow", "display_name": "Test Meadow",
   "tileset": "tilesets/test_tiles.json", "tile_size": 32, "width": 40, "height": 30,
   "spawn_points": [ { "id": "default", "x": 6, "y": 12 }, { "id": "from_cave", "x": 2, "y": 12 } ],
-  "exits": [ { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance" } ],
+  "exits": [ { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance",
+               "transition": "iris" } ],
   "ambience": {
     "ambient_fx": ["fx/petals.json"],
     "ambient_light": "#1c1a30",
@@ -106,7 +116,7 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 - `tiles` is row-major (`index = y * width + x`) and must have exactly `width*height` entries.
 - Limits: sides 1–512, 1–8 layers, 1–64 spawn points, tile size 8–128 and equal to the tileset's.
 - **Walkability:** a cell is walkable if it has at least one tile and every tile on it is `walkable`. Spawn points must be walkable.
-- `exits` (optional, up to 32): `area` in tiles (`x`, `y`, `w`, `h`, inside the map), `to_map` (content path) and `to_spawn` (spawn id in that map). At least one tile of the area must be walkable. The target map and spawn are checked when the hero actually travels; if either is missing, she stays on the current map and the error is logged.
+- `exits` (optional, up to 32): `area` in tiles (`x`, `y`, `w`, `h`, inside the map), `to_map` (content path), `to_spawn` (spawn id in that map) and optional `transition` (`fade`, the default, or `iris`). At least one tile of the area must be walkable. The target map and spawn are checked when the hero actually travels; if either is missing, she stays on the current map, the error is logged and a short notice is shown on screen. The test `FieldAssets.EveryContentExitLeadsSomewhereValid` follows every exit in the shipped maps and fails if one points nowhere.
 - `ambience` is optional. `ambient_fx` lists up to 8 particle effect files (content paths) that float around the camera on this map. Paths are checked when the map loads; the effect files themselves are validated when the field starts, and a broken effect is logged and skipped.
 - `ambient_light` (`#rrggbb`) gives an indoor map a fixed ambient colour (caves). `day_cycle` (content path) makes an outdoor map follow the time of day instead; a map may not have both. `weather` (content path) names the weather table. `night_fx` lists effects that only appear at night (scaled by the night amount). A light with `"night_only": true` brightens with the night amount (street lamps).
 - `ambient_light` (`#rrggbb`) turns lighting on for the map; without it the map is drawn fully lit. `player_light` (radius 4–512, colour, intensity 0–1) follows the hero. `lights` (up to 64) each need `x`, `y` (tile units, inside the map), `radius` (4–512 px), `color`, `intensity` (0–1); optional `flicker` (0–1), `pulse` (`frequency` 0–10 Hz, `depth` 0–1) and `fx` (an effect emitted continuously at the light). Parsed by `wind/content/ambience_loader`.
@@ -195,12 +205,15 @@ Values are listed in [VISUALS.md](VISUALS.md).
 
 Effects read simulation state and events only; they never move the character.
 
-## Map travel (spec 7.4, early part of phase 7)
+## Map travel (spec 7.4, phase 7)
 
 - `FieldState` checks the feet tile after every simulation step. An exit fires only after the hero has stood on a non-exit tile once ("armed"), so arriving next to or on an exit never bounces her straight back.
-- `ClientApp` takes the request, fades to black with `ScreenFade` (0.35 s, `in_quad`), builds the new `FieldState` for `to_map` / `to_spawn` while the screen is covered, then fades back in (0.35 s, `out_quad`). Input is ignored while fading. The F3 panel stays visible on top.
+- `game::MapTravel` (SDL-free, `game/world/map_travel`) runs the sequence. `ClientApp` passes it the field's exit request; it covers the screen with `ScreenFade` (0.35 s, `in_quad`) in the exit's `transition` style, calls the `EnterMap` callback once when fully covered, then uncovers (0.35 s, `out_quad`). Input is ignored while busy. The F3 panel stays visible on top.
+- `EnterMap` builds the new `FieldState` for `to_map` / `to_spawn` and swaps it in only on success. On failure the current field is kept, the reason is logged, and `MapTravel::notice()` holds a short English message for 4 s that `ClientApp` draws in red at the bottom of the screen (debug font until the phase 8 text renderer). Tested in `map_travel_tests.cpp` and `field_assets_tests.cpp`.
+- **Fade** draws one translucent black rectangle. **Iris** (`engine/fx/iris_mask`) leaves a round hole centred on the hero's body (`FieldState::focus_on_screen`) and covers the rest with opaque black: the hole radius goes from the distance to the farthest screen corner down to 0, and the cover is built as one rectangle per pixel row on each side of the hole (plus one block above and below), so the edge is pixel-exact. When opening, the hole is centred on the hero in the new map.
 - Each `FieldState` destroys the textures it generated (shadow, particles, light) when it is replaced.
-- Test-only `--auto-move <dir>` holds a direction for the whole run; with `--auto-move left` the hero walks from the meadow start into the cave and back.
+- Maps: meadow ↔ cave (iris, left end of the meadow path) and meadow ↔ forest (fade, right end of the meadow path).
+- Test-only `--auto-move <dir>` holds a direction for the whole run; with `--auto-move left` the hero walks from the meadow start into the cave, with `--auto-move right` into the forest.
 
 ## Time of day (spec 6.4, phase 6)
 
