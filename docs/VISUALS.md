@@ -1,6 +1,6 @@
 # Visual Rules and Effect Tuning
 
-Status: phase 5 (lighting). Spec reference: master spec section 6. Phase 6 adds day/night and weather.
+Status: phase 6 (time of day and weather). Spec reference: master spec section 6.
 
 Effects are presentation only: they read simulation state and events and never change gameplay results.
 
@@ -127,6 +127,38 @@ Tile 12 `cave_entrance`: dark arch in a stone wall, walkable; used as the exit t
 Map travel fade: black, 0.35 s out (`in_quad`) and 0.35 s in (`out_quad`).
 
 Rules of thumb: keep ambient dark but not black (players must still read walls); torch pools should overlap a little so paths stay readable; avoid many overlapping lights at full intensity (they add up to white).
+
+## Time of day
+
+File: `content/time/day_cycle.json`. One game hour = 60 real seconds.
+
+| Hour | Ambient | Night | Mood |
+|---|---|---|---|
+| 0:00–4:30 | `#2a3060` → `#30366a` | 1 | deep blue night |
+| 6:00 | `#c890a8` | 0.5 | pink dawn |
+| 7:30 | `#f4e8e0` | 0 | soft morning |
+| 12:00 | `#ffffff` | 0 | full daylight (no change to the art) |
+| 16:30 | `#fff2e0` | 0 | warm afternoon |
+| 18:30 | `#f0a070` | 0.3 | orange sunset; lanterns start to glow |
+| 19:30 | `#906c9c` | 0.7 | purple dusk |
+| 21:00 | `#2a3060` | 1 | night |
+
+Night-only things: lanterns (`night_only` lights, `#ffd890`, radius 100) and fireflies (`night_fx`). Fireflies and torch embers are additive and drawn after lighting (`Glow` layer) so they stay bright in the dark.
+
+Tile 13 `lantern`: wooden post with a glass lamp; four stand along the meadow path at (10, 17, 26, 34; row 11).
+
+## Weather
+
+File: `content/weather/meadow.json`, 5 s transitions.
+
+| State | Weight | Lasts | Look |
+|---|---|---|---|
+| clear | 4 | 90–180 s | nothing extra |
+| rain | 2 | 45–90 s | `fx/rain.json`: 1 px streaks 10–15 px long, `#e6eeff` 82 % alpha, 360–440 px/s at 102°, 520 per second; `fx/rain_splash.json`: 1 px splashes, 160 per second; tint `#a0aabe`; light fog 0.15 |
+| snow | 1 | 45–90 s | `fx/snow.json`: 2–3 px white pixel flakes, 14–26 px/s, sway 6 px at 0.35 Hz, 60 per second; tint `#dce2f0` |
+| fog | 1 | 45–90 s | 7 drifting fog banks `#d6dce8`, alpha up to 84 (0.7 × 120); tint `#d0d4dc` |
+
+Lessons from tuning: pale 1 px streaks and soft 2–4 px snow dots vanish on bright grass. Rain needed brighter, longer, denser streaks plus a darker tint; snow needed crisp pixel flakes. Effect `rate` was raised to allow up to 2000 per second for heavy rain.
 
 ## Dodge afterimages
 

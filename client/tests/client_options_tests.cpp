@@ -94,4 +94,15 @@ TEST(ClientOptions, ParsesAutoMove) {
     EXPECT_FALSE(parse({"--auto-move", "sideways"}).options.has_value());
 }
 
+// 시작 시각과 날씨: 시각은 0 이상 24 미만의 숫자만
+TEST(ClientOptions, ParsesTimeAndWeather) {
+    const auto result = parse({"--time", "18.5", "--weather", "rain"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->start_hour, 18.5f);
+    EXPECT_EQ(result.options->start_weather, "rain");
+    EXPECT_FALSE(parse({"--time", "24"}).options.has_value());
+    EXPECT_FALSE(parse({"--time", "noon"}).options.has_value());
+    EXPECT_FALSE(parse({"--time", "-1"}).options.has_value());
+}
+
 }  // namespace

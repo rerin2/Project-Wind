@@ -35,6 +35,11 @@ public:
                   const std::map<std::string, engine::ParticleEffect>& light_fx,
                   std::uint32_t stress_lights, engine::Vec2 stress_center);
 
+    // 이번 화면의 날씨·시간 상태를 알려 줘요. (바깥 맵에서 매 화면)
+    // ambient: 바깥 주변광 (있으면 맵의 고정 주변광 대신 써요), night: 밤 정도 0~1
+    // night_only 빛(가로등)은 밤 정도만큼 밝아져요.
+    void set_conditions(std::optional<world::Rgba> ambient, float night);
+
     // 시간이 흘렀어요: 깜빡임 시계를 돌리고, 주인공 빛을 옮기고, 불티를 뿜어요.
     void update(float dt_seconds, engine::Vec2 player_feet, engine::ParticleRandom& random,
                 engine::ParticlePool& air_fx);
@@ -52,8 +57,12 @@ private:
         engine::Vec2 position;
     };
 
-    bool enabled_ = false;
+    bool fixed_enabled_ = false;                 // 맵에 고정 주변광이 있나 (동굴)
+    bool enabled_ = false;                       // 이번 화면에 조명을 쓰나
+    engine::Color fixed_ambient_{255, 255, 255, 255};
     engine::Color ambient_{255, 255, 255, 255};
+    float night_ = 0.0f;
+    std::vector<bool> night_only_;               // lights_와 같은 순서: 밤에만 켜지는 빛인가
     std::vector<engine::Light> lights_;           // 맵에 놓인 빛 (+ 시험용 빛)
     std::optional<engine::Light> player_light_;   // 주인공을 따라다니는 빛
     std::vector<FxSource> fx_sources_;

@@ -33,7 +33,7 @@ void DebugOverlay::record_frame(double frame_seconds) {
 
 void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& field,
                         const engine::ResourceStats& resources,
-                        std::uint64_t dropped_frames) const {
+                        std::uint64_t dropped_frames, std::string_view clock_text) const {
     if (!visible_) {
         return;  // 숨김 상태
     }
@@ -55,9 +55,13 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
             ? std::format("lights {}  drawn {}  offscreen {}  over cap {}", field.lights.total,
                           field.lights.drawn, field.lights.offscreen, field.lights.over_cap)
             : std::string("lighting off"),
+        field.outdoors
+            ? std::format("time {}  night {:.2f}  weather {} {:.2f}", clock_text, field.night,
+                          field.weather, field.weather_intensity)
+            : std::format("time {}  indoors (no day cycle)", clock_text),
         std::format("textures {}  cache hits {}  load failures {}", resources.textures_loaded,
                     resources.cache_hits, resources.load_failures),
-        std::string("arrows/WASD move  Space dodge  F3 debug  F4 collision  F12 shot  Esc quit"),
+        std::string("arrows/WASD move  Space dodge  F3 debug  F4 coll  F5 time  F6 weather  F12 shot  Esc"),
     };
 
     // 글자 뒤에 반투명 검은 판을 깔아서, 풀밭 위에서도 글자가 잘 읽히게 해요.

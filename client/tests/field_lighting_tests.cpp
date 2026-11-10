@@ -72,4 +72,29 @@ TEST(FieldLighting, AddsStressLights) {
     EXPECT_EQ(lighting.lights().size(), 32u);
 }
 
+// 바깥 맵: 고정 주변광이 없어도, 바깥 색을 받으면 조명을 켜요. 가로등(night_only)은 밤 정도만큼 밝아요.
+TEST(FieldLighting, NightOnlyLightsFollowNight) {
+    wind::world::Ambience ambience;
+    wind::world::LightDef lamp;
+    lamp.x = 5.0f;
+    lamp.y = 5.0f;
+    lamp.radius = 50.0f;
+    lamp.night_only = true;
+    ambience.lights.push_back(lamp);
+    FieldLighting lighting(ambience, 32, {}, 0, {});
+    EXPECT_FALSE(lighting.enabled());
+
+    // 낮: 조명은 켜지지만 가로등은 꺼져 있어요.
+    lighting.set_conditions(wind::world::Rgba{255, 255, 255, 255}, 0.0f);
+    EXPECT_TRUE(lighting.enabled());
+    EXPECT_TRUE(lighting.build(make_camera(), {1}).lights.empty());
+
+    // 밤 0.5: 가로등이 반만 밝아요 (진하기 128).
+    lighting.set_conditions(wind::world::Rgba{40, 40, 80, 255}, 0.5f);
+    const auto& frame = lighting.build(make_camera(), {1});
+    ASSERT_EQ(frame.lights.size(), 1u);
+    EXPECT_EQ(frame.lights[0].tint.a, 128);
+    EXPECT_EQ(frame.ambient.b, 80);
+}
+
 }  // namespace

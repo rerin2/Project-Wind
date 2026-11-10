@@ -93,4 +93,47 @@ TEST(ParticleDrawing, FadeOutOnlyAtEnd) {
     EXPECT_EQ(wind::engine::particle_color(p).a, 0);
 }
 
+// 빗줄기: 굵기 1, 길이 = 크기, 움직이는 방향으로 돌려요. 아래로 떨어지면 돌림 0도.
+TEST(ParticleDrawing, StreakPointsAlongVelocity) {
+    wind::engine::ParticlePool pool(2);
+    Particle rain = make(0.0f);
+    rain.position = {100.0f, 100.0f};
+    rain.velocity = {0.0f, 300.0f};
+    rain.shape = wind::engine::ParticleShape::Streak;
+    rain.start_size = rain.end_size = 10.0f;
+    pool.spawn(rain);
+    wind::engine::Camera2D camera;
+    camera.set_viewport({640.0f, 360.0f});
+    camera.center_on({320.0f, 180.0f});
+    wind::engine::RenderQueue queue;
+    wind::engine::queue_particles(pool, camera, {{1}, {2}}, wind::engine::DrawLayer::WorldFx, queue);
+    ASSERT_EQ(queue.commands().size(), 1u);
+    const auto& s = queue.commands()[0].sprite;
+    EXPECT_EQ(s.texture.id, 2u);  // 픽셀 그림
+    EXPECT_FLOAT_EQ(s.dest.w, 1.0f);
+    EXPECT_FLOAT_EQ(s.dest.h, 10.0f);
+    EXPECT_NEAR(s.rotation_degrees, 0.0f, 1e-3f);
+}
+
+// 빛나는 단계를 주면 "더하기" 점만 그 단계로 가요 (조명 뒤에 그려져 밤에도 밝게).
+TEST(ParticleDrawing, AdditiveParticlesGoToGlowLayer) {
+    wind::engine::ParticlePool pool(2);
+    Particle glow = make(0.0f);
+    glow.position = {100.0f, 100.0f};
+    glow.blend = wind::engine::BlendMode::Add;
+    Particle petal = make(0.0f);
+    petal.position = {120.0f, 100.0f};
+    pool.spawn(glow);
+    pool.spawn(petal);
+    wind::engine::Camera2D camera;
+    camera.set_viewport({640.0f, 360.0f});
+    camera.center_on({320.0f, 180.0f});
+    wind::engine::RenderQueue queue;
+    wind::engine::queue_particles(pool, camera, {{1}, {2}}, wind::engine::DrawLayer::WorldFx, queue,
+                                  wind::engine::DrawLayer::Glow);
+    ASSERT_EQ(queue.commands().size(), 2u);
+    EXPECT_EQ(queue.commands()[0].layer, wind::engine::DrawLayer::Glow);
+    EXPECT_EQ(queue.commands()[1].layer, wind::engine::DrawLayer::WorldFx);
+}
+
 }  // namespace

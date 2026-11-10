@@ -8,7 +8,6 @@
 #include "engine/fx/particle_effect_loader.hpp"
 
 #include "wind/content/content_path.hpp"
-#include "wind/content/hex_color.hpp"
 #include "wind/content/json_file.hpp"
 #include "wind/content/json_reader.hpp"
 
@@ -32,7 +31,7 @@ constexpr double kMaxSpawnRadius = 128.0;
 constexpr double kMaxWobble = 64.0;      // 픽셀
 constexpr double kMaxWobbleHz = 20.0;
 constexpr std::int64_t kMaxBurst = 256;
-constexpr double kMaxRate = 500.0;       // 1초에 최대 몇 개
+constexpr double kMaxRate = 2000.0;      // 1초에 최대 몇 개 (센 비는 500개가 넘어요)
 
 // 없어도 되는 숫자 칸: 있으면 검사해서 읽고, 없으면 기본값을 그대로 둬요.
 void optional_number(JsonReader& reader, std::string_view key, double min, double max, float& out) {
@@ -43,45 +42,20 @@ void optional_number(JsonReader& reader, std::string_view key, double min, doubl
     }
 }
 
-// 숫자 하나(3) 또는 [최소, 최대] 두 개짜리 목록([2, 5])을 범위로 읽어요.
+// 범위 칸(숫자 하나 또는 [최소, 최대])을 효과용 범위로 읽어요. 검사는 JsonReader가 해요.
 std::optional<FloatRange> read_range(JsonReader& reader, std::string_view key, double min,
                                      double max) {
-    const auto* value = reader.raw(key);  // 없으면 "없어요" 오류가 적혀요
-    if (value == nullptr) {
+    const auto range = reader.range(key, min, max);
+    if (!range) {
         return std::nullopt;
     }
-    // 숫자 하나면 최소 = 최대
-    if (value->is_number()) {
-        const auto number = reader.number(key, min, max);
-        if (!number) {
-            return std::nullopt;
-        }
-        return FloatRange{static_cast<float>(*number), static_cast<float>(*number)};
-    }
-    // 목록이면 정확히 숫자 두 개, 그리고 최소 <= 최대
-    if (!value->is_array() || value->size() != 2 || !(*value)[0].is_number() ||
-        !(*value)[1].is_number()) {
-        reader.error(reader.field_path(key), "expected a number or [min, max]");
-        return std::nullopt;
-    }
-    const double lo = (*value)[0].get<double>();
-    const double hi = (*value)[1].get<double>();
-    if (!std::isfinite(lo) || !std::isfinite(hi) || lo < min || hi > max || lo > hi) {
-        reader.error(reader.field_path(key), "range must satisfy " + std::to_string(min) +
-                                                 " <= min <= max <= " + std::to_string(max));
-        return std::nullopt;
-    }
-    return FloatRange{static_cast<float>(lo), static_cast<float>(hi)};
+    return FloatRange{static_cast<float>(range->min), static_cast<float>(range->max)};
 }
 
+// 색 칸을 그리기용 색으로 읽어요. 검사는 JsonReader가 해요.
 std::optional<Color> read_color(JsonReader& reader, std::string_view key) {
-    const auto text = reader.string(key, 16);
-    if (!text) {
-        return std::nullopt;
-    }
-    const auto color = content::parse_hex_color(*text);
+    const auto color = reader.color(key);
     if (!color) {
-        reader.error(reader.field_path(key), "expected \"#rrggbb\" or \"#rrggbbaa\"");
         return std::nullopt;
     }
     return Color{color->r, color->g, color->b, color->a};
@@ -108,7 +82,8 @@ content::LoadResult<ParticleEffect> parse_particle_effect(const nlohmann::json& 
     if (const auto shape = reader.string("shape", 16)) {
         if (*shape == "soft") effect.shape = ParticleShape::Soft;
         else if (*shape == "pixel") effect.shape = ParticleShape::Pixel;
-        else reader.error("shape", "must be \"soft\" or \"pixel\"");
+        else if (*shape == "streak") effect.shape = ParticleShape::Streak;
+        else reader.error("shape", "must be \"soft\", \"pixel\" or \"streak\"");
     }
     if (const auto blend = reader.string("blend", 16)) {
         if (*blend == "normal") effect.blend = BlendMode::Normal;

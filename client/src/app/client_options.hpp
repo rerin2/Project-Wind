@@ -37,6 +37,16 @@ struct ClientOptions {
     std::uint32_t light_stress = 0;
     // 시험용: 이 방향키를 처음부터 끝까지 누르고 있는 것처럼 해요 (화면 확인 자동화).
     std::optional<world::Direction> auto_move;
+    // 시험용: 정해진 장(프레임)에서 키를 한 번 눌렀다 떼요. 예: --press f6@60 (여러 번 쓸 수 있어요)
+    struct KeyPress {
+        std::string key;       // 키 이름: f3 f4 f5 f6 f12 space up down left right
+        std::uint64_t frame = 0;
+    };
+    std::vector<KeyPress> presses;
+    // 시작 시각 (0~24). 비어 있으면 아침 9시.
+    std::optional<float> start_hour;
+    // 처음 날씨 이름 ("rain" 등). 비어 있으면 날씨 표의 확률대로.
+    std::string start_weather;
     // 스크린샷 저장 폴더. 비어 있으면 %APPDATA%\ProjectWIND\screenshots
     std::filesystem::path screenshot_dir;
 };

@@ -61,6 +61,7 @@ enum class DrawLayer : std::uint8_t {
     YSorted,       // 낮은 물건 + 캐릭터
     HighObjects,   // 높은 물건 (나뭇잎 등, 캐릭터를 덮음)
     WorldFx,       // 공중 효과 (떠다니는 꽃잎, 반딧불). 나뭇잎보다도 위
+    Glow,          // 스스로 빛나는 것 (반딧불, 불티). 조명을 입힌 "다음"에 그려서 밤에도 밝아요
     Foreground,    // 맨 앞
     DebugOverlay,  // 개발자용 표시 (충돌 칸 등)
 };

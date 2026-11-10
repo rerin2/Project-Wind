@@ -9,6 +9,7 @@
 #include "engine/render/render_queue.hpp"
 
 #include <cstdint>
+#include <optional>
 
 namespace wind::engine {
 
@@ -19,9 +20,10 @@ struct ParticleTextures {
 };
 
 // 화면에 보이는 점만 넣고, 넣은 개수를 돌려줘요.
+// glow_layer가 있으면 "더하기" 섞기 점(스스로 빛나는 것)은 그 단계로 보내요.
 std::uint32_t queue_particles(const ParticlePool& pool, const Camera2D& camera,
                               const ParticleTextures& textures, DrawLayer layer,
-                              RenderQueue& queue);
+                              RenderQueue& queue, std::optional<DrawLayer> glow_layer = std::nullopt);
 
 // 수명 진행률 t(0~1)일 때 점의 색 (fade_in 반영). 테스트하기 쉽게 따로 꺼내 뒀어요.
 [[nodiscard]] Color particle_color(const Particle& particle);

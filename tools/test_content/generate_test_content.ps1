@@ -141,6 +141,16 @@ $g.FillRectangle((Brush 36 30 48), $o[0] + 5, $o[1] + 14, 22, 18)               
 $g.FillEllipse((Brush 20 16 28), $o[0] + 9, $o[1] + 9, 14, 14)                   # 안쪽 더 깊은 어둠
 $g.FillRectangle((Brush 20 16 28), $o[0] + 9, $o[1] + 16, 14, 16)
 
+# 13 가로등 (낮은 물건, 못 지나감): 나무 기둥 위에 유리 등. 밤이 되면 맵의 빛(night_only)이 켜져요.
+$o = TileOrigin 13
+$g.FillRectangle((Brush 70 48 36), $o[0] + 15, $o[1] + 10, 3, 20)     # 기둥
+$g.FillRectangle((Brush 50 34 26), $o[0] + 15, $o[1] + 10, 1, 20)     # 기둥 그늘
+$g.FillRectangle((Brush 60 60 70), $o[0] + 11, $o[1] + 28, 11, 3)     # 받침
+$g.FillRectangle((Brush 60 60 70), $o[0] + 11, $o[1] + 1, 11, 2)      # 등 지붕
+$g.FillRectangle((Brush 60 60 70), $o[0] + 11, $o[1] + 9, 11, 2)      # 등 바닥
+$g.FillRectangle((Brush 242 214 150), $o[0] + 12, $o[1] + 3, 9, 6)    # 유리 (불빛)
+$g.FillRectangle((Brush 255 244 200), $o[0] + 15, $o[1] + 4, 3, 4)    # 심지
+
 Save-Bmp $bmp (Join-Path $content 'tilesets\test_tiles.bmp')
 $g.Dispose(); $bmp.Dispose()
 
@@ -385,6 +395,12 @@ foreach ($t in $trees) {
 }
 # 바위
 foreach ($r in @(@(12,15), @(28,14), @(17,26), @(8,9), @(31,3))) { $objects[(Idx $r[0] $r[1])] = 8 }
+# 가로등: 흙길 바로 위 칸에 네 개. 밤에만 켜지는 빛(night_only)을 같은 자리에 둬요.
+$lanterns = @(@(10,11), @(17,11), @(26,11), @(34,11))
+foreach ($l in $lanterns) { $objects[(Idx $l[0] $l[1])] = 13 }
+$lanternLights = foreach ($l in $lanterns) {
+    '      { "x": ' + $l[0] + '.5, "y": ' + $l[1] + '.2, "radius": 100, "color": "#ffd890", "intensity": 0.95, "flicker": 0.08, "night_only": true }'
+}
 
 # 꽃 장식: 풀 위이면서 나무·바위가 없는 칸에, 6% 정도 확률로 뿌려요.
 for ($y = 1; $y -lt $H - 1; $y++) {
@@ -427,7 +443,13 @@ $json = @"
     { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance" }
   ],
   "ambience": {
-    "ambient_fx": ["fx/petals.json", "fx/fireflies.json"]
+    "ambient_fx": ["fx/petals.json"],
+    "night_fx": ["fx/fireflies.json"],
+    "day_cycle": "time/day_cycle.json",
+    "weather": "weather/meadow.json",
+    "lights": [
+$($lanternLights -join ",`n")
+    ]
   },
   "layers": [
 $layers

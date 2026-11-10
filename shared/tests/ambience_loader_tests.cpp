@@ -90,4 +90,31 @@ TEST(AmbienceLoader, LimitsLightCount) {
     EXPECT_TRUE(has_error_at(errors, "ambience.lights"));
 }
 
+// 바깥 맵 분위기: 밤 효과, 하루 색 곡선, 날씨 표, 밤에만 켜지는 빛
+TEST(AmbienceLoader, ParsesOutdoorFields) {
+    json doc{{"night_fx", {"fx/fireflies.json"}},
+             {"day_cycle", "time/day_cycle.json"},
+             {"weather", "weather/meadow.json"},
+             {"lights", {{{"x", 1}, {"y", 1}, {"radius", 50}, {"color", "#ffffff"}, {"intensity", 1},
+                          {"night_only", true}}}}};
+    ErrorList errors;
+    wind::world::Ambience out;
+    parse_ambience(doc, "meadow.json", 40.0f, 30.0f, errors, out);
+    ASSERT_TRUE(errors.empty()) << wind::content::to_string(errors.items().front());
+    EXPECT_EQ(out.night_fx, (std::vector<std::string>{"fx/fireflies.json"}));
+    EXPECT_EQ(out.day_cycle, "time/day_cycle.json");
+    EXPECT_EQ(out.weather, "weather/meadow.json");
+    ASSERT_EQ(out.lights.size(), 1u);
+    EXPECT_TRUE(out.lights[0].night_only);
+}
+
+// 고정 주변광(실내)과 하루 색 곡선(바깥)은 함께 쓸 수 없어요.
+TEST(AmbienceLoader, RejectsFixedLightWithDayCycle) {
+    json doc{{"ambient_light", "#101020"}, {"day_cycle", "time/day_cycle.json"}};
+    ErrorList errors;
+    wind::world::Ambience out;
+    parse_ambience(doc, "x.json", 10.0f, 10.0f, errors, out);
+    EXPECT_TRUE(has_error_at(errors, "ambience.day_cycle"));
+}
+
 }  // namespace

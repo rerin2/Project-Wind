@@ -57,19 +57,6 @@ bool check_schema(JsonReader& reader, std::int64_t expected) {
     return version.has_value();
 }
 
-// 파일 위치 칸을 읽고, 콘텐츠 폴더(상자) 밖을 가리키지 않는지 문지기 검사를 해요.
-std::optional<std::string> read_content_path(JsonReader& reader, std::string_view key) {
-    const auto raw = reader.string(key);
-    if (!raw) {
-        return std::nullopt;
-    }
-    auto normalized = normalize_content_path(*raw);
-    if (!normalized) {
-        reader.error(reader.field_path(key), "path must stay inside the content folder: " + *raw);
-    }
-    return normalized;
-}
-
 // 출구 영역 안에 걸어 들어갈 수 있는 칸이 하나라도 있나요?
 bool exit_is_reachable(const world::MapData& map, const world::MapExit& exit) {
     for (std::int32_t y = exit.area_min.y; y <= exit.area_max.y; ++y) {
@@ -223,7 +210,7 @@ LoadResult<world::Tileset> parse_tileset(const nlohmann::json& document, const s
 
     if (reader.valid() && check_schema(reader, kTilesetSchemaVersion)) {
         if (auto id = reader.string("id", 64)) tileset.id = std::move(*id);
-        if (auto image = read_content_path(reader, "image")) tileset.image = std::move(*image);
+        if (auto image = reader.content_path("image")) tileset.image = std::move(*image);
         if (auto w = reader.integer("tile_width", kMinTileSize, kMaxTileSize)) tileset.tile_width = static_cast<std::int32_t>(*w);
         if (auto h = reader.integer("tile_height", kMinTileSize, kMaxTileSize)) tileset.tile_height = static_cast<std::int32_t>(*h);
         if (auto c = reader.integer("columns", 1, kMaxTilesetColumns)) tileset.columns = static_cast<std::int32_t>(*c);
@@ -265,7 +252,7 @@ LoadResult<world::MapData> parse_map(const nlohmann::json& document, const std::
     if (reader.valid() && check_schema(reader, kMapSchemaVersion)) {
         if (auto id = reader.string("map_id", 64)) map.map_id = std::move(*id);
         if (auto name = reader.string("display_name", 128)) map.display_name = std::move(*name);
-        if (auto path = read_content_path(reader, "tileset")) map.tileset_path = std::move(*path);
+        if (auto path = reader.content_path("tileset")) map.tileset_path = std::move(*path);
 
         const auto tile_size = reader.integer("tile_size", kMinTileSize, kMaxTileSize);
         const auto width = reader.integer("width", 1, kMaxMapSide);
@@ -348,7 +335,7 @@ LoadResult<LoadedMap> load_map_file(const std::filesystem::path& content_root,
 
     // 맵이 가리키는 타일셋을 먼저 읽어요. 맵을 검사하려면 카드 성질이 필요하거든요.
     JsonReader reader(*map_json, map_name, "", errors);
-    const auto tileset_path = read_content_path(reader, "tileset");
+    const auto tileset_path = reader.content_path("tileset");
     if (!tileset_path) {
         return {std::nullopt, errors.take()};
     }

@@ -15,7 +15,8 @@ namespace wind::engine {
 // 점의 모양
 // - Soft : 가운데가 진하고 가장자리가 흐린 동그라미 (먼지, 반딧불 빛)
 // - Pixel: 또렷한 네모 픽셀 (꽃잎, 불티)
-enum class ParticleShape : std::uint8_t { Soft, Pixel };
+// - Streak: 움직이는 방향으로 길쭉한 1픽셀 굵기 줄 (빗줄기). 크기 = 줄 길이
+enum class ParticleShape : std::uint8_t { Soft, Pixel, Streak };
 
 struct Particle {
     Vec2 position;           // 맵 위 위치 (픽셀)

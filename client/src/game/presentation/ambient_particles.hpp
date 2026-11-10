@@ -23,8 +23,9 @@ public:
 
     // 시간이 흘렀어요. view: 카메라가 보는 맵 영역. 그보다 조금 넓은 곳에서 점을 만들어요
     // (화면 가장자리 바로 밖에서 생겨야 들어올 때 "뿅" 하고 나타나지 않아요).
+    // rate_scale: 이번에만 뿜는 양을 몇 배로 (밤에만 나오는 효과는 밤 정도를 넣어요)
     void update(float dt_seconds, const engine::RectF& view, engine::ParticleRandom& random,
-                engine::ParticlePool& pool);
+                engine::ParticlePool& pool, float rate_scale = 1.0f);
 
     [[nodiscard]] std::size_t count() const { return emitters_.size(); }
 

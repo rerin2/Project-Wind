@@ -34,6 +34,8 @@ InputBindings InputBindings::defaults() {
     b.bind(Action::ToggleDebug, Key::F3);
     b.bind(Action::ToggleCollision, Key::F4);
     b.bind(Action::Screenshot, Key::F12);
+    b.bind(Action::SkipTime, Key::F5);
+    b.bind(Action::NextWeather, Key::F6);
     b.bind(Action::Quit, Key::Escape);
     return b;
 }

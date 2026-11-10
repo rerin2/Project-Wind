@@ -50,7 +50,7 @@ Executables are written to `build\<preset>\bin\`.
 .\scripts\run_tests.ps1             # = ctest --preset windows-debug
 ```
 
-The run on 2026-11-09 passed 153/153 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
+The run on 2026-11-10 passed 182/182 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
 
 ## 4. Run
 
@@ -61,7 +61,7 @@ The run on 2026-11-09 passed 153/153 tests: GoogleTest cases for the shared and 
 
 Pass `-Preset windows-release` to run the Release build. The client lists its options with `--help`.
 
-Controls: arrow keys / WASD move, Space (or K / X) dodge, F3 debug overlay, F4 collision overlay, F12 screenshot, Esc quit.
+Controls: arrow keys / WASD move, Space (or K / X) dodge, F3 debug overlay, F4 collision overlay, F5 skip 3 hours, F6 next weather, F12 screenshot, Esc quit.
 
 Screenshots go to `%APPDATA%\ProjectWIND\screenshots` (640×360 BMP). For automated checks, save frames without pressing keys:
 
@@ -91,6 +91,8 @@ Smoke-test flags (used for verification, not gameplay):
 - `wind_client --screenshot-at N` saves a screenshot after frame N (repeatable); `--screenshot-dir DIR` picks the folder.
 - `wind_client --fx-stress N` keeps about N extra particles on screen (0–4000) to check particle performance on the F3 panel.
 - `wind_client --light-stress N` adds N lights (0–64) around the start of a lit map, e.g. `--map maps/test_cave.json --light-stress 32`.
+- `wind_client --press f6@60` taps a key at a frame (repeatable; keys f3 f4 f5 f6 f12 space up down left right), e.g. to check F5/F6 without pressing keys.
+- `wind_client --time H --weather ID` starts at hour H (0 to below 24) with weather ID from the map table, e.g. `--time 18.5 --weather rain`.
 - `wind_client --auto-move left` holds Left for the whole run; from the meadow start the hero walks into the cave mouth and back (map travel check without pressing keys).
 
 ## Troubleshooting

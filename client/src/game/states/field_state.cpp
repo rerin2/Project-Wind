@@ -5,7 +5,6 @@
 
 #include "game/states/field_state.hpp"
 
-#include "engine/animation/sprite_sheet_loader.hpp"
 #include "engine/fx/particle_drawing.hpp"
 #include "engine/map/coordinates.hpp"
 #include "engine/map/tilemap_renderer.hpp"
@@ -17,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <random>
 #include <string>
 #include <utility>
 
@@ -74,91 +74,63 @@ std::string_view state_name(Mover::State state) {
 
 }  // namespace
 
-// 필드 화면 만들기: 준비물을 하나씩 불러와요. 하나라도 잘못되면 nullptr(없음)를 돌려줘요.
+// 필드 화면 만들기: 파일 준비물을 읽고, 그림을 만들어요. 꼭 필요한 게 잘못되면 nullptr(없음).
 std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resources,
                                                engine::Renderer& renderer,
                                                std::string_view map_path,
                                                std::string_view player_sheet_path,
                                                engine::Vec2 viewport,
-                                               std::string_view spawn_id, FieldStress stress) {
-    // 1) 맵 파일(과 맵이 쓰는 타일셋)을 읽고 검사해요.
-    auto map = content::load_map_file(resources.content_root(), map_path);
-    if (!map.ok()) {
-        content::log_content_errors("map", map.errors);
-        return nullptr;
+                                               std::string_view spawn_id, FieldStress stress,
+                                               std::string_view start_weather) {
+    // 1) 파일 준비물: 맵, 주인공 그림 설명서, 등장 자리, 하루 색, 날씨, 효과들
+    auto assets = load_field_assets(resources.content_root(), map_path, player_sheet_path, spawn_id,
+                                    stress.particles);
+    if (!assets) {
+        return nullptr;  // 이유는 이미 기록했어요
     }
-    // 2) 캐릭터 그림 설명서(스프라이트 시트 JSON)를 읽고 검사해요.
-    auto sheet = engine::load_sprite_sheet_file(resources.content_root(), player_sheet_path);
-    if (!sheet.ok()) {
-        content::log_content_errors("player sprite sheet", sheet.errors);
-        return nullptr;
-    }
-    // 3) "서 있기"와 "걷기" 그림이 둘 다 있어야 해요.
-    if (sheet.value->clip(kIdleClip) == nullptr || sheet.value->clip(kWalkClip) == nullptr) {
-        log::error("Player sprite sheet '{}' needs '{}' and '{}' clips", player_sheet_path,
-                   kIdleClip, kWalkClip);
-        return nullptr;
-    }
-
-    // 4) 등장 자리: 요청한 이름이 있으면 거기. "default"를 요청했는데 없으면 첫 번째 자리.
-    //    다른 이름(출구가 가리킨 자리)이 없으면 맵 자료가 틀린 거라 들어가지 않아요.
-    const auto& spawns = map.value->map;
-    const world::SpawnPoint* spawn = spawns.find_spawn(spawn_id);
-    if (spawn == nullptr && spawn_id == "default") {
-        spawn = &spawns.spawn_points.front();
-    }
-    if (spawn == nullptr) {
-        log::error("Map '{}' has no spawn point '{}'", map_path, spawn_id);
-        return nullptr;
-    }
-    const world::TileCoord spawn_tile = spawn->position;
-
-    // 4) 그림 파일(텍스처)을 불러와요. 그림이 없어도 체크무늬 대신 그림으로 계속 진행해요.
+    // 2) 그림 파일(텍스처)을 불러와요. 그림이 없어도 체크무늬 대신 그림으로 계속 진행해요.
     //    (무엇이 없는지는 리소스 관리자가 기록해 줘요.)
-    const auto tileset_texture = resources.texture(map.value->tileset.image);
-    const auto player_texture = resources.texture(sheet.value->image);
-    // 5) 그림자와 파티클 그림은 파일 없이 코드로 만들어요. 실패해도 그 효과만 안 보일 뿐 계속해요.
+    const auto tileset_texture = resources.texture(assets->map.tileset.image);
+    const auto player_texture = resources.texture(assets->sheet.image);
+    // 3) 그림자와 파티클·빛 그림은 파일 없이 코드로 만들어요. 실패해도 그 효과만 안 보일 뿐 계속해요.
     const EffectTextures textures{
         renderer.create_soft_ellipse_texture(kShadowWidth, kShadowHeight, kShadowColor),
         {renderer.create_soft_ellipse_texture(kSoftParticleSize, kSoftParticleSize, kWhite),
          renderer.create_solid_texture(1, 1, kWhite)},
         renderer.create_light_texture(kLightTextureSize),
     };
-
-    // 6) 파티클 효과 요리법을 읽어요: 먼지, 맵 분위기 효과, 빛 자리 효과 (잘못된 파일은 건너뛰어요)
-    FieldEffects effects =
-        load_field_effects(resources.content_root(), map.value->map.ambience, stress.particles);
     if (stress.lights > 0) {
         log::info("Light stress test: {} extra lights", stress.lights);
     }
 
-    const auto& ambience = map.value->map.ambience;
-    log::info("Entered map '{}' ({}x{} tiles, {} ambient effect(s), {} light(s), lighting {})",
-              map.value->map.map_id, map.value->map.width, map.value->map.height,
-              effects.ambient.size(), ambience.lights.size(),
-              ambience.ambient_light ? "on" : "off");
-    return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*map.value),
-                                                      std::move(*sheet.value),
-                                                      tileset_texture, player_texture, textures,
-                                                      std::move(effects), viewport, spawn_tile,
-                                                      stress.lights));
+    const auto& map = assets->map.map;
+    log::info("Entered map '{}' ({}x{} tiles, {} ambient effect(s), {} light(s), lighting {}, "
+              "day cycle {}, weather {})",
+              map.map_id, map.width, map.height, assets->effects.ambient.size(),
+              map.ambience.lights.size(), map.ambience.ambient_light ? "fixed" : "off",
+              assets->day_cycle ? "on" : "off",
+              assets->weather ? std::to_string(assets->weather->states.size()) + " state(s)"
+                              : std::string("off"));
+    return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture,
+                                                      player_texture, textures, start_weather,
+                                                      viewport, stress.lights));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
-FieldState::FieldState(engine::Renderer& renderer, content::LoadedMap map, engine::SpriteSheet sheet,
+FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                        engine::TextureHandle tileset_texture, engine::TextureHandle player_texture,
-                       EffectTextures textures, FieldEffects effects, engine::Vec2 viewport,
-                       world::TileCoord spawn_tile, std::uint32_t stress_lights)
+                       EffectTextures textures, std::string_view start_weather,
+                       engine::Vec2 viewport, std::uint32_t stress_lights)
     : renderer_(&renderer),
-      map_(std::move(map)),
-      sheet_(std::move(sheet)),
+      map_(std::move(assets.map)),
+      sheet_(std::move(assets.sheet)),
       tileset_texture_(tileset_texture),
       player_texture_(player_texture),
       textures_(textures),
-      effects_(std::move(effects)),
+      effects_(std::move(assets.effects)),
       look_ahead_(kLookAheadDistance, kLookAheadSharpness),
-      // 캐릭터가 처음 설 곳 (create()가 고른 등장 자리)
-      player_(spawn_feet(spawn_tile, map_.map.tile_size),
+      // 캐릭터가 처음 설 곳 (준비물을 읽을 때 고른 등장 자리)
+      player_(spawn_feet(assets.spawn_tile, map_.map.tile_size),
               world::Direction::Down, MovementTuning{}),
       buffer_(kInputBufferSeconds),
       fx_random_(kFxSeed),
@@ -169,7 +141,10 @@ FieldState::FieldState(engine::Renderer& renderer, content::LoadedMap map, engin
                     effects_.dust_dodge ? &*effects_.dust_dodge : nullptr),
       // 조명: 맵 분위기 + (시험용이면) 시작 위치 주변에 빛을 더 놓아요.
       lighting_(map_.map.ambience, map_.map.tile_size, effects_.light_fx, stress_lights,
-                player_.feet()) {
+                player_.feet()),
+      // 시간·날씨: 날씨 주사위 씨앗은 켤 때마다 달라서, 매번 다른 날씨로 시작해요.
+      atmosphere_(std::move(assets.day_cycle), std::move(assets.weather), effects_.weather_fx, effects_.night,
+                  std::random_device{}(), start_weather) {
     for (const auto& effect : effects_.ambient) {
         ambient_.add(effect);
     }
@@ -228,7 +203,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
 }
 
 // 화면을 한 장 그릴 때마다 한 번씩 불려요. (1초에 약 60번)
-void FieldState::frame_update(double dt_seconds, double alpha) {
+void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     alpha_ = alpha;
     const auto dt = static_cast<float>(dt_seconds);
     const engine::Vec2 feet = drawn_feet();
@@ -247,6 +222,9 @@ void FieldState::frame_update(double dt_seconds, double alpha) {
     // 분위기 효과(꽃잎·반딧불)는 카메라가 보는 곳 근처에서 계속 생겨나요.
     ambient_.update(dt, camera_.view_rect(), fx_random_, air_fx_);
     // 조명: 깜빡임 시계, 주인공 빛 위치, 횃불 불티
+    // 하늘과 공기: 시간 색, 날씨(빗줄기·눈·물 튀김), 밤 효과. 그 결과를 조명에 알려 줘요.
+    atmosphere_.update(dt, hour, camera_.view_rect(), fx_random_, air_fx_, ground_fx_);
+    lighting_.set_conditions(atmosphere_.conditions().ambient, atmosphere_.conditions().night);
     lighting_.update(dt, feet, fx_random_, air_fx_);
     air_fx_.update(dt);
 
@@ -309,7 +287,8 @@ void FieldState::render(engine::RenderQueue& queue) {
     queue_player(queue, feet);
     engine::queue_particles(ground_fx_, camera_, textures_.particles, engine::DrawLayer::YSorted, queue);
     // 공중 효과는 나뭇잎보다도 위에 그려요.
-    engine::queue_particles(air_fx_, camera_, textures_.particles, engine::DrawLayer::WorldFx, queue);
+    engine::queue_particles(air_fx_, camera_, textures_.particles, engine::DrawLayer::WorldFx, queue,
+                            engine::DrawLayer::Glow);
 
     // 4) F4를 켰으면 못 가는 칸을 빨갛게, 발 상자를 하늘색으로 덮어요.
     if (show_collision_) {
@@ -318,6 +297,8 @@ void FieldState::render(engine::RenderQueue& queue) {
     }
 
     // 5) 조명 준비물: 화면에 보이는 빛만 골라요. 실제로 입히는 건 렌더러가 해요.
+    // 안개는 공중 효과의 맨 위에 (조명보다는 먼저 그려져서 밤에는 안개도 어두워요).
+    atmosphere_.queue(camera_, textures_.light, queue);
     lighting_frame_ = &lighting_.build(camera_, textures_.light);
 }
 
@@ -361,7 +342,11 @@ FieldDebugInfo FieldState::debug_info() const {
             ambient_.count(),
             ground_fx_.dropped() + air_fx_.dropped(),
             lighting_.enabled(),
-            lighting_.stats()};
+            lighting_.stats(),
+            atmosphere_.outdoors(),
+            atmosphere_.conditions().night,
+            atmosphere_.weather_name(),
+            atmosphere_.weather_intensity()};
 }
 
 }  // namespace wind::game

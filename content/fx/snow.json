@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "snow",
+  "shape": "pixel",
+  "blend": "normal",
+  "lifetime": [6, 9],
+  "speed": [14, 26],
+  "direction": 98,
+  "spread": 20,
+  "start_size": [2, 3],
+  "end_size": 2,
+  "start_color": "#ffffffff",
+  "end_color": "#ffffffff",
+  "fade_in": 0.08,
+  "fade_out": 0.15,
+  "wobble": { "amplitude": 6, "frequency": 0.35 },
+  "rate": 60
+}

@@ -5,6 +5,9 @@
 
 #include "wind/content/json_reader.hpp"
 
+#include "wind/content/content_path.hpp"
+#include "wind/content/hex_color.hpp"
+
 #include <cmath>
 #include <string>
 
@@ -108,6 +111,59 @@ std::optional<double> JsonReader::number(std::string_view key, double min, doubl
         return std::nullopt;
     }
     return number;
+}
+
+std::optional<NumberRange> JsonReader::range(std::string_view key, double min, double max) {
+    const auto* value = find(key);
+    if (value == nullptr) {
+        return std::nullopt;
+    }
+    // 숫자 하나면 최소 = 최대
+    if (value->is_number()) {
+        const auto single = number(key, min, max);
+        if (!single) {
+            return std::nullopt;
+        }
+        return NumberRange{*single, *single};
+    }
+    // 목록이면 정확히 숫자 두 개, 그리고 최소 <= 최대
+    if (!value->is_array() || value->size() != 2 || !(*value)[0].is_number() ||
+        !(*value)[1].is_number()) {
+        error(field_path(key), "expected a number or [min, max]");
+        return std::nullopt;
+    }
+    const double lo = (*value)[0].get<double>();
+    const double hi = (*value)[1].get<double>();
+    if (!std::isfinite(lo) || !std::isfinite(hi) || lo < min || hi > max || lo > hi) {
+        error(field_path(key), "range must satisfy " + std::to_string(min) + " <= min <= max <= " +
+                                   std::to_string(max));
+        return std::nullopt;
+    }
+    return NumberRange{lo, hi};
+}
+
+std::optional<world::Rgba> JsonReader::color(std::string_view key) {
+    const auto text = string(key, 16);
+    if (!text) {
+        return std::nullopt;
+    }
+    const auto parsed = parse_hex_color(*text);
+    if (!parsed) {
+        error(field_path(key), "expected \"#rrggbb\" or \"#rrggbbaa\"");
+    }
+    return parsed;
+}
+
+std::optional<std::string> JsonReader::content_path(std::string_view key) {
+    const auto raw = string(key);
+    if (!raw) {
+        return std::nullopt;
+    }
+    auto normalized = normalize_content_path(*raw);
+    if (!normalized) {
+        error(field_path(key), "path must stay inside the content folder: " + *raw);
+    }
+    return normalized;
 }
 
 std::optional<bool> JsonReader::boolean(std::string_view key) {

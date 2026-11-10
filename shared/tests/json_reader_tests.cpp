@@ -38,4 +38,28 @@ TEST(JsonReader, RawReturnsValueOrReportsMissing) {
     EXPECT_EQ(errors.items().size(), 1u);
 }
 
+// 범위·색·파일 위치 읽기: 맞으면 값, 틀리면 칸 주소와 함께 오류를 적어요.
+TEST(JsonReader, ReadsRangeColorAndContentPath) {
+    const json doc{{"r1", 3}, {"r2", {2, 5}}, {"r3", {5, 2}}, {"c1", "#ff8000"}, {"c2", "orange"},
+                   {"p1", "fx\\rain.json"}, {"p2", "../up.json"}};
+    ErrorList errors;
+    JsonReader reader(doc, "unit.json", "", errors);
+    const auto r1 = reader.range("r1", 0.0, 10.0);
+    ASSERT_TRUE(r1.has_value());
+    EXPECT_DOUBLE_EQ(r1->min, 3.0);
+    EXPECT_DOUBLE_EQ(r1->max, 3.0);
+    const auto r2 = reader.range("r2", 0.0, 10.0);
+    ASSERT_TRUE(r2.has_value());
+    EXPECT_DOUBLE_EQ(r2->max, 5.0);
+    EXPECT_FALSE(reader.range("r3", 0.0, 10.0).has_value());  // 최소 > 최대
+    EXPECT_EQ(reader.color("c1"), (wind::world::Rgba{255, 128, 0, 255}));
+    EXPECT_FALSE(reader.color("c2").has_value());
+    EXPECT_EQ(reader.content_path("p1"), std::optional<std::string>("fx/rain.json"));
+    EXPECT_FALSE(reader.content_path("p2").has_value());
+    ASSERT_EQ(errors.items().size(), 3u);
+    EXPECT_EQ(errors.items()[0].field, "r3");
+    EXPECT_EQ(errors.items()[1].field, "c2");
+    EXPECT_EQ(errors.items()[2].field, "p2");
+}
+
 }  // namespace

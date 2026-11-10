@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "keys": [
+    { "hour": 0,    "ambient": "#2a3060", "night": 1 },
+    { "hour": 4.5,  "ambient": "#30366a", "night": 1 },
+    { "hour": 6,    "ambient": "#c890a8", "night": 0.5 },
+    { "hour": 7.5,  "ambient": "#f4e8e0", "night": 0 },
+    { "hour": 12,   "ambient": "#ffffff", "night": 0 },
+    { "hour": 16.5, "ambient": "#fff2e0", "night": 0 },
+    { "hour": 18.5, "ambient": "#f0a070", "night": 0.3 },
+    { "hour": 19.5, "ambient": "#906c9c", "night": 0.7 },
+    { "hour": 21,   "ambient": "#2a3060", "night": 1 }
+  ]
+}

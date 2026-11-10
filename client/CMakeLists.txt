@@ -61,7 +61,11 @@ add_library(wind_game_core STATIC
     src/game/presentation/afterimage_trail.cpp
     src/game/presentation/ambient_particles.cpp
     src/game/presentation/field_lighting.cpp
-    src/game/presentation/field_effects.cpp)
+    src/game/presentation/field_effects.cpp
+    src/game/presentation/weather_system.cpp
+    src/game/presentation/fog_layer.cpp
+    src/game/presentation/field_atmosphere.cpp
+    src/game/world/game_clock.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -75,7 +79,8 @@ add_executable(wind_client
     src/engine/render/renderer.cpp
     src/engine/render/surface_painter.cpp
     src/engine/resources/resource_manager.cpp
-    src/game/states/field_state.cpp)
+    src/game/states/field_state.cpp
+    src/game/states/field_assets.cpp)
 target_link_libraries(wind_client PRIVATE wind_client_options wind_game_core SDL3::SDL3)
 wind_set_warnings(wind_client)
 
@@ -112,7 +117,10 @@ if(WIND_BUILD_TESTS)
         tests/light_animation_tests.cpp
         tests/light_drawing_tests.cpp
         tests/field_lighting_tests.cpp
-        tests/screen_fade_tests.cpp)
+        tests/screen_fade_tests.cpp
+        tests/game_clock_tests.cpp
+        tests/weather_system_tests.cpp
+        tests/field_atmosphere_tests.cpp)
     target_link_libraries(wind_client_tests PRIVATE wind_client_options wind_game_core GTest::gtest_main)
     # 테스트가 저장소의 진짜 자료(content 폴더)를 찾을 수 있게 위치를 알려 줘요.
     target_compile_definitions(wind_client_tests PRIVATE

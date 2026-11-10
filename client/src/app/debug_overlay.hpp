@@ -27,7 +27,8 @@ public:
 
     // 정보판을 그려요. 숨김 상태면 아무것도 안 그려요.
     void draw(engine::Renderer& renderer, const game::FieldDebugInfo& field,
-              const engine::ResourceStats& resources, std::uint64_t dropped_frames) const;
+              const engine::ResourceStats& resources, std::uint64_t dropped_frames,
+              std::string_view clock_text) const;
 
 private:
     bool visible_ = true;  // 처음엔 보이게 시작해요

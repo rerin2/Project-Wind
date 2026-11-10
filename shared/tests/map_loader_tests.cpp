@@ -167,17 +167,21 @@ TEST(MapLoader, RepositoryTestMapIsValid) {
     const auto result = wind::content::load_map_file(WIND_TEST_CONTENT_DIR, "maps/test_meadow.json");
     ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
     EXPECT_NE(result.value->map.find_spawn("default"), nullptr);
-    // 시험 맵에는 꽃잎과 반딧불 분위기 효과가 있어요.
-    EXPECT_FALSE(result.value->map.ambience.ambient_light.has_value());  // 초원은 조명 없음
+    // 시험 초원: 늘 꽃잎, 밤에만 반딧불, 하루 색 곡선과 날씨가 있는 바깥 맵, 가로등 4개(밤에만)
+    const auto& ambience = result.value->map.ambience;
+    EXPECT_FALSE(ambience.ambient_light.has_value());  // 고정 주변광 없음 (바깥이라 시간에 따라 바뀌어요)
+    EXPECT_EQ(ambience.night_fx, (std::vector<std::string>{"fx/fireflies.json"}));
+    EXPECT_EQ(ambience.day_cycle, "time/day_cycle.json");
+    EXPECT_EQ(ambience.weather, "weather/meadow.json");
+    ASSERT_EQ(ambience.lights.size(), 4u);
+    EXPECT_TRUE(ambience.lights[0].night_only);
     // 흙길 왼쪽 끝 동굴 입구 (0, 12)
     ASSERT_NE(result.value->map.exit_at({0, 12}), nullptr);
     EXPECT_EQ(result.value->map.exit_at({0, 12})->to_map, "maps/test_cave.json");
     EXPECT_NE(result.value->map.find_spawn("from_cave"), nullptr);
-    EXPECT_EQ(result.value->map.ambience.ambient_fx,
-              (std::vector<std::string>{"fx/petals.json", "fx/fireflies.json"}));
+    EXPECT_EQ(ambience.ambient_fx, (std::vector<std::string>{"fx/petals.json"}));
 }
 
-// 분위기(ambience)는 없어도 되고, 있으면 효과 파일 위치를 검사해요.
 // 시험 동굴은 조명 맵이에요: 주변광, 주인공 빛, 빛 9개 (횃불 8 + 연못 1)
 TEST(MapLoader, RepositoryTestCaveIsValid) {
     const auto result = wind::content::load_map_file(WIND_TEST_CONTENT_DIR, "maps/test_cave.json");
@@ -213,6 +217,7 @@ TEST(MapLoader, RejectsUnreachableExit) {
     EXPECT_NE(good.value->exit_at({0, 1}), nullptr);
 }
 
+// 분위기(ambience)는 없어도 되고, 있으면 효과 파일 위치를 검사해요.
 TEST(MapLoader, ParsesAmbienceAndRejectsBadPaths) {
     const auto tileset = load_tileset();
     EXPECT_TRUE(wind::content::parse_map(make_map(), "unit.json", tileset).value->ambience.ambient_fx.empty());

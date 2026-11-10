@@ -21,8 +21,9 @@ public:
     explicit ParticleEmitter(const ParticleEffect& effect);
 
     // 시간이 dt초 흘렀어요. area 안에서 점을 만들어 통에 넣고, 만든 개수를 돌려줘요.
+    // rate_scale: 이번에만 뿜는 양을 몇 배로 할지 (날씨가 서서히 그칠 때 0~1로 줄여요)
     std::uint32_t update(float dt_seconds, const RectF& area, ParticleRandom& random,
-                         ParticlePool& pool);
+                         ParticlePool& pool, float rate_scale = 1.0f);
 
     [[nodiscard]] const ParticleEffect& effect() const { return *effect_; }
 

@@ -27,7 +27,9 @@
 #include "game/input/movement_intent.hpp"
 #include "game/presentation/afterimage_trail.hpp"
 #include "game/presentation/ambient_particles.hpp"
+#include "game/presentation/field_atmosphere.hpp"
 #include "game/presentation/field_effects.hpp"
+#include "game/states/field_assets.hpp"
 #include "game/presentation/field_lighting.hpp"
 #include "game/presentation/dust_emitter.hpp"
 
@@ -61,6 +63,10 @@ struct FieldDebugInfo {
     std::uint64_t particles_dropped = 0;               // 통이 꽉 차서 버린 파티클 수
     bool lighting = false;                             // 조명을 쓰는 맵인가
     engine::LightStats lights;                         // 빛 수 (전체, 그린 것, 건너뛴 것)
+    bool outdoors = false;                             // 시간·날씨를 쓰는 바깥 맵인가
+    float night = 0.0f;                                // 밤 정도 0~1
+    std::string weather;                               // 날씨 이름 ("none"이면 날씨 표 없음, 바뀌는 중이면 "a -> b")
+    float weather_intensity = 0.0f;                    // 날씨 세기 0~1
 };
 
 // 성능 시험용 부하 (실행 옵션 --fx-stress, --light-stress). 평소에는 0이에요.
@@ -80,7 +86,8 @@ public:
                                                             std::string_view player_sheet_path,
                                                             engine::Vec2 viewport,
                                                             std::string_view spawn_id = "default",
-                                                            FieldStress stress = {});
+                                                            FieldStress stress = {},
+                                                            std::string_view start_weather = {});
 
     // 이 화면이 코드로 만든 그림(그림자·파티클·빛)을 정리해요. 맵을 옮길 때마다 새로 만드니까요.
     ~FieldState();
@@ -94,7 +101,10 @@ public:
                       const InputBindings& bindings);
     // 3) 화면 한 장마다, 규칙 계산 다음: 연출과 카메라
     //    alpha: 지난 박자와 다음 박자 사이 어디쯤인지 (0~1), 위치를 부드럽게 이을 때 써요
-    void frame_update(double dt_seconds, double alpha);
+    //    hour: 지금 게임 시각 (0~24). 바깥 맵의 밝기와 밤 효과가 이걸 따라가요.
+    void frame_update(double dt_seconds, double alpha, float hour);
+    // 다음 날씨로 바꾸기 시작해요 (디버그 F6). 날씨 표가 없는 맵에서는 아무 일도 없어요.
+    void next_weather() { atmosphere_.next_weather(); }
     // 4) 이번 화면에 그릴 것들을 그리기 목록(렌더 큐)에 넣고, 조명 준비물도 만들어요.
     void render(engine::RenderQueue& queue);
     // render() 다음에: 이번 화면의 조명 준비물 (조명 없는 맵이면 enabled = false)
@@ -122,10 +132,9 @@ private:
     };
 
     // create()를 통해서만 만들어요. (준비물 검사를 빼먹지 않도록)
-    FieldState(engine::Renderer& renderer, content::LoadedMap map, engine::SpriteSheet sheet,
-               engine::TextureHandle tileset_texture,
-               engine::TextureHandle player_texture, EffectTextures textures, FieldEffects effects,
-               engine::Vec2 viewport, world::TileCoord spawn_tile, std::uint32_t stress_lights);
+    FieldState(engine::Renderer& renderer, FieldAssets assets, engine::TextureHandle tileset_texture,
+               engine::TextureHandle player_texture, EffectTextures textures,
+               std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
@@ -152,6 +161,7 @@ private:
     DustEmitter dust_emitter_;               // 먼지 만드는 담당
     AmbientParticles ambient_;               // 맵 분위기 효과 담당
     FieldLighting lighting_;                 // 조명 담당 (주변광, 횃불, 주인공 빛)
+    FieldAtmosphere atmosphere_;             // 시간 색, 날씨, 안개, 밤 효과
     const engine::LightingFrame* lighting_frame_ = nullptr;  // render()가 만든 조명 준비물
     engine::LightingFrame no_lighting_;      // render() 전에 물어보면 돌려줄 "조명 없음"
     AfterimageTrail trail_;                  // 구르기 잔상

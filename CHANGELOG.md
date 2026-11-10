@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Fix: F6 seemed to do nothing
+- F6 used the table's 5 s fade out + 5 s fade in, so from clear nothing visible happened for 5 s.
+  F6 now fades 0.4 s each way; natural weather changes keep the table's slower fade.
+- F3 shows a change in progress (`clear -> rain`); the log records each F6 change (or says the map has no weather).
+- Test option `--press <key>@<frame>` taps a key at a frame. Verified clear → rain → snow on screen.
+- 182 CTest tests.
+
+### Phase 6 — time and weather
+- Game clock (60 real s = 1 game hour, starts 09:00) owned by the game loop, so time continues across maps. F5 skips 3 hours.
+- Day cycle files (`content/time/`): colour + night keys blended over the day, wrapping past midnight.
+- Weather tables (`content/weather/`): weighted states with durations, effects, tint and fog; 5 s fades between states.
+  F6 next weather. The meadow has clear, rain (streaks + splashes), snow and fog.
+- `FieldAtmosphere`: outdoor ambient = time colour × weather tint; night effects (fireflies) scale with night.
+  Indoor maps with a fixed `ambient_light` ignore time and weather.
+- Lanterns (tile 13) with `night_only` lights along the meadow path.
+- New particle shape `streak`; emitter `rate_scale`; `Glow` draw layer after lighting for additive particles.
+- Shared `JsonReader::range`, `color`, `content_path` replace copies in three loaders. Effect `rate` cap 500 → 2000.
+- `--time`, `--weather` options. Field loading moved to `field_assets`.
+- 181 CTest tests.
+
 ### Way into the test cave (early part of phase 7)
 - Map `exits` (area in tiles, `to_map`, `to_spawn`) with validation, including "at least one walkable tile".
 - Walking onto an exit fades to black, loads the target map at the named spawn, and fades back in

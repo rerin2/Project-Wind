@@ -15,6 +15,7 @@
 #include "engine/render/render_queue.hpp"
 #include "engine/resources/resource_manager.hpp"
 #include "game/input/input_bindings.hpp"
+#include "game/world/game_clock.hpp"
 #include "game/states/field_state.hpp"
 
 #include "wind/log.hpp"
@@ -49,6 +50,10 @@ constexpr std::string_view kPlayerSheet = "sprites/test_hero.json";
 // 화면을 지울 때 칠하는 바탕색 (아주 어두운 남색)
 constexpr engine::Color kClearColor{12, 16, 24, 255};
 
+// 게임 시계: 실제 60초 = 게임 1시간 (명세 6.4), 시작은 아침 9시, F5를 누르면 3시간 건너뛰기
+constexpr float kSecondsPerGameHour = 60.0f;
+constexpr float kDefaultStartHour = 9.0f;
+constexpr float kSkipHours = 3.0f;
 // 맵을 옮길 때 화면이 어두워지는(또는 밝아지는) 시간 (초)
 constexpr float kFadeSeconds = 0.35f;
 
@@ -61,6 +66,33 @@ engine::Key move_key(world::Direction dir) {
         case world::Direction::Right: return engine::Key::Right;
     }
     return engine::Key::Down;
+}
+
+// 시험용 --press 키 이름을 엔진 키로 바꿔요. (이름은 실행 옵션을 읽을 때 이미 검사했어요)
+engine::Key scripted_key(std::string_view name) {
+    if (name == "f3") return engine::Key::F3;
+    if (name == "f4") return engine::Key::F4;
+    if (name == "f5") return engine::Key::F5;
+    if (name == "f6") return engine::Key::F6;
+    if (name == "f12") return engine::Key::F12;
+    if (name == "space") return engine::Key::Space;
+    if (name == "up") return engine::Key::Up;
+    if (name == "down") return engine::Key::Down;
+    if (name == "left") return engine::Key::Left;
+    if (name == "right") return engine::Key::Right;
+    return engine::Key::Unknown;
+}
+
+// frame번째 장: 그 장에 누르기로 한 키는 누르고, 바로 전 장에 눌렀던 키는 떼요.
+void apply_scripted_presses(const std::vector<ClientOptions::KeyPress>& presses, std::uint64_t frame,
+                            engine::InputState& input) {
+    for (const auto& press : presses) {
+        if (press.frame == frame) {
+            input.set_key(scripted_key(press.key), true);
+        } else if (press.frame + 1 == frame) {
+            input.set_key(scripted_key(press.key), false);
+        }
+    }
 }
 
 // 맵 옮기기 (명세 7.4): 주인공이 출구를 밟으면 화면을 어둡게 하고,
@@ -131,7 +163,8 @@ int ClientApp::run() {
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
     auto make_field = [&](std::string_view map_path, std::string_view spawn_id) {
         return game::FieldState::create(resources, renderer, map_path, kPlayerSheet,
-                                        renderer.logical_size(), spawn_id, stress);
+                                        renderer.logical_size(), spawn_id, stress,
+                                        options_.start_weather);
     };
     auto field = make_field(options_.map, "default");
     if (!field) {
@@ -146,6 +179,8 @@ int ClientApp::run() {
     DebugOverlay overlay;                                    // F3 정보판
     const auto screenshot_dir = resolve_screenshot_dir(options_);  // 스크린샷 저장 폴더
     ScreenshotFlash screenshot_flash;                        // 찍은 뒤 "찰칵" 효과
+    // 게임 시계: 맵을 옮겨도 이어지도록 필드 화면 밖에 둬요.
+    game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     engine::ScreenFade fade(kFadeSeconds);                   // 맵 옮길 때 화면 어둡게·밝게
     std::optional<world::MapExit> travel;                    // 지금 가는 중인 출구 (페이드 중)
     const engine::InputState no_input;                       // 페이드 중에는 키를 안 누른 셈 쳐요
@@ -158,6 +193,8 @@ int ClientApp::run() {
         if (!platform->pump_events(input)) {
             break;  // 창 닫기 버튼을 눌렀어요
         }
+        // 시험용 --press: 정해진 장에서 키를 누르고, 다음 장에서 떼요.
+        apply_scripted_presses(options_.presses, frames_rendered_ + 1, input);
         if (bindings.pressed(game::Action::Quit, input)) {
             log::info("Quit requested");
             break;  // Esc
@@ -168,6 +205,13 @@ int ClientApp::run() {
         }
         if (bindings.pressed(game::Action::ToggleDebug, input)) {
             overlay.toggle();  // F3
+        }
+        if (bindings.pressed(game::Action::SkipTime, input)) {
+            game_clock.skip_hours(kSkipHours);  // F5: 시간 3시간 앞으로
+            log::info("Time skipped to {}", game_clock.text());
+        }
+        if (bindings.pressed(game::Action::NextWeather, input)) {
+            field->next_weather();  // F6: 다음 날씨
         }
 
         // 지난 장을 그린 뒤로 시간이 얼마나 흘렀는지 재요.
@@ -189,10 +233,11 @@ int ClientApp::run() {
         const int steps = clock.advance(frame_seconds);
         for (int i = 0; i < steps; ++i) {
             field->fixed_update(clock.step_seconds(), game_input, bindings);
+            game_clock.advance(clock.step_seconds());
         }
         // 5. 그림 넘기기, 먼지·잔상, 카메라는 화면 한 장마다 해요.
         //    alpha: 지난 박자와 다음 박자 사이 어디쯤인지 -> 위치를 부드럽게 이어 그려요.
-        field->frame_update(frame_seconds, clock.alpha());
+        field->frame_update(frame_seconds, clock.alpha(), game_clock.hour());
         update_travel(make_field, field, fade, travel, static_cast<float>(frame_seconds));
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
@@ -201,10 +246,10 @@ int ClientApp::run() {
         queue.sort();
         renderer.begin_frame(kClearColor);  // 바탕색으로 화면 지우기
         // 월드(땅 ~ 공중 효과)를 먼저 그리고, 그 위에 조명(어둠과 빛)을 입힌 다음,
-        // 조명의 영향을 받으면 안 되는 것(전경, 충돌 표시)을 그려요.
+        // 조명의 영향을 받으면 안 되는 것(스스로 빛나는 것, 전경, 충돌 표시)을 그려요.
         renderer.submit(queue, engine::DrawLayer::Ground, engine::DrawLayer::WorldFx);
         renderer.apply_lighting(field->lighting());
-        renderer.submit(queue, engine::DrawLayer::Foreground, engine::DrawLayer::DebugOverlay);
+        renderer.submit(queue, engine::DrawLayer::Glow, engine::DrawLayer::DebugOverlay);
         // 7. 맵을 옮기는 중이면 화면 전체를 검게 덮어요 (디버그 정보판은 그 위에 보여요).
         if (fade.darkness() > 0.0f) {
             const engine::Vec2 size = renderer.logical_size();
@@ -213,7 +258,8 @@ int ClientApp::run() {
         }
         // 8. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
         overlay.record_frame(frame_seconds);
-        overlay.draw(renderer, field->debug_info(), resources.stats(), clock.dropped_frames());
+        overlay.draw(renderer, field->debug_info(), resources.stats(), clock.dropped_frames(),
+                     game_clock.text());
         // 지난번 "찰칵" 효과가 아직 남아 있으면 맨 위에 그려요.
         screenshot_flash.update(static_cast<float>(frame_seconds));
         screenshot_flash.draw(renderer);

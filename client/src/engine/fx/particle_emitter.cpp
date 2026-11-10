@@ -18,9 +18,9 @@ constexpr float kMaxCatchUpSeconds = 0.25f;
 ParticleEmitter::ParticleEmitter(const ParticleEffect& effect) : effect_(&effect) {}
 
 std::uint32_t ParticleEmitter::update(float dt_seconds, const RectF& area, ParticleRandom& random,
-                                      ParticlePool& pool) {
+                                      ParticlePool& pool, float rate_scale) {
     const float dt = std::clamp(dt_seconds, 0.0f, kMaxCatchUpSeconds);
-    pending_ += effect_->rate * dt;
+    pending_ += effect_->rate * std::max(rate_scale, 0.0f) * dt;
     std::uint32_t added = 0;
     while (pending_ >= 1.0f) {
         pending_ -= 1.0f;

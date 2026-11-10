@@ -16,11 +16,12 @@ void AmbientParticles::add(const engine::ParticleEffect& effect) {
 }
 
 void AmbientParticles::update(float dt_seconds, const engine::RectF& view,
-                              engine::ParticleRandom& random, engine::ParticlePool& pool) {
+                              engine::ParticleRandom& random, engine::ParticlePool& pool,
+                              float rate_scale) {
     const engine::RectF area{view.x - kViewMargin, view.y - kViewMargin,
                              view.w + kViewMargin * 2.0f, view.h + kViewMargin * 2.0f};
     for (auto& emitter : emitters_) {
-        emitter.update(dt_seconds, area, random, pool);
+        emitter.update(dt_seconds, area, random, pool, rate_scale);
     }
 }
 

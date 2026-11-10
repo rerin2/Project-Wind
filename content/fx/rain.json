@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "rain",
+  "shape": "streak",
+  "blend": "normal",
+  "lifetime": [0.35, 0.55],
+  "speed": [360, 440],
+  "direction": 102,
+  "spread": 4,
+  "start_size": [10, 15],
+  "end_size": 10,
+  "start_color": "#e6eeffd2",
+  "end_color": "#e6eeffd2",
+  "fade_in": 0.1,
+  "fade_out": 0.2,
+  "rate": 520
+}

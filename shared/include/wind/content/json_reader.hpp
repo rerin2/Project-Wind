@@ -7,6 +7,7 @@
 // "어느 파일의 어느 칸이 왜 틀렸는지"를 오류 공책(ErrorList)에 적어요 (명세 14.4).
 
 #include "wind/content/error_list.hpp"
+#include "wind/world/rgba.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -17,6 +18,12 @@
 #include <string_view>
 
 namespace wind::content {
+
+// 최소~최대 숫자 범위 (예: 수명 6~9초)
+struct NumberRange {
+    double min = 0.0;
+    double max = 0.0;
+};
 
 // 설명서의 { ... } 묶음(객체) 하나를 칸별로 읽는 도우미.
 // 칸이 없거나 모양이 틀리면 공책에 적고 "없음"(nullopt)을 돌려줘요.
@@ -36,6 +43,13 @@ public:
                                                       std::int64_t max);
     // 소수도 되는 숫자 칸 읽기 (예: 0.35초). min ~ max 사이여야 해요. 정수(3)도 받아요.
     [[nodiscard]] std::optional<double> number(std::string_view key, double min, double max);
+    // 숫자 하나(3) 또는 [최소, 최대] 두 개짜리 목록([2, 5])을 범위로 읽어요. 최소 <= 최대여야 해요.
+    // 숫자 하나면 최소 = 최대예요.
+    [[nodiscard]] std::optional<NumberRange> range(std::string_view key, double min, double max);
+    // 색 칸 읽기: "#rrggbb" 또는 "#rrggbbaa"
+    [[nodiscard]] std::optional<world::Rgba> color(std::string_view key);
+    // 파일 위치 칸 읽기: 콘텐츠 폴더 안을 가리켜야 하고, "\\"는 "/"로 정리해 줘요.
+    [[nodiscard]] std::optional<std::string> content_path(std::string_view key);
     // 참/거짓(true/false) 칸 읽기
     [[nodiscard]] std::optional<bool> boolean(std::string_view key);
     // [ ... ] 목록 칸 읽기. 항목이 max_items개보다 많으면 틀린 것으로 봐요.

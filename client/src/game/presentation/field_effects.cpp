@@ -50,13 +50,33 @@ engine::ParticleEffect make_stress_effect(std::uint32_t count) {
 }  // namespace
 
 FieldEffects load_field_effects(const std::filesystem::path& content_root,
-                                const world::Ambience& ambience, std::uint32_t stress_particles) {
+                                const world::Ambience& ambience, const world::WeatherTable* weather,
+                                std::uint32_t stress_particles) {
     FieldEffects effects;
     effects.dust_walk = load_effect(content_root, kDustWalkFx);
     effects.dust_dodge = load_effect(content_root, kDustDodgeFx);
     for (const auto& path : ambience.ambient_fx) {
         if (auto effect = load_effect(content_root, path)) {
             effects.ambient.push_back(std::move(*effect));
+        }
+    }
+    for (const auto& path : ambience.night_fx) {
+        if (auto effect = load_effect(content_root, path)) {
+            effects.night.push_back(std::move(*effect));
+        }
+    }
+    // 날씨 효과 (빗줄기, 물 튀김, 눈): 같은 파일은 한 번만 읽어요.
+    if (weather != nullptr) {
+        for (const auto& state : weather->states) {
+            for (const auto* list : {&state.fx, &state.ground_fx}) {
+                for (const auto& path : *list) {
+                    if (!effects.weather_fx.contains(path)) {
+                        if (auto effect = load_effect(content_root, path)) {
+                            effects.weather_fx.emplace(path, std::move(*effect));
+                        }
+                    }
+                }
+            }
         }
     }
     // 빛 자리 효과(횃불 불티 등): 같은 파일은 한 번만 읽어요.

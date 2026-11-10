@@ -1,6 +1,6 @@
 # Engine Design (client)
 
-Status: phase 5 (lighting: ambient light, point lights, flicker and pulse, light map pass). Spec reference: master spec section 5.
+Status: phase 6 (time of day, weather, fog, night-only lights, glow layer). Spec reference: master spec section 5.
 
 The client engine is our own code on top of SDL3. SDL3 is used only for the window, OS events, the GPU-backed 2D renderer, and BMP decoding. Everything else (loop, map, camera, animation, input model, particles, resources, debug view) lives in this repository.
 
@@ -64,8 +64,9 @@ The render rate follows VSync (60 FPS measured on the dev machine; not guarantee
 | `Shadows` | soft ellipse under each character's feet |
 | `YSorted` | `"low_objects"` tiles **and** characters, afterimages and dust, ordered by their base (feet) y |
 | `HighObjects` | `"high_objects"` (e.g. tree canopies; always over characters) |
-| `WorldFx` | particles in the air (map ambience: petals, fireflies); above canopies |
+| `WorldFx` | particles in the air (petals, rain, snow) and fog banks; above canopies |
 | *(lighting)* | light map multiplied over everything above (not a queue layer) |
+| `Glow` | additive air particles (fireflies, embers), drawn after lighting so they stay bright at night |
 | `Foreground` | `"foreground"` |
 | `DebugOverlay` | collision overlay, feet box |
 
@@ -107,6 +108,7 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 - **Walkability:** a cell is walkable if it has at least one tile and every tile on it is `walkable`. Spawn points must be walkable.
 - `exits` (optional, up to 32): `area` in tiles (`x`, `y`, `w`, `h`, inside the map), `to_map` (content path) and `to_spawn` (spawn id in that map). At least one tile of the area must be walkable. The target map and spawn are checked when the hero actually travels; if either is missing, she stays on the current map and the error is logged.
 - `ambience` is optional. `ambient_fx` lists up to 8 particle effect files (content paths) that float around the camera on this map. Paths are checked when the map loads; the effect files themselves are validated when the field starts, and a broken effect is logged and skipped.
+- `ambient_light` (`#rrggbb`) gives an indoor map a fixed ambient colour (caves). `day_cycle` (content path) makes an outdoor map follow the time of day instead; a map may not have both. `weather` (content path) names the weather table. `night_fx` lists effects that only appear at night (scaled by the night amount). A light with `"night_only": true` brightens with the night amount (street lamps).
 - `ambient_light` (`#rrggbb`) turns lighting on for the map; without it the map is drawn fully lit. `player_light` (radius 4–512, colour, intensity 0–1) follows the hero. `lights` (up to 64) each need `x`, `y` (tile units, inside the map), `radius` (4–512 px), `color`, `intensity` (0–1); optional `flicker` (0–1), `pulse` (`frequency` 0–10 Hz, `depth` 0–1) and `fx` (an effect emitted continuously at the light). Parsed by `wind/content/ambience_loader`.
 
 ### Particle effect (`content/fx/*.json`)
@@ -123,7 +125,7 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 
 | Field | Required | Meaning and limits |
 |---|---|---|
-| `shape` | yes | `soft` (soft circle) or `pixel` (crisp square) |
+| `shape` | yes | `soft` (soft circle), `pixel` (crisp square) or `streak` (1 px line along the velocity, length = size; rain) |
 | `blend` | yes | `normal`, `add`, `multiply` |
 | `lifetime` | yes | seconds, number or `[min, max]`, 0.01–60 |
 | `speed` | yes | px/s, number or `[min, max]`, 0–2000 |
@@ -136,7 +138,7 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 | `end_size` | no (0) | px at the end of life |
 | `fade_in`, `fade_out` | no (0) | fraction of the lifetime spent appearing / disappearing |
 | `wobble` | no | `amplitude` px (0–64) and `frequency` Hz (0–20); sideways sway applied when drawing |
-| `burst`, `rate` | at least one > 0 | particles per one-shot burst (0–256) / per second when emitting continuously (0–500) |
+| `burst`, `rate` | at least one > 0 | particles per one-shot burst (0–256) / per second when emitting continuously (0–2000) |
 
 Errors carry the file and field path (e.g. `wobble.frequency`). Particles are white textures tinted by the colour: `soft` uses an 8×8 soft circle, `pixel` a 1×1 square scaled up.
 
@@ -200,6 +202,20 @@ Effects read simulation state and events only; they never move the character.
 - Each `FieldState` destroys the textures it generated (shadow, particles, light) when it is replaced.
 - Test-only `--auto-move <dir>` holds a direction for the whole run; with `--auto-move left` the hero walks from the meadow start into the cave and back.
 
+## Time of day (spec 6.4, phase 6)
+
+- `GameClock` (`client/src/game/world`) runs in the fixed simulation step at **60 real seconds per game hour**, starting at 09:00 (`--time` overrides). It lives in `ClientApp`, not in a map, so time continues across map travel. F5 skips 3 hours.
+- Day cycle file (`content/time/*.json`): `{ "schema_version": 1, "keys": [ { "hour": 0–23.999, "ambient": "#rrggbb", "night": 0–1 }, ... ] }`, 2–32 keys with increasing hours. `sample_day_cycle` blends the two keys around the hour and wraps past midnight (last key → first key of the next day).
+- Outdoor ambient = day cycle colour × weather tint (per channel). Indoor maps (`ambient_light`) ignore time and weather.
+
+## Weather (spec 6.5, phase 6)
+
+- Weather file (`content/weather/*.json`): `transition_seconds` (0.1–60) and 1–16 `states`, each with a unique `id`, `weight` (0–100, at least one > 0), `duration` (seconds, number or `[min, max]`, 1–3600), optional `fx` and `ground_fx` (up to 4 effect paths each), `tint` (`#rrggbb`) and `fog` (0–1).
+- `WeatherSystem` picks states by weight (random seed per run). The first state starts at full strength (`--weather` picks it). On a change the current state fades to 0 over `transition_seconds`, then the next one fades in. F6 starts the next state in table order and uses a quick 0.4 s fade each way so the result shows at once; the F3 panel shows a change in progress as `old -> new`, and the log records it.
+- Intensity scales the state's emitters (`ParticleEmitter::update(..., rate_scale)`), the tint (blended from white), and fog. Sky effects spawn around the view in the air pool; ground effects (splashes) spawn inside the view in the ground pool.
+- `FogLayer`: 7 large soft banks (the light texture) drifting sideways in screen space, alpha up to 120 × fog, drawn on `WorldFx` before lighting so fog darkens at night.
+- `FieldAtmosphere` combines the day cycle, weather, fog and night effects and hands `{ambient, night}` to `FieldLighting::set_conditions` each frame.
+
 ## Lighting (spec 6.3, phase 5)
 
 Decision and limits: [ADR 0008](DECISIONS/0008-lighting-with-sdl-renderer.md).
@@ -208,7 +224,7 @@ Decision and limits: [ADR 0008](DECISIONS/0008-lighting-with-sdl-renderer.md).
 - Each frame `queue_lights` keeps lights whose radius box touches the view, up to `kMaxLightsPerFrame` = 64 (hero light first), and turns them into `ADD` sprites of a 128 px radial light texture (linear filtering).
 - `Renderer::apply_lighting`: clear the light map to the ambient colour → draw the light sprites → multiply the light map over the frame target (`MOD`).
 - **Flicker:** strength × (1 − flicker × w), where w mixes two sine waves (9.1 and 15.7 rad/s); the radius also shrinks by up to 12 % of the flicker amount. **Pulse:** strength × (1 − depth × (0.5 + 0.5 sin(2π f t + phase))).
-- F3 shows `lights / drawn / offscreen / over cap`, or `lighting off`.
+- F3 shows `lights / drawn / offscreen / over cap`, or `lighting off`. Another line shows the time, night amount and weather (or "indoors").
 - `--light-stress N` (0–64) adds N lights around the start on a lit map. Phase 5 measurement: 42 lights (37 drawn), 60.0 FPS, 16.67 ms.
 
 ## Blend modes and tint (spec 5.2)

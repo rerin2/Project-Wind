@@ -30,6 +30,8 @@ Key translate(SDL_Scancode code) {
         case SDL_SCANCODE_X: return Key::X;
         case SDL_SCANCODE_F3: return Key::F3;
         case SDL_SCANCODE_F4: return Key::F4;
+        case SDL_SCANCODE_F5: return Key::F5;
+        case SDL_SCANCODE_F6: return Key::F6;
         case SDL_SCANCODE_F12: return Key::F12;
         default: return Key::Unknown;  // 우리 게임이 안 쓰는 키
     }

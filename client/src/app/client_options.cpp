@@ -8,6 +8,7 @@
 #include "wind/cli.hpp"
 #include "wind/content/content_path.hpp"
 
+#include <cstdlib>
 #include <limits>
 #include <utility>
 
@@ -21,6 +22,16 @@ constexpr std::uint64_t kMaxWindowSize = 7680;
 constexpr std::uint64_t kMaxFxStress = 4000;
 // 성능 시험용 빛 개수 상한 (한 화면에 그리는 빛 최대 개수와 같아요)
 constexpr std::uint64_t kMaxLightStress = 64;
+
+// --press로 누를 수 있는 키 이름인가요?
+bool is_scriptable_key(std::string_view name) {
+    for (const std::string_view known : {"f3", "f4", "f5", "f6", "f12", "space", "up", "down", "left", "right"}) {
+        if (name == known) {
+            return true;
+        }
+    }
+    return false;
+}
 
 // "잘못됐어요" 결과를 만들어요. 왜 잘못됐는지 메시지를 함께 담아요.
 ClientParseResult fail(std::string message) {
@@ -107,6 +118,36 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
             }
             options.auto_move = *dir;
         }
+        else if (arg == "--press") {
+            // 시험용 키 누르기: "키이름@장번호" (예: f6@60)
+            const auto at = value.find('@');
+            const auto frame = at == std::string_view::npos
+                                   ? std::nullopt
+                                   : cli::parse_uint(value.substr(at + 1), 1,
+                                                     std::numeric_limits<std::uint64_t>::max());
+            const std::string_view key = at == std::string_view::npos ? value : value.substr(0, at);
+            if (!frame || !is_scriptable_key(key)) {
+                return fail("--press must look like f6@60 (keys: f3 f4 f5 f6 f12 space up down left right)");
+            }
+            options.presses.push_back({std::string(key), *frame});
+        }
+        else if (arg == "--time") {
+            // 시작 시각: 0 이상 24 미만의 숫자 (18.5 = 오후 6시 30분)
+            const std::string text(value);
+            char* end = nullptr;
+            const float hour = std::strtof(text.c_str(), &end);
+            if (text.empty() || end != text.c_str() + text.size() || !(hour >= 0.0f && hour < 24.0f)) {
+                return fail("--time must be a number of hours from 0 to below 24 (e.g. 18.5)");
+            }
+            options.start_hour = hour;
+        }
+        else if (arg == "--weather") {
+            // 처음 날씨 이름. 맵의 날씨 표에 없는 이름이면 확률대로 골라요.
+            if (value.empty() || value.size() > 32) {
+                return fail("--weather must be a weather id of 1-32 characters");
+            }
+            options.start_weather = std::string(value);
+        }
         else if (arg == "--light-stress") {
             // 성능 시험용: 빛을 몇 개 더 놓을지 (0~64)
             const auto parsed = cli::parse_uint(value, 0, kMaxLightStress);
@@ -148,6 +189,9 @@ std::string_view client_usage() {
            "  --fx-stress <n>      keep about n extra particles on screen, 0-4000 (perf check)\n"
            "  --light-stress <n>   add n lights around the start, 0-64; needs a lit map (perf check)\n"
            "  --auto-move <dir>    hold up|down|left|right for the whole run (for checks)\n"
+           "  --press <key@frame>  tap a key at a frame, e.g. f6@60; may repeat (for checks)\n"
+           "  --time <hours>       start time of day, 0 to below 24 (default 9)\n"
+           "  --weather <id>       start weather from the map's table, e.g. rain\n"
            "  --help               show this message\n";
 }
 

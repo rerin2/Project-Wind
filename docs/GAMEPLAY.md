@@ -1,6 +1,6 @@
 # Gameplay Rules
 
-Status: phase 2. Spec references: master spec sections 7–9.
+Status: phase 6. Spec references: master spec sections 7–9.
 
 This file holds the rules the simulation enforces and the numbers behind them. Change a number here and in code together.
 
@@ -40,6 +40,11 @@ Code: `client/src/game/entities/mover.*`, `movement_tuning.hpp`, `client/src/gam
 | `dodge_cooldown_seconds` | 0.30 s | Prevents chaining dodges into fast travel |
 | `dodge_invulnerable_seconds` | 0.16 s | Most of the roll; the tail end is vulnerable |
 | input buffer | 0.15 s | Spec 5.8 default |
+
+## Time
+
+- The game clock runs at 60 real seconds per game hour (a game day is 24 real minutes), starting at 09:00 for a new game. It advances in the fixed simulation step and continues across map travel. Saving the time comes with saves (phase 16).
+- Time and weather are presentation only for now: nothing in the rules depends on them yet.
 
 ## Not yet defined
 

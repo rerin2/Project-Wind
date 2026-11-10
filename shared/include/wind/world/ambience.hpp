@@ -3,8 +3,9 @@
 // 이 파일은 무엇을 하나요?
 // 맵의 "분위기" 정보예요. (명세 6.3, 7.1)
 // - 주변 효과: 늘 떠다니는 꽃잎·반딧불 같은 파티클 효과 파일들
-// - 주변광: 맵 전체의 기본 밝기와 색. 없으면 조명을 쓰지 않고 그림 그대로 보여요.
-//          있으면 맵이 그 색으로 어두워지고, 빛이 있는 곳만 밝아요 (동굴, 밤).
+// - 주변광: 맵 전체의 기본 밝기와 색. 동굴처럼 고정된 색이거나(ambient_light),
+//          바깥처럼 시간에 따라 바뀌어요(day_cycle). 둘 다 없으면 그림 그대로 보여요.
+// - 날씨: 바깥 맵의 날씨 표 (비, 눈, 안개)
 // - 빛: 맵 곳곳에 놓인 횃불·창문 같은 빛, 그리고 주인공이 들고 다니는 작은 빛
 
 #include "wind/world/rgba.hpp"
@@ -26,6 +27,7 @@ struct LightDef {
     float pulse_frequency = 0.0f;  // 숨 쉬듯 밝아졌다 어두워지는 빠르기 (1초에 몇 번)
     float pulse_depth = 0.0f;      // 숨쉬기 세기 0~1
     std::string fx;  // 빛 자리에서 계속 나올 파티클 효과 파일 (횃불 불티 등). 없으면 빈 글자
+    bool night_only = false;  // true면 밤에만 켜져요 (가로등). 밤 정도에 따라 서서히 밝아져요.
 };
 
 // 주인공을 따라다니는 작은 빛 (어두운 맵에서 발밑이 보이게)
@@ -37,7 +39,10 @@ struct PlayerLight {
 
 struct Ambience {
     std::vector<std::string> ambient_fx;  // 늘 떠다니는 효과 파일 위치들
-    std::optional<Rgba> ambient_light;    // 주변광. 없으면 조명 없음 (밝은 낮 맵)
+    std::vector<std::string> night_fx;    // 밤에만 나오는 효과 (반딧불 등). 밤 정도만큼 많이 나와요.
+    std::optional<Rgba> ambient_light;    // 고정 주변광 (동굴·실내). 시간과 날씨의 영향을 안 받아요.
+    std::string day_cycle;                // 하루 색 곡선 파일 (바깥 맵). 있으면 시간에 따라 밝기가 바뀌어요.
+    std::string weather;                  // 날씨 표 파일 (바깥 맵). 없으면 늘 맑음
     std::optional<PlayerLight> player_light;
     std::vector<LightDef> lights;
 };

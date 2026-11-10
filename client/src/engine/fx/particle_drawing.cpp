@@ -43,11 +43,12 @@ float particle_wobble(const Particle& p) {
 
 std::uint32_t queue_particles(const ParticlePool& pool, const Camera2D& camera,
                               const ParticleTextures& textures, DrawLayer layer,
-                              RenderQueue& queue) {
+                              RenderQueue& queue, std::optional<DrawLayer> glow_layer) {
     const RectF view = camera.view_rect();
     std::uint32_t queued = 0;
     for (const Particle& p : pool.particles()) {
-        const TextureHandle texture = p.shape == ParticleShape::Pixel ? textures.pixel : textures.soft;
+        // 동그라미는 부드러운 그림, 네모와 빗줄기는 흰 픽셀 그림을 써요.
+        const TextureHandle texture = p.shape == ParticleShape::Soft ? textures.soft : textures.pixel;
         if (!texture.valid()) {
             continue;  // 그림을 못 만들었으면 그 모양은 건너뛰어요
         }
@@ -72,10 +73,20 @@ std::uint32_t queue_particles(const ParticlePool& pool, const Camera2D& camera,
         sprite.source = {0, 0, 0, 0};  // 0 크기 = 그림 전체를 써요
         // 도트 느낌을 살리려고 위치와 크기를 정수 픽셀로 맞춰요.
         const float pixel_size = std::max(1.0f, std::round(size));
-        sprite.dest = {std::round(screen.x), std::round(screen.y), pixel_size, pixel_size};
+        if (p.shape == ParticleShape::Streak) {
+            // 빗줄기: 굵기 1픽셀, 길이 = 크기. 세로로 세운 줄을 움직이는 방향으로 돌려요.
+            // (렌더러는 네모의 한가운데를 중심으로 돌려요)
+            const float angle = std::atan2(p.velocity.y, p.velocity.x) * 180.0f / std::numbers::pi_v<float>;
+            const Vec2 middle = camera.world_to_screen(center);
+            sprite.dest = {std::round(middle.x), std::round(middle.y - pixel_size * 0.5f), 1.0f, pixel_size};
+            sprite.rotation_degrees = angle - 90.0f;
+        } else {
+            sprite.dest = {std::round(screen.x), std::round(screen.y), pixel_size, pixel_size};
+        }
         sprite.tint = color;
         sprite.blend = p.blend;
-        queue.push_sprite(layer, p.position.y, sprite);
+        const bool glows = glow_layer.has_value() && p.blend == BlendMode::Add;
+        queue.push_sprite(glows ? *glow_layer : layer, p.position.y, sprite);
         ++queued;
     }
     return queued;

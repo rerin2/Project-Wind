@@ -5,6 +5,7 @@
 
 #include "engine/light/light_drawing.hpp"
 
+#include <algorithm>
 #include <random>
 
 namespace wind::game {
@@ -30,10 +31,12 @@ engine::Color to_color(world::Rgba c) {
 FieldLighting::FieldLighting(const world::Ambience& ambience, std::int32_t tile_size,
                              const std::map<std::string, engine::ParticleEffect>& light_fx,
                              std::uint32_t stress_lights, engine::Vec2 stress_center) {
-    enabled_ = ambience.ambient_light.has_value();
-    if (enabled_) {
-        ambient_ = to_color(*ambience.ambient_light);
+    fixed_enabled_ = ambience.ambient_light.has_value();
+    if (fixed_enabled_) {
+        fixed_ambient_ = to_color(*ambience.ambient_light);
     }
+    enabled_ = fixed_enabled_;
+    ambient_ = fixed_ambient_;
     const auto size = static_cast<float>(tile_size);
     for (std::size_t i = 0; i < ambience.lights.size(); ++i) {
         const world::LightDef& def = ambience.lights[i];
@@ -47,6 +50,7 @@ FieldLighting::FieldLighting(const world::Ambience& ambience, std::int32_t tile_
         light.pulse_depth = def.pulse_depth;
         light.phase = static_cast<float>(i) * kPhaseStep;
         lights_.push_back(light);
+        night_only_.push_back(def.night_only);
         // 이 빛 자리에서 뿜을 효과가 있으면 방출기를 하나 붙여요.
         if (!def.fx.empty()) {
             if (const auto it = light_fx.find(def.fx); it != light_fx.end()) {
@@ -75,7 +79,15 @@ FieldLighting::FieldLighting(const world::Ambience& ambience, std::int32_t tile_
         light.flicker = 0.2f;
         light.phase = static_cast<float>(lights_.size()) * kPhaseStep;
         lights_.push_back(light);
+        night_only_.push_back(false);
     }
+}
+
+void FieldLighting::set_conditions(std::optional<world::Rgba> ambient, float night) {
+    // 바깥 주변광이 오면 그걸 쓰고, 아니면 맵의 고정 주변광(동굴)을 써요.
+    enabled_ = fixed_enabled_ || ambient.has_value();
+    ambient_ = ambient ? to_color(*ambient) : fixed_ambient_;
+    night_ = std::clamp(night, 0.0f, 1.0f);
 }
 
 void FieldLighting::update(float dt_seconds, engine::Vec2 player_feet, engine::ParticleRandom& random,
@@ -106,7 +118,17 @@ const engine::LightingFrame& FieldLighting::build(const engine::Camera2D& camera
     if (player_light_) {
         visible_.push_back(*player_light_);
     }
-    visible_.insert(visible_.end(), lights_.begin(), lights_.end());
+    for (std::size_t i = 0; i < lights_.size(); ++i) {
+        engine::Light light = lights_[i];
+        if (night_only_[i]) {
+            // 가로등: 낮에는 꺼져 있고, 밤 정도만큼 밝아져요. 완전히 꺼진 빛은 건너뛰어요.
+            light.intensity *= night_;
+            if (light.intensity <= 0.0f) {
+                continue;
+            }
+        }
+        visible_.push_back(light);
+    }
     stats_ = engine::queue_lights(visible_, camera, time_, texture, frame_);
     return frame_;
 }

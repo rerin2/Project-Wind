@@ -70,4 +70,14 @@ TEST(ParticleEmitter, LimitsCatchUp) {
     EXPECT_LE(emitter.update(5.0f, {0.0f, 0.0f, 10.0f, 10.0f}, random, pool), 25u);
 }
 
+// 뿜는 양 배율: 0.5배면 반, 0배면 하나도 안 나와요 (날씨가 서서히 그칠 때).
+TEST(ParticleEmitter, RateScaleMultipliesOutput) {
+    const auto effect = make_effect(100.0f);
+    ParticleEmitter emitter(effect);
+    ParticleRandom random(3);
+    ParticlePool pool(1000);
+    EXPECT_EQ(emitter.update(0.2f, {0.0f, 0.0f, 10.0f, 10.0f}, random, pool, 0.5f), 10u);
+    EXPECT_EQ(emitter.update(0.2f, {0.0f, 0.0f, 10.0f, 10.0f}, random, pool, 0.0f), 0u);
+}
+
 }  // namespace
