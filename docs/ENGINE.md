@@ -26,7 +26,8 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/engine/platform` | `wind_client` | **yes** | `SdlPlatform`: SDL and SDL_ttf init, window, `Renderer`, `TextRenderer`, event → `InputState` |
 | `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
-| `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `PlayerMotion` (mover + stamina + dodge buffer in one fixed step), facing helpers |
+| `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `CharacterState` + `can_transition` (state table), `PlayerMotion` (mover + stamina + attack + dodge/attack buffer in one fixed step), facing helpers |
+| `client/src/game/combat` | `wind_game_core` | no | `AttackRunner` (windup → active → recovery, cancel window, combo order, one hit per target per swing), `place_hitbox` (facing-aware hitbox rect) |
 | `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
 | `client/src/game/ui` | `wind_game_core` | no | `AreaBanner` (in → hold → out timeline), `DelayedBar` (trail, smooth fill, auto-hide) |
 | `client/src/app` (`field_ui`, `ui_test_panel`, `ui_resources`, `transition_view`) | `wind_client` | no (uses `UiPainter`) | HUD stamina bar, area banner, F7 UI test panel, UI resource loading, fade/iris/notice drawing |
@@ -193,7 +194,7 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 | `fx`, `sfx` | no | content paths (checked for safety; the files are loaded by presentation later) |
 | `next_combo` | no | id of the next attack; must match the weapon's list order (below) |
 
-**Hitbox frame.** The box is written for a hero facing **right**: its centre is `forward` px ahead of the feet and `lift` px lower on screen (negative = up, to reach body height); `length` runs along the facing, `width` across it. Facing left mirrors `forward`; facing up/down puts `forward` on the vertical axis and swaps `length`/`width`, while `lift` always stays a screen-vertical shift. (The placement code arrives with the attack runner in phase 9b.) Parsed by `wind/content/attack_loader`.
+**Hitbox frame.** The box is written for a hero facing **right**: its centre is `forward` px ahead of the feet and `lift` px lower on screen (negative = up, to reach body height); `length` runs along the facing, `width` across it. Facing left mirrors `forward`; facing up/down puts `forward` on the vertical axis and swaps `length`/`width`, while `lift` always stays a screen-vertical shift. `game/combat/place_hitbox` does this placement. Parsed by `wind/content/attack_loader`.
 
 ### Weapon (`content/weapons/*.json`, phase 9, spec 8.4)
 

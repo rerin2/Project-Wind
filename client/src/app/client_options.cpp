@@ -26,7 +26,7 @@ constexpr std::uint64_t kMaxLightStress = 64;
 // --press로 누를 수 있는 키 이름인가요?
 bool is_scriptable_key(std::string_view name) {
     for (const std::string_view known :
-         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right"}) {
+         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right", "j"}) {
         if (name == known) {
             return true;
         }

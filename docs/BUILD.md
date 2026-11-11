@@ -63,7 +63,7 @@ The run on 2026-11-10 passed 182/182 tests: GoogleTest cases for the shared and 
 
 Pass `-Preset windows-release` to run the Release build. The client lists its options with `--help`.
 
-Controls: arrow keys / WASD move, Shift (held) run, Space (or K / X) dodge, F3 debug overlay (hidden at start), F4 collision overlay, F5 skip 3 hours, F6 next weather, F7 UI test panel (↑/↓ choose, Enter press, Esc close), F12 screenshot, Esc quit.
+Controls: arrow keys / WASD move, Shift (held) run, J / Z attack, Space (or K / X) dodge, F3 debug overlay (hidden at start), F4 collision overlay, F5 skip 3 hours, F6 next weather, F7 UI test panel (↑/↓ choose, Enter press, Esc close), F12 screenshot, Esc quit.
 
 Screenshots go to `%APPDATA%\ProjectWIND\screenshots` (640×360 BMP). For automated checks, save frames without pressing keys:
 

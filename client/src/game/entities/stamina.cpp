@@ -17,6 +17,10 @@ bool Stamina::can_afford(float cost) const {
     return !exhausted_ && current_ >= cost;
 }
 
+bool Stamina::can_attack() const {
+    return !exhausted_ && current_ > 0.0f;
+}
+
 void Stamina::spend(float amount) {
     if (amount <= 0.0f) {
         return;

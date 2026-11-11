@@ -57,16 +57,6 @@ engine::Vec2 spawn_feet(world::TileCoord tile, std::int32_t tile_size) {
             static_cast<float>(tile.y) * size + size * 0.75f};
 }
 
-std::string_view state_name(Mover::State state) {
-    switch (state) {
-        case Mover::State::Idle: return "idle";
-        case Mover::State::Walking: return "walking";
-        case Mover::State::Running: return "running";
-        case Mover::State::Dodging: return "dodging";
-    }
-    return "?";
-}
-
 }  // namespace
 
 // 필드 화면 만들기: 파일 준비물을 읽고, 그림을 만들어요. 꼭 필요한 게 잘못되면 nullptr(없음).
@@ -125,7 +115,8 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       look_ahead_(kLookAheadDistance, kLookAheadSharpness),
       // 캐릭터가 처음 설 곳 (준비물을 읽을 때 고른 등장 자리)
       player_(spawn_feet(assets.spawn_tile, map_.map.tile_size),
-              world::Direction::Down, MovementTuning{}, StaminaTuning{}, kInputBufferSeconds),
+              world::Direction::Down, MovementTuning{}, StaminaTuning{}, kInputBufferSeconds,
+              std::move(assets.weapon)),
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -164,6 +155,9 @@ void FieldState::handle_input(const engine::InputState& input, const InputBindin
         // 바로 구르지 않고 메모장에 적어 둬요. 다음 박자 계산 때 꺼내 써요.
         // (이번 화면에 박자 계산이 0번이어도 버튼이 사라지지 않아요)
         player_.press_dodge();
+    }
+    if (bindings.pressed(Action::Attack, input)) {
+        player_.press_attack();  // 공격도 메모장에 적어 둬요 (콤보는 취소 구간에서 이어져요)
     }
     if (bindings.pressed(Action::ToggleCollision, input)) {
         show_collision_ = !show_collision_;  // F4: 못 가는 칸과 발 상자 표시 켜기/끄기
@@ -296,7 +290,7 @@ FieldDebugInfo FieldState::debug_info() const {
             feet,
             engine::world_to_tile(feet, map_.map.tile_size),
             player_.mover().facing(),
-            state_name(player_.mover().state()),
+            to_string(player_.state()),
             player_.mover().speed(),
             tiles_queued_,
             ground_fx_.size() + air_fx_.size(),
@@ -310,7 +304,8 @@ FieldDebugInfo FieldState::debug_info() const {
             atmosphere_.weather_intensity(),
             player_.stamina().current(),
             player_.stamina().max(),
-            player_.stamina().exhausted()};
+            player_.stamina().exhausted(),
+            player_.attack().combo_index() + 1};
 }
 
 }  // namespace wind::game

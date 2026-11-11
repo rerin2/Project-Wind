@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Phase 9b — attack runner, combo and state table
+- `AttackRunner`: windup → active → recovery, cancel window, combo order (1 → 2 → 3, then back to 1), one hit per
+  target per swing. `place_hitbox` turns the right-facing hitbox into a rect for any facing.
+- `CharacterState` and `can_transition` (spec 8.5 table). `PlayerMotion` uses it: attack via the input buffer,
+  14 stamina per swing (allowed while above 0, can empty it), legs stop while attacking, dodge cancels only in the window.
+- J / Z attack key; the field loads the longsword (bare hands if it fails). F3 shows `attacking N`.
+- 286 CTest tests.
+
 ### Phase 9a — attack and weapon data, damage
 - `shared/combat`: `AttackData` (windup / active / recovery, cancel window, hitbox, power, knockback, hitstop, shake,
   optional mp_cost, fx, sfx, next_combo), `Weapon`, pure `compute_damage` and `physical_attack_power` (spec 9.3, 8.2).

@@ -6,6 +6,7 @@
 #include "engine/animation/sprite_sheet_loader.hpp"
 
 #include "wind/content/day_cycle_loader.hpp"
+#include "wind/content/weapon_loader.hpp"
 #include "wind/content/error_list.hpp"
 #include "wind/content/weather_loader.hpp"
 #include "wind/log.hpp"
@@ -19,6 +20,8 @@ namespace {
 // 주인공 그림 묶음(스프라이트 시트)에 꼭 있어야 하는 동작 그림(클립) 이름
 constexpr std::string_view kIdleClip = "idle";  // 가만히 서 있기
 constexpr std::string_view kWalkClip = "walk";  // 걷기
+// 시작 무기 (명세 8.1). 장비 화면이 생기면(단계 15) 저장된 장비에서 골라요.
+constexpr std::string_view kStartWeapon = "weapons/longsword.json";
 
 }  // namespace
 
@@ -79,8 +82,16 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
     FieldEffects effects = load_field_effects(content_root, ambience, weather ? &*weather : nullptr,
                                               stress_particles);
 
+    // 7) 든 무기 (잘못되면 기록하고 맨손: 공격만 안 나가고 나머지는 그대로 돼요)
+    combat::Weapon weapon;
+    if (auto loaded = content::load_weapon_file(content_root, kStartWeapon); loaded.ok()) {
+        weapon = std::move(*loaded.value);
+    } else {
+        content::log_content_errors("weapon " + std::string(kStartWeapon), loaded.errors);
+    }
+
     return FieldAssets{std::move(*map.value), std::move(*sheet.value), spawn_tile, std::move(effects),
-                       std::move(day_cycle), std::move(weather)};
+                       std::move(day_cycle), std::move(weather), std::move(weapon)};
 }
 
 }  // namespace wind::game

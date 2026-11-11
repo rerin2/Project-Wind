@@ -38,6 +38,8 @@ public:
     [[nodiscard]] bool can_dodge() const;
     // 순간이동: 미끄러지는 중간 모습 없이 바로 그 자리에 서요.
     void teleport(engine::Vec2 feet);
+    // 바라보는 방향을 바로 바꿔요 (공격을 시작할 때 누른 방향으로 돌아서요).
+    void face(world::Direction facing) { facing_ = facing; }
 
     [[nodiscard]] engine::Vec2 feet() const { return feet_; }
     // 화면에 그릴 위치: 전 박자 위치와 지금 위치 사이 (alpha = 0이면 전, 1이면 지금)

@@ -32,6 +32,8 @@ InputBindings InputBindings::defaults() {
     b.bind(Action::Dodge, Key::K);
     b.bind(Action::Dodge, Key::X);
     b.bind(Action::Run, Key::Shift);
+    b.bind(Action::Attack, Key::J);
+    b.bind(Action::Attack, Key::Z);
     b.bind(Action::ToggleDebug, Key::F3);
     b.bind(Action::ToggleCollision, Key::F4);
     b.bind(Action::Screenshot, Key::F12);

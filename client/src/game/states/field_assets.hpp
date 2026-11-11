@@ -11,6 +11,7 @@
 #include "engine/animation/sprite_sheet.hpp"
 #include "game/presentation/field_effects.hpp"
 
+#include "wind/combat/weapon.hpp"
 #include "wind/content/map_loader.hpp"
 #include "wind/world/day_cycle.hpp"
 #include "wind/world/direction.hpp"
@@ -30,6 +31,7 @@ struct FieldAssets {
     FieldEffects effects;
     std::optional<world::DayCycle> day_cycle;
     std::optional<world::WeatherTable> weather;
+    combat::Weapon weapon;  // 든 무기 (불러오기 실패면 콤보가 빈 맨손)
 };
 
 // spawn_id: 등장 자리 이름. "default"인데 없으면 첫 번째 자리를 써요.

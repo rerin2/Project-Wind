@@ -27,6 +27,9 @@ public:
     [[nodiscard]] bool can_run() const;
     // cost만큼 한 번에 쓰는 동작(구르기)을 할 수 있나요? (지침이 아니고 cost 이상 남아 있으면)
     [[nodiscard]] bool can_afford(float cost) const;
+    // 무기 공격을 할 수 있나요? (명세 7.2.1, 소울라이크식)
+    // 지침이 아니고 조금이라도 남아 있으면 돼요. 모자라면 공격은 나가고 0이 돼요.
+    [[nodiscard]] bool can_attack() const;
     // amount만큼 써요. 0 아래로는 안 내려가고, 0이 되면 지침 상태가 돼요.
     // 쓰면 "다시 차기 전 기다리는 시간"이 처음부터 다시 시작돼요.
     void spend(float amount);

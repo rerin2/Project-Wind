@@ -91,7 +91,36 @@ Data: `content/weapons/longsword.json`, `content/attacks/longsword_{1,2,3}.json`
 | 2 | 0.08 / 0.10 / 0.18 | 0.18–0.36 | 1.1 | 90 | 18, −8, 28 × 26 |
 | 3 | 0.14 / 0.12 / 0.28 | 0.36–0.54 | 1.5 | 160 | 20, −8, 32 × 30 |
 
-Each swing costs 14 stamina (spec 8.4). The cancel window opens when the hit's active part ends, so the next hit can follow (or a dodge can cut the recovery) without skipping the hit itself. Running the combo arrives in phase 9b.
+Each swing costs 14 stamina (spec 8.4). The cancel window opens when the hit's active part ends, so the next hit can follow (or a dodge can cut the recovery) without skipping the hit itself. The weapon is loaded with the field (`weapons/longsword.json`, the start weapon); if it fails to load, the error is logged and the hero is bare-handed (attacks do nothing, everything else works).
+
+## Attacking
+
+Code: `client/src/game/combat/attack_runner.*`, `client/src/game/entities/player_motion.*`; spec 7.2.1, 9.2. Tested in `attack_runner_tests.cpp` and `player_motion_tests.cpp`.
+
+- **Keys:** J or Z. The press goes into the same 0.15 s input buffer as the dodge.
+- **Starting:** a swing starts when the state table allows it (not while dodging), the runner is free, and stamina is above 0 and not exhausted. It spends the weapon's `stamina_per_attack` (14); with less left the swing still happens and stamina drops to 0 (exhaustion starts). At 0/exhausted the press waits in the buffer and is then dropped.
+- **Direction:** the held direction at the start, otherwise the current facing. The facing then stays fixed for the swing.
+- **Legs:** while attacking the hero's input is ignored for movement (she slows to a stop at the normal deceleration) and cannot run.
+- **Combo:** a buffered press inside the current hit's cancel window starts the next hit. After the last hit, or when a swing ends without a press, the next attack starts again from hit 1.
+- **Dodge cancel:** during a swing a dodge only comes out inside the cancel window; it ends the swing at once. If both buttons are buffered in the same step, the dodge wins.
+- **Hits:** the hitbox exists only during `active`. Each target can be hit **once per swing**; the next combo hit is a new swing and can hit it again.
+
+## Character states
+
+Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `character_state_tests.cpp`. The table says which changes are ever allowed; conditions (cancel window, cast timing) are checked by the code that owns that state. Staying in the same state is always allowed. Exhaustion is a stamina flag, not a state, because an exhausted hero can still walk.
+
+| From | Can go to |
+|---|---|
+| idle, moving, running | idle, moving, running, attacking, casting, dodging, hit, resting, dead, transitioning, in_dialogue |
+| attacking | idle, moving, running, attacking (next combo hit), dodging (cancel window), hit, dead |
+| casting | idle, moving, running, dodging (before the cast or while holding a beam), hit, dead |
+| dodging | idle, moving, running, hit, dead |
+| hit | idle, moving, running, hit, dead |
+| resting, in_dialogue | idle (game input is blocked meanwhile) |
+| dead | transitioning, idle (respawn) |
+| transitioning | idle |
+
+For now the hero only uses idle, moving, running, attacking and dodging; F3 shows the state and the combo hit (`attacking 2`).
 
 ## Time
 

@@ -55,7 +55,8 @@ wind_set_warnings(wind_engine_core)
 # 묶음 3: 게임 핵심 (SDL 없음)
 #   input/        : 키 버튼표, 가고 싶은 방향, 버튼 메모장(입력 버퍼)
 #   physics/      : 발 상자와 벽 충돌 (미끄러지기, 모서리 보정)
-#   entities/     : 캐릭터 다리(Mover), 바라보는 방향
+#   entities/     : 캐릭터 다리(Mover), 바라보는 방향, 스태미나, 상태 전이 표
+#   combat/       : 칼 휘두르기 진행(AttackRunner), 히트박스 배치
 #   presentation/ : 먼지, 잔상 같은 보여 주기용 효과 (그리기 목록에 넣기까지만, SDL은 안 씀)
 #   world/        : 게임 시계, 맵 옮기기 순서
 #   states/field_assets : 필드 화면 준비물(맵·캐릭터·효과 파일) 읽기
@@ -67,7 +68,10 @@ add_library(wind_game_core STATIC
     src/game/entities/facing.cpp
     src/game/entities/mover.cpp
     src/game/entities/stamina.cpp
+    src/game/entities/character_state.cpp
     src/game/entities/player_motion.cpp
+    src/game/combat/hitbox_placement.cpp
+    src/game/combat/attack_runner.cpp
     src/game/presentation/dust_emitter.cpp
     src/game/presentation/afterimage_trail.cpp
     src/game/presentation/player_sprite.cpp
@@ -128,6 +132,9 @@ if(WIND_BUILD_TESTS)
         tests/mover_tests.cpp
         tests/stamina_tests.cpp
         tests/player_motion_tests.cpp
+        tests/character_state_tests.cpp
+        tests/hitbox_placement_tests.cpp
+        tests/attack_runner_tests.cpp
         tests/particle_pool_tests.cpp
         tests/look_ahead_tests.cpp
         tests/dust_emitter_tests.cpp

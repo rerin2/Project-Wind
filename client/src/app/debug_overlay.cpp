@@ -46,7 +46,8 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
         std::format("map {}  pos ({:.1f}, {:.1f})  tile ({}, {})", field.map_id,
                     field.player_feet.x, field.player_feet.y, field.player_tile.x,
                     field.player_tile.y),
-        std::format("{}  facing {}  speed {:.0f} px/s  stamina {:.0f}/{:.0f}{}", field.state,
+        std::format("{}{}  facing {}  speed {:.0f} px/s  stamina {:.0f}/{:.0f}{}", field.state,
+                    field.combo_hit > 0 ? std::format(" {}", field.combo_hit) : std::string(),
                     world::to_string(field.facing), field.speed, field.stamina, field.stamina_max,
                     field.exhausted ? " (exhausted)" : ""),
         std::format("draw calls {}  culled {}  tiles {}", stats.draw_calls, stats.culled,
@@ -64,7 +65,7 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
         std::format("textures {}  cache hits {}  load failures {}", resources.textures_loaded,
                     resources.cache_hits, resources.load_failures),
         std::string(ui_text),
-        std::string("arrows/WASD move  Shift run  Space dodge  Esc quit"),
+        std::string("arrows/WASD move  Shift run  J attack  Space dodge  Esc quit"),
         std::string("F3 debug  F4 coll  F5 time  F6 weather  F7 ui test  F12 shot"),
     };
 

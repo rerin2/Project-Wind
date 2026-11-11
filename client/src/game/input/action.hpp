@@ -17,6 +17,7 @@ enum class Action : std::uint8_t {
     MoveRight,        // 오른쪽으로 가기
     Dodge,            // 구르기 (짧고 빠르게 피하기)
     Run,              // 달리기 (누르고 있는 동안, 스태미나를 써요)
+    Attack,           // 무기 휘두르기 (J / Z)
     Confirm,          // UI에서 고른 버튼 누르기 (Enter)
     ToggleUiTest,     // UI 시험판 열기/닫기 (디버그 F7)
     ToggleDebug,      // 디버그 정보 표시 (개발자용 정보 화면 켜기/끄기)

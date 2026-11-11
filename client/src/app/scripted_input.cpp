@@ -28,6 +28,7 @@ engine::Key scripted_key(std::string_view name) {
     if (name == "f12") return engine::Key::F12;
     if (name == "space") return engine::Key::Space;
     if (name == "shift") return engine::Key::Shift;
+    if (name == "j") return engine::Key::J;
     if (name == "up") return engine::Key::Up;
     if (name == "down") return engine::Key::Down;
     if (name == "left") return engine::Key::Left;

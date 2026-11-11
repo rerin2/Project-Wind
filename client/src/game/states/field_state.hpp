@@ -52,7 +52,7 @@ struct FieldDebugInfo {
     engine::Vec2 player_feet;                          // 발 위치 (픽셀)
     world::TileCoord player_tile;                      // 발이 있는 칸
     world::Direction facing = world::Direction::Down;  // 바라보는 방향
-    std::string_view state;                            // idle / walking / dodging
+    std::string_view state;                            // idle / moving / running / attacking / dodging
     float speed = 0.0f;                                // 지금 속도 (픽셀/초)
     std::uint32_t tiles_queued = 0;                    // 이번에 그리려고 넣은 타일 수
     std::size_t particles = 0;                         // 지금 떠 있는 파티클 수 (땅 + 공중)
@@ -67,6 +67,7 @@ struct FieldDebugInfo {
     float stamina = 0.0f;                              // 지금 스태미나
     float stamina_max = 0.0f;                          // 최대 스태미나
     bool exhausted = false;                            // 지침 상태인가
+    int combo_hit = 0;                                 // 콤보 몇 타째 휘두르는 중 (0 = 공격 안 함)
 };
 
 // 성능 시험용 부하 (실행 옵션 --fx-stress, --light-stress). 평소에는 0이에요.

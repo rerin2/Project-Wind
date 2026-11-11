@@ -27,8 +27,10 @@ enum class Key : std::uint8_t {
     Escape,
     Enter,
     Space,
+    J,
     K,
     X,
+    Z,
     Shift,  // 왼쪽·오른쪽 Shift 둘 다
     F3,
     F4,

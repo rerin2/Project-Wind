@@ -25,7 +25,9 @@ std::string_view to_string(Key key) {
         case Key::F7: return "F7";
         case Key::F12: return "F12";
         case Key::Space: return "Space";
+        case Key::J: return "J";
         case Key::K: return "K";
+        case Key::Z: return "Z";
         case Key::X: return "X";
         case Key::Shift: return "Shift";
         case Key::Unknown:

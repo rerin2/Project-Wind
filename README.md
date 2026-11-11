@@ -16,7 +16,7 @@ All game content and branding are original. See [docs/MASTER_SPEC.md](docs/MASTE
 
 To reach the cave, walk left along the dirt path from the start into the dark arch in the wall; the arch inside the cave leads back. Walk right to the end of the path to reach the forest.
 
-Controls: arrow keys / WASD move, **Shift** run, **Space** (or K / X) dodge, **F3** debug overlay, **F4** collision overlay, **F5** time, **F6** weather, **F7** UI test panel, **F12** screenshot, **Esc** quit.
+Controls: arrow keys / WASD move, **Shift** run, **J** / **Z** attack, **Space** (or K / X) dodge, **F3** debug overlay, **F4** collision overlay, **F5** time, **F6** weather, **F7** UI test panel, **F12** screenshot, **Esc** quit.
 
 ## Quick start (Windows)
 
