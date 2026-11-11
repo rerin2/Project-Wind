@@ -50,6 +50,8 @@ Executables are written to `build\<preset>\bin\`.
 .\scripts\run_tests.ps1             # = ctest --preset windows-debug
 ```
 
+Like `build.ps1`, `run_tests.ps1` loads the MSVC developer environment first, so it also works on a PC where `ctest` comes only with Visual Studio and is not on `PATH`. When running `ctest` by hand, dot-source `scripts\dev_environment.ps1` first.
+
 The run on 2026-11-10 passed 182/182 tests: GoogleTest cases for the shared and client modules, including validation of the repository's real test map and sprite sheet.
 
 ## 4. Run

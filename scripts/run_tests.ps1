@@ -8,6 +8,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')  # 저장소 루트로 이동
+# ctest를 따로 설치하지 않은 PC에서도 Visual Studio에 들어 있는 ctest를 쓸 수 있게
+# build.ps1처럼 MSVC 개발자 환경을 먼저 불러온다.
+. (Join-Path $PSScriptRoot 'dev_environment.ps1')
 
 # 실패한 테스트가 있으면 ctest가 0이 아닌 종료 코드를 돌려준다.
 ctest --preset $Preset
