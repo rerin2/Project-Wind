@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "longsword_3",
+  "windup": 0.14,
+  "active": 0.12,
+  "recovery": 0.28,
+  "cancel_window": [0.36, 0.54],
+  "hitbox": { "offset": [20, -8], "size": [32, 30] },
+  "power": 1.5,
+  "knockback": 160,
+  "hitstop": 0.09,
+  "shake": 0.35
+}

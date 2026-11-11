@@ -61,6 +61,38 @@ Code: `client/src/game/entities/stamina.*`, `player_motion.*`; spec 7.2.1. Teste
 | `regen_per_second` | 30 | Full again in ≈ 3.9 s (including the wait) |
 | `exhausted_until` | 25 | Enough for one dodge as soon as exhaustion ends |
 
+## Damage
+
+Code: `shared/include/wind/combat/damage.hpp`; spec 8.2, 9.3. Tested in `shared/tests/damage_tests.cpp`.
+
+- **Physical attack power** = weapon `base_power` × (1 + `strength_scaling` × strength bonus). Strength 10 gives bonus 0, so the longsword hits with 14 at the start.
+- **One hit**, in this order:
+  1. Target invulnerable (dodge, after being hit) → **no hit**, 0 damage. This check comes first, so the minimum does not apply.
+  2. Negative, infinite or NaN inputs count as 0 (bad data can never heal or explode).
+  3. `raw = attack_power × power`.
+  4. `max(minimum, raw − defense)`.
+  5. Critical → × `crit_multiplier` (after defense).
+  6. Round **down**, then clamp to `minimum…maximum`.
+- Critical hits are decided by the caller (a seeded game RNG arrives with the first crit chance; nothing rolls crits yet).
+
+| Rule | Value | Why |
+|---|---|---|
+| `minimum` | 1 | A hit always does something, even through heavy defense |
+| `maximum` | 99,999 | Far above any planned number; keeps the int conversion safe |
+| `crit_multiplier` | 1.5 | Noticeable without one-shotting |
+
+## Longsword combo
+
+Data: `content/weapons/longsword.json`, `content/attacks/longsword_{1,2,3}.json`. The first two hits use the spec's "normal" timing (0.08 / 0.10 / 0.18 s); the finisher is slower and stronger.
+
+| Hit | windup / active / recovery (s) | cancel window (s) | power | knockback | hitbox (fwd, lift, len × wid) |
+|---|---|---|---|---|---|
+| 1 | 0.08 / 0.10 / 0.18 | 0.18–0.36 | 1.0 | 90 | 18, −8, 28 × 24 |
+| 2 | 0.08 / 0.10 / 0.18 | 0.18–0.36 | 1.1 | 90 | 18, −8, 28 × 26 |
+| 3 | 0.14 / 0.12 / 0.28 | 0.36–0.54 | 1.5 | 160 | 20, −8, 32 × 30 |
+
+Each swing costs 14 stamina (spec 8.4). The cancel window opens when the hit's active part ends, so the next hit can follow (or a dodge can cut the recovery) without skipping the hit itself. Running the combo arrives in phase 9b.
+
 ## Time
 
 - The game clock runs at 60 real seconds per game hour (a game day is 24 real minutes), starting at 09:00 for a new game. It advances in the fixed simulation step and continues across map travel. Saving the time comes with saves (phase 16).
@@ -68,4 +100,4 @@ Code: `client/src/game/entities/stamina.*`, `player_motion.*`; spec 7.2.1. Teste
 
 ## Not yet defined
 
-Combat (phases 9–12), growth and items (13–15), and saves (16) are defined later (spec section 19).
+The rest of combat (attack runner, state machine, dummy, magic in phase 9; hit feel, monsters, survival in 10–12), growth and items (13–15), and saves (16) are defined later (spec section 19).

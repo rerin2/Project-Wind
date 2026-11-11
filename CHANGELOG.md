@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Phase 9a — attack and weapon data, damage
+- `shared/combat`: `AttackData` (windup / active / recovery, cancel window, hitbox, power, knockback, hitstop, shake,
+  optional mp_cost, fx, sfx, next_combo), `Weapon`, pure `compute_damage` and `physical_attack_power` (spec 9.3, 8.2).
+- Validated loaders `attack_loader` and `weapon_loader`; a weapon loads its combo attacks and checks their order.
+- Longsword data: `content/weapons/longsword.json` and three attacks (`content/attacks/longsword_1..3.json`).
+- 261 CTest tests.
+
 ### Phase 8 — text, UI and stamina
 - SDL3_ttf `release-3.2.2` (static, vendored FreeType 2.13.2 only) and the Galmuri11 Korean pixel font
   (v2.40.4, OFL 1.1, regular + bold) at 12 px with mono hinting. Licences and the FreeType credit line in DEPENDENCIES.md.

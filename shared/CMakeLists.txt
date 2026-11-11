@@ -10,6 +10,7 @@ configure_file(
 # 공용 코드 묶음(라이브러리: 여러 프로그램이 빌려 쓰는 코드 꾸러미)
 #   world/   : 바둑판 맵과 방향 정보
 #   content/ : 설명서(JSON) 읽기, 숙제 검사, 파일 위치 문지기
+#   combat/  : 공격·무기 데이터, 피해 계산 (SDL 없는 순수 규칙)
 add_library(wind_shared STATIC
     src/log.cpp
     src/cli.cpp
@@ -26,7 +27,10 @@ add_library(wind_shared STATIC
     src/content/weather_loader.cpp
     src/content/json_reader.cpp
     src/content/tileset_loader.cpp
-    src/content/map_loader.cpp)
+    src/content/map_loader.cpp
+    src/content/attack_loader.cpp
+    src/content/weapon_loader.cpp
+    src/combat/damage.cpp)
 add_library(wind::shared ALIAS wind_shared)
 
 # 사용하는 쪽은 #include "wind/..." 형태로 헤더를 쓴다 (생성된 헤더 포함).
@@ -54,7 +58,10 @@ if(WIND_BUILD_TESTS)
         tests/exit_loader_tests.cpp
         tests/day_cycle_tests.cpp
         tests/day_cycle_loader_tests.cpp
-        tests/weather_loader_tests.cpp)
+        tests/weather_loader_tests.cpp
+        tests/damage_tests.cpp
+        tests/attack_loader_tests.cpp
+        tests/weapon_loader_tests.cpp)
     target_link_libraries(wind_shared_tests PRIVATE wind::shared GTest::gtest_main)
     # 진짜 시험 맵을 검사하는 시험이 저장소의 content 폴더 위치를 알 수 있게 알려 준다.
     target_compile_definitions(wind_shared_tests PRIVATE

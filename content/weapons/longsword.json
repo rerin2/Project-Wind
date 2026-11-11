@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "longsword",
+  "name": "롱소드",
+  "weight": 6,
+  "base_power": 14,
+  "strength_scaling": 0.8,
+  "stamina_per_attack": 14,
+  "attacks": [
+    "attacks/longsword_1.json",
+    "attacks/longsword_2.json",
+    "attacks/longsword_3.json"
+  ]
+}

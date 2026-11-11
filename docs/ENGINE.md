@@ -32,7 +32,8 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/app` (`field_ui`, `ui_test_panel`, `ui_resources`, `transition_view`) | `wind_client` | no (uses `UiPainter`) | HUD stamina bar, area banner, F7 UI test panel, UI resource loading, fade/iris/notice drawing |
 | `client/src/game/world` | `wind_game_core` | no | `GameClock` (time of day), `MapTravel` (cover screen → enter map → uncover, failure notice) |
 | `client/src/game/states` | `wind_game_core` (`field_assets`), `wind_client` (`field_state`) | no | `load_field_assets` (reads and checks map, sheet, effects, time, weather); `FieldState` scene: wires simulation, effects, camera, drawing |
-| `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths |
+| `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths, attack and weapon loaders |
+| `shared/include/wind/combat` | `wind_shared` | no | `AttackData`, `HitboxShape`, `Weapon`; `compute_damage` and `physical_attack_power` (pure damage functions) |
 
 Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.cpp` do. The SDL-free libraries are unit-tested without opening a window.
 
@@ -168,6 +169,44 @@ Errors carry the file and field path (e.g. `wobble.frequency`). Particles are wh
 ```
 
 Each direction is a row, each animation frame a column. `origin` is the feet point inside a frame. Frame durations are 1–10000 ms. The player sheet must provide `idle` and `walk`.
+
+### Attack (`content/attacks/*.json`, phase 9, spec 9.2)
+
+```json
+{ "schema_version": 1, "id": "longsword_1",
+  "windup": 0.08, "active": 0.10, "recovery": 0.18, "cancel_window": [0.18, 0.36],
+  "hitbox": { "offset": [18, -8], "size": [28, 24] },
+  "power": 1.0, "knockback": 90, "hitstop": 0.05, "shake": 0.15, "next_combo": "longsword_2" }
+```
+
+| Field | Required | Range / meaning |
+|---|---|---|
+| `id` | yes | 1–64 chars |
+| `windup`, `active`, `recovery` | yes | seconds: 0–2, 0.01–2, 0–3 (hits land only during `active`) |
+| `cancel_window` | yes | `[start, end]` seconds from the attack start, `start <= end <= windup + active + recovery` |
+| `hitbox.offset` | yes | `[forward, lift]` px, each −128…128 |
+| `hitbox.size` | yes | `[length, width]` px, each 1–256 |
+| `power` | yes | 0–10, damage multiplier (spec 9.3) |
+| `knockback` | yes | 0–1000 px/s |
+| `hitstop`, `shake` | yes | 0–0.5 s, 0–1 (presentation only) |
+| `mp_cost` | no (0) | integer 0–999 |
+| `fx`, `sfx` | no | content paths (checked for safety; the files are loaded by presentation later) |
+| `next_combo` | no | id of the next attack; must match the weapon's list order (below) |
+
+**Hitbox frame.** The box is written for a hero facing **right**: its centre is `forward` px ahead of the feet and `lift` px lower on screen (negative = up, to reach body height); `length` runs along the facing, `width` across it. Facing left mirrors `forward`; facing up/down puts `forward` on the vertical axis and swaps `length`/`width`, while `lift` always stays a screen-vertical shift. (The placement code arrives with the attack runner in phase 9b.) Parsed by `wind/content/attack_loader`.
+
+### Weapon (`content/weapons/*.json`, phase 9, spec 8.4)
+
+```json
+{ "schema_version": 1, "id": "longsword", "name": "롱소드", "weight": 6, "base_power": 14,
+  "strength_scaling": 0.8, "stamina_per_attack": 14,
+  "attacks": ["attacks/longsword_1.json", "attacks/longsword_2.json", "attacks/longsword_3.json"] }
+```
+
+- `name` 1–64 bytes (UTF-8), `weight` 0–100, `base_power` 0–999, `strength_scaling` 0–5, `stamina_per_attack` 0–200, optional `crit_bonus` 0–1.
+- `attacks`: 1–8 content paths in combo order. Every attack file is loaded and validated with the weapon; one broken file rejects the whole weapon and its own errors are reported too. Attack ids must be unique in the combo.
+- `next_combo`, when present on an attack, must equal the id of the next attack in the list; the last attack must not have one. The list order is the source of truth.
+- Parsed by `wind/content/weapon_loader` (`parse_weapon` takes an attack source, so tests run without files).
 
 ### Images
 
