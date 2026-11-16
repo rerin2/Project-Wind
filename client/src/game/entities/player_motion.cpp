@@ -13,9 +13,11 @@
 namespace wind::game {
 
 PlayerMotion::PlayerMotion(engine::Vec2 feet, world::Direction facing, MovementTuning movement,
-                           StaminaTuning stamina, double buffer_seconds, combat::Weapon weapon)
+                           StaminaTuning stamina, double buffer_seconds, combat::Weapon weapon,
+                           ManaTuning mana)
     : mover_(feet, facing, movement),
       stamina_(stamina),
+      mana_(mana),
       attack_(std::move(weapon)),
       buffer_(buffer_seconds) {}
 
@@ -96,6 +98,8 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     attack_.step(dt);
     // 5) 이번 박자에 썼으면 기다리는 시간이 다시 시작돼서, 이 update는 채우지 않아요.
     stamina_.update(dt);
+    // 6) MP는 기다림 없이 늘 조금씩 차요 (1초에 2).
+    mana_.update(dt);
     buffer_.tick(dt_seconds);
     return started;
 }

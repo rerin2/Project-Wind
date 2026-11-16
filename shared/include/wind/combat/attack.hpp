@@ -6,6 +6,8 @@
 //   준비(windup) -> 판정(active, 이때만 맞아요) -> 후딜(recovery, 빈틈)
 // 숫자는 content/attacks/*.json 파일에서 읽어요. 코드에 숫자를 박아 두지 않아요.
 
+#include "wind/combat/projectile_data.hpp"
+
 #include <optional>
 #include <string>
 
@@ -36,6 +38,7 @@ struct AttackData {
     float hitstop = 0.0f;          // 맞는 순간 멈칫하는 시간 (초, 연출)
     float shake = 0.0f;            // 화면 흔들림 세기 0~1 (연출)
     int mp_cost = 0;               // 시작할 때 쓰는 MP (보통 0)
+    std::optional<ProjectileData> projectile;  // 날아가는 공격이면 있어요 (선택, 9.2)
     std::optional<std::string> fx;          // 맞을 때 효과 파일 (선택)
     std::optional<std::string> sfx;         // 맞을 때 소리 파일 (선택)
     std::optional<std::string> next_combo;  // 다음 콤보 공격 id (선택, 무기 목록 순서와 같아야 해요)

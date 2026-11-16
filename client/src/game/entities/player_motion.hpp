@@ -4,6 +4,7 @@
 // 주인공의 몸 움직임 규칙을 한데 묶어요. (명세 7.2, 7.2.1, 8.5, 9.2)
 // - Mover(다리): 걷기, 달리기, 구르기, 벽 미끄러짐
 // - Stamina(기력): 달리기·구르기·공격에 쓰고, 쉬면 다시 참
+// - Mana(MP): 마술에 쓰고(9e), 늘 1초에 2씩 다시 참
 // - AttackRunner(칼 휘두르기): 준비 -> 판정 -> 후딜, 콤보
 // - InputBuffer(버튼 메모장): 구르기·공격 버튼을 0.15초 기억
 // 한 박자 순서:
@@ -14,12 +15,14 @@
 //   3) 공격 중에는 발이 멈추고(서서히 감속), 달리지 않아요
 //   4) Shift를 누르고 움직이며 지침이 아니면 -> 달리기 (달리는 동안 1초에 25 씀)
 //   5) 쓰지 않았으면 0.6초 뒤부터 다시 참
+//   6) MP는 박자마다 조금씩 참
 // 어떤 상태에서 무엇을 시작할 수 있는지는 상태 전이 표(character_state)를 따라요.
 // SDL을 몰라서 창 없이 테스트할 수 있어요.
 
 #include "engine/core/math.hpp"
 #include "game/combat/attack_runner.hpp"
 #include "game/entities/character_state.hpp"
+#include "game/entities/mana.hpp"
 #include "game/entities/mover.hpp"
 #include "game/entities/stamina.hpp"
 #include "game/input/input_buffer.hpp"
@@ -36,8 +39,10 @@ class PlayerMotion {
 public:
     // buffer_seconds: 구르기·공격 버튼을 몇 초 동안 기억할지
     // weapon: 든 무기 (콤보가 비어 있으면 공격을 못 해요)
+    // mana: MP 숫자 (9단계는 최대 50 고정)
     PlayerMotion(engine::Vec2 feet, world::Direction facing, MovementTuning movement,
-                 StaminaTuning stamina, double buffer_seconds, combat::Weapon weapon = {});
+                 StaminaTuning stamina, double buffer_seconds, combat::Weapon weapon = {},
+                 ManaTuning mana = {});
 
     // 구르기 버튼을 눌렀어요 (화면 한 장마다, 박자 계산 전에). 메모장에 적어 둬요.
     void press_dodge();
@@ -59,6 +64,7 @@ public:
 
     [[nodiscard]] const Mover& mover() const { return mover_; }
     [[nodiscard]] const Stamina& stamina() const { return stamina_; }
+    [[nodiscard]] const Mana& mana() const { return mana_; }
     [[nodiscard]] const AttackRunner& attack() const { return attack_; }
 
 private:
@@ -67,6 +73,7 @@ private:
 
     Mover mover_;
     Stamina stamina_;
+    Mana mana_;
     AttackRunner attack_;
     InputBuffer buffer_;
     bool attack_started_ = false;

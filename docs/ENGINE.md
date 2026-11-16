@@ -26,15 +26,15 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/engine/platform` | `wind_client` | **yes** | `SdlPlatform`: SDL and SDL_ttf init, window, `Renderer`, `TextRenderer`, event → `InputState` |
 | `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
-| `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `CharacterState` + `can_transition` (state table), `PlayerMotion` (mover + stamina + attack + dodge/attack buffer in one fixed step), facing helpers |
+| `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `Mana` (MP, all-or-nothing spend, steady regen), `CharacterState` + `can_transition` (state table), `PlayerMotion` (mover + stamina + attack + dodge/attack buffer in one fixed step), facing helpers |
 | `client/src/game/combat` | `wind_game_core` | no | `AttackRunner` (windup → active → recovery, cancel window, combo order, one hit per target per swing), `place_hitbox` (facing-aware hitbox rect), `TrainingDummy` (HP, knockdown, recovery), `resolve_swing` (hitbox ∩ hurtbox → one hit per swing → `compute_damage`) |
 | `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `CombatView` (dummies, HP bars, F4 hit/hurt boxes), `SlashArc` (swing arc), `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
 | `client/src/game/ui` | `wind_game_core` | no | `AreaBanner` (in → hold → out timeline), `DelayedBar` (trail, smooth fill, auto-hide) |
 | `client/src/app` (`field_ui`, `ui_test_panel`, `ui_resources`, `transition_view`) | `wind_client` | no (uses `UiPainter`) | HUD stamina bar, area banner, F7 UI test panel, UI resource loading, fade/iris/notice drawing |
 | `client/src/game/world` | `wind_game_core` | no | `GameClock` (time of day), `MapTravel` (cover screen → enter map → uncover, failure notice) |
 | `client/src/game/states` | `wind_game_core` (`field_assets`, `field_combat`), `wind_client` (`field_state`) | no | `load_field_assets` (reads and checks map, sheet, effects, time, weather, weapon, dummies); `FieldCombat` (field dummies, one hit check per fixed step, last hit); `FieldState` scene: wires simulation, effects, camera, drawing |
-| `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths, attack and weapon loaders |
-| `shared/include/wind/combat` | `wind_shared` | no | `AttackData`, `HitboxShape`, `Weapon`; `compute_damage` and `physical_attack_power` (pure damage functions) |
+| `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths, attack, weapon and spell loaders, shared `combat_readers` (hitbox, projectile) |
+| `shared/include/wind/combat` | `wind_shared` | no | `AttackData`, `HitboxShape`, `Weapon`, `Spell` (+ `BeamData`, `SpellLight`), `ProjectileData`; `compute_damage` and `physical_attack_power` (pure damage functions) |
 
 Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.cpp` do. The SDL-free libraries are unit-tested without opening a window.
 
@@ -192,6 +192,7 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 | `knockback` | yes | 0–1000 px/s |
 | `hitstop`, `shake` | yes | 0–0.5 s, 0–1 (presentation only) |
 | `mp_cost` | no (0) | integer 0–999 |
+| `projectile` | no | flying attack, same object as a spell's `projectile` (below). The `hitbox` is still required for now |
 | `fx`, `sfx` | no | content paths (checked for safety; the files are loaded by presentation later) |
 | `next_combo` | no | id of the next attack; must match the weapon's list order (below) |
 
@@ -209,6 +210,31 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 - `attacks`: 1–8 content paths in combo order. Every attack file is loaded and validated with the weapon; one broken file rejects the whole weapon and its own errors are reported too. Attack ids must be unique in the combo.
 - `next_combo`, when present on an attack, must equal the id of the next attack in the list; the last attack must not have one. The list order is the source of truth.
 - Parsed by `wind/content/weapon_loader` (`parse_weapon` takes an attack source, so tests run without files).
+
+### Spell (`content/spells/*.json`, phase 9d, spec 8.6)
+
+```json
+{ "schema_version": 1, "id": "star_shard", "name": "별빛 조각",
+  "intelligence_required": 10, "mp_cost": 6, "cast_seconds": 0.25, "power": 1.0,
+  "projectile": { "speed": 360, "range": 240, "size": [6, 6] },
+  "light": { "radius": 36, "color": "#a8dcef", "intensity": 0.8 } }
+```
+
+| Field | Required | Range / meaning |
+|---|---|---|
+| `id` / `name` | yes | 1–64 chars / 1–64 bytes UTF-8 |
+| `intelligence_required` | yes | integer 1–60 |
+| `mp_cost` **or** `mp_per_second` | exactly one | integer 1–999 per cast / 0.1–200 per second. `mp_per_second` only on a `beam`, and a `beam` must use it |
+| `cast_seconds` | yes | 0–5 s before the spell goes off |
+| `power` | yes | 0–10; damage = magic attack (spec 8.2) × power, then spec 9.3 |
+| `projectile` **or** `melee` **or** `beam` | exactly one | the spell's motion (below) |
+| `fx`, `sfx` | no | content paths |
+| `light` | no | `radius` 1–512 px, `color` `#rrggbb[aa]`, `intensity` 0–1 (presentation only) |
+
+- **`projectile`** (shared with attacks): `speed` 1–2000 px/s, `range` 1–2000 px, `size` `[w, h]` 1–64 px; optional `count` integer 1–16 (default 1), `homing` 0–1 (default 0), `orbit_seconds` 0–10 (default 0). In phase 9 only one straight shard flies; `count`, `homing` and `orbit_seconds` are validated now and move in phase 15 (star swarm).
+- **`melee`**: same object as an attack `hitbox` (`offset`, `size`).
+- **`beam`**: `length` 1–640 px, `width` 1–128 px, `tick_seconds` 0.02–1.
+- Any bad field rejects the whole spell. Parsed by `wind/content/spell_loader`; `hitbox` and `projectile` objects are read by the shared helpers in `wind/content/combat_readers`.
 
 ### Training dummy (`content/props/*.json`, phase 9c)
 

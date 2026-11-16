@@ -202,6 +202,7 @@ Code: `client/src/app/field_ui.cpp`, `ui_test_panel.cpp`, `client/src/engine/ui/
 | Stamina bar | top-left (12, 12), 82×7 with 1 px dark outline; fill `#7ece5c`, trail `#faeec4`, empty `#282c3c` | Small and out of the way (spec 13.2); the cream trail shows how much was just spent |
 | Stamina auto-hide | dims to 30 % after 1.2 s at full, back to full opacity on the first spend | Stays visible only when it matters |
 | Exhausted | fill and outline `#de5c48`, blinking 4 Hz | Visible even when the bar is empty |
+| MP bar (phase 9d) | 2 px below the stamina bar (y = 21), same 7 px height and outline; inner length = max MP × 0.8 px (50 MP → 40 px, clamped 8–200); fill `#5fa3d0` (palette sky), trail `#faeec4`, empty `#282c3c`; never fades | Same pixels-per-point as stamina so the bars compare at a glance and grow with stats (spec 13.2); blue is the usual MP colour and stays apart from green stamina and red HP. The "not enough MP" blink comes with casting in 9e. When the HP bar arrives it goes on top (spec order HP·MP·stamina) |
 | Area banner | bold name centred at y = 44, two 36 px gold lines 8 px from the text, translucent black band behind; 0.5 s slide-in (8 px) and fade, 2.2 s hold, 0.7 s fade-out | Announces the place without covering the hero |
 | UI test panel (F7) | 240×178, pops in over 0.2 s (`out_back` from 85 % size) | Spec 6.9: windows open with a 0.15–0.25 s tween |
 

@@ -52,6 +52,16 @@ TEST(PlayerMotion, RunningIsFasterAndCostsStamina) {
     EXPECT_NEAR(player.stamina().current(), 75.0f, 0.5f);  // 1초에 25
 }
 
+// MP는 주인공과 함께 최대 50으로 시작하고, 달리기·공격에는 안 줄어요 (9d).
+TEST(PlayerMotion, StartsWithFullManaThatOnlySpellsUse) {
+    const auto map = open_map();
+    auto player = make_player();
+    EXPECT_FLOAT_EQ(player.mana().current(), 50.0f);
+    EXPECT_FLOAT_EQ(player.mana().max(), 50.0f);
+    run_for(player, 60, kRight, true, map);  // 1초 달리기: 스태미나만 줄어요
+    EXPECT_FLOAT_EQ(player.mana().current(), 50.0f);
+}
+
 TEST(PlayerMotion, StandingWithShiftCostsNothing) {
     const auto map = open_map();
     auto player = make_player();

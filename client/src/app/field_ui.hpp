@@ -3,6 +3,7 @@
 // 이 파일은 무엇을 하나요?
 // 필드 화면 위에 얹는 UI를 모아요. (명세 13.2)
 // - HUD 스태미나 바 (지연 바, 가득 차면 흐려짐, 지침이면 빨갛게 깜빡임)
+// - HUD MP 바 (지연 바, 스태미나 바 바로 아래, 길이는 최대 MP에 비례, 늘 보임)
 // - 지역 이름 배너 (새 맵에 들어가면 위에서 내려와 잠깐 보였다가 사라짐)
 // - UI 시험판 (F7)
 // 게임 규칙은 바꾸지 않고, 필드가 알려 준 값(스태미나 등)을 보여 주기만 해요.
@@ -20,6 +21,8 @@ namespace wind::client {
 struct HudInfo {
     float stamina = 1.0f;  // 0~1
     bool exhausted = false;
+    float mana = 1.0f;       // 0~1
+    float mana_max = 50.0f;  // 최대 MP (바 길이가 이 값에 비례해요, 명세 13.2)
 };
 
 class FieldUi {
@@ -42,10 +45,13 @@ public:
 
 private:
     void draw_stamina(engine::UiPainter& painter);
+    void draw_mana(engine::UiPainter& painter);
     void draw_banner(engine::UiPainter& painter, engine::Vec2 screen);
 
     game::AreaBanner banner_;
     game::DelayedBar stamina_;
+    game::DelayedBar mana_;
+    float mana_max_ = 50.0f;  // 바 길이 계산용
     bool exhausted_ = false;
     float clock_ = 0.0f;  // 깜빡임용 시계
     UiTestPanel panel_;

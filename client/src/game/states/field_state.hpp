@@ -130,6 +130,8 @@ public:
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }
     // 주인공 스태미나 (HUD 바용)
     [[nodiscard]] const Stamina& stamina() const { return player_.stamina(); }
+    // 주인공 MP (HUD 바용)
+    [[nodiscard]] const Mana& mana() const { return player_.mana(); }
 
     // 주인공 몸 가운데가 보이는 화면 위치 (아이리스 전환의 가운데)
     [[nodiscard]] engine::Vec2 focus_on_screen() const;

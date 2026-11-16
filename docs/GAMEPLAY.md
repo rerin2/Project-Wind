@@ -61,6 +61,32 @@ Code: `client/src/game/entities/stamina.*`, `player_motion.*`; spec 7.2.1. Teste
 | `regen_per_second` | 30 | Full again in ≈ 3.9 s (including the wait) |
 | `exhausted_until` | 25 | Enough for one dodge as soon as exhaustion ends |
 
+## MP (phase 9d)
+
+Code: `client/src/game/entities/mana.*`, owned by `PlayerMotion`; spec 8.2. Tested in `mana_tests.cpp` and `player_motion_tests.cpp`.
+
+- MP pays for spells (phase 9e casts the first one). It starts full and refills at **2/s** every fixed step, with no wait after spending and no exhaustion.
+- Spending is all-or-nothing: `try_spend(cost)` with less than `cost` changes nothing and returns false, so a spell you cannot afford does not go off. Negative costs are ignored.
+- MP never leaves 0…max (boundary tests). Like stamina it resets to full on map entry for now; phase 16 saves `mp_current`.
+
+| Tuning | Value | Why |
+|---|---|---|
+| `max` | 50 | Spec 8.2 curve at intelligence/mind 10; fixed until phase 13 |
+| `regen_per_second` | 2 | Spec 8.2; slow on purpose: 25 s from empty to full, so spells are a resource and resting refills them |
+
+## Star shard numbers (phase 9d data, cast in 9e)
+
+`content/spells/star_shard.json`. Spec 8.6 gives MP 6, cast 0.25 s, power 1.0, intelligence 10; the flight values below were chosen in 9d (agreed with the developer).
+
+| Value | Number | Why |
+|---|---|---|
+| `speed` | 360 px/s | Clearly faster than running (165) and dodging (280), so it reads as a shot; 6 px per fixed step, equal to its size, so it cannot skip a 1-tile wall |
+| `range` | 240 px | 7.5 tiles: reaches across most of the 640×360 view but not off screen |
+| `size` | 6 × 6 px | A small spark; smaller than a dummy hurtbox (20×34) so aim matters a little |
+| cost / regen | 6 MP of 50 | 8 shots from full; 3 s of regen per shot |
+| damage | 12 | magic attack 12 × (1 + 0 intelligence bonus) × power 1.0 against defense 0 |
+| moving while casting | slow walk | The heavy "great star shard" is the one that roots you (spec 8.6); the basic spell keeps you mobile. Exact walk speed is set in 9e |
+
 ## Damage
 
 Code: `shared/include/wind/combat/damage.hpp`; spec 8.2, 9.3. Tested in `shared/tests/damage_tests.cpp`.
@@ -147,4 +173,4 @@ For now the hero only uses idle, moving, running, attacking and dodging; F3 show
 
 ## Not yet defined
 
-The rest of combat (attack runner, state machine, dummy, magic in phase 9; hit feel, monsters, survival in 10–12), growth and items (13–15), and saves (16) are defined later (spec section 19).
+The rest of combat (casting and flying star shards in phase 9e; hit feel, monsters, survival in 10–12), growth and items (13–15), and saves (16) are defined later (spec section 19).

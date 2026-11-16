@@ -1,5 +1,5 @@
 // 이 파일은 무엇을 하나요?
-// HUD 스태미나 바, 지역 이름 배너, UI 시험판을 갱신하고 그리는 곳이에요.
+// HUD 스태미나 바와 MP 바, 지역 이름 배너, UI 시험판을 갱신하고 그리는 곳이에요.
 // 색과 크기 값의 이유는 docs/VISUALS.md "HUD and text" 절에 있어요.
 
 #include "app/field_ui.hpp"
@@ -19,6 +19,13 @@ constexpr engine::Color kStaminaColor{126, 206, 92, 255};   // 연두
 constexpr engine::Color kStaminaTrail{250, 238, 196, 255};  // 방금 쓴 만큼 (밝은 크림색)
 constexpr engine::Color kExhaustedColor{222, 92, 72, 255};  // 지침 (빨강)
 constexpr float kExhaustedBlinkHz = 4.0f;                   // 지침일 때 1초에 4번 깜빡
+
+// MP 바: 스태미나 바 2픽셀 아래, 같은 높이. 길이는 최대 MP 1당 0.8픽셀 (스태미나 100 = 80픽셀과 같은 비율)
+constexpr float kManaBarY = kStaminaRect.y + kStaminaRect.h + 2.0f;
+constexpr float kHudPixelsPerPoint = 0.8f;
+constexpr float kManaInnerMin = 8.0f;    // 최대 MP가 아주 작아도 보이게
+constexpr float kManaInnerMax = 200.0f;  // 이상한 값이 와도 화면을 넘지 않게
+constexpr engine::Color kManaColor{95, 163, 208, 255};  // 하늘색 (팔레트 sky #5fa3d0)
 
 // 배너: 화면 위에서 44픽셀 아래, 이름 양옆으로 짧은 선
 constexpr float kBannerY = 44.0f;
@@ -56,12 +63,16 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     stamina_.set(hud.stamina);
     stamina_.update(dt_seconds);
     exhausted_ = hud.exhausted;
+    mana_.set(hud.mana);
+    mana_.update(dt_seconds);
+    mana_max_ = hud.mana_max;
     banner_.update(dt_seconds);
     panel_.update(dt_seconds);
 }
 
 void FieldUi::draw_hud(engine::UiPainter& painter, engine::Vec2 screen) {
     draw_stamina(painter);
+    draw_mana(painter);
     draw_banner(painter, screen);
 }
 
@@ -92,6 +103,22 @@ void FieldUi::draw_stamina(engine::UiPainter& painter) {
     const float value_w = std::round(inner.w * stamina_.value());
     renderer.fill_rect({inner.x, inner.y, trail_w, inner.h}, engine::with_alpha(kStaminaTrail, alpha));
     renderer.fill_rect({inner.x, inner.y, value_w, inner.h}, engine::with_alpha(fill, alpha));
+}
+
+// MP 바: 스태미나 바와 같은 모양(테두리, 빈칸, 꼬리, 진짜 바). 흐려지지 않고 늘 보여요.
+void FieldUi::draw_mana(engine::UiPainter& painter) {
+    auto& renderer = painter.renderer();
+    // 안쪽 길이 = 최대 MP × 0.8 (최대 50이면 40픽셀). 능력치가 오르면 바가 길어져요 (명세 13.2)
+    const float inner_w = std::round(std::clamp(mana_max_ * kHudPixelsPerPoint, kManaInnerMin, kManaInnerMax));
+    const engine::RectF outer{kStaminaRect.x, kManaBarY, inner_w + 2.0f, kStaminaRect.h};
+    const engine::RectF inner{outer.x + 1.0f, outer.y + 1.0f, inner_w, outer.h - 2.0f};
+    renderer.fill_rect(outer, kBarOutline);  // 테두리
+    renderer.fill_rect(inner, kBarEmpty);    // 빈칸
+    // 꼬리(방금 쓴 만큼) 먼저, 그 위에 진짜 바
+    const float trail_w = std::round(inner.w * mana_.trail());
+    const float value_w = std::round(inner.w * mana_.value());
+    renderer.fill_rect({inner.x, inner.y, trail_w, inner.h}, kStaminaTrail);
+    renderer.fill_rect({inner.x, inner.y, value_w, inner.h}, kManaColor);
 }
 
 void FieldUi::draw_banner(engine::UiPainter& painter, engine::Vec2 screen) {

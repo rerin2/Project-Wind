@@ -68,6 +68,7 @@ add_library(wind_game_core STATIC
     src/game/entities/facing.cpp
     src/game/entities/mover.cpp
     src/game/entities/stamina.cpp
+    src/game/entities/mana.cpp
     src/game/entities/character_state.cpp
     src/game/entities/player_motion.cpp
     src/game/combat/hitbox_placement.cpp
@@ -137,6 +138,7 @@ if(WIND_BUILD_TESTS)
         tests/facing_tests.cpp
         tests/mover_tests.cpp
         tests/stamina_tests.cpp
+        tests/mana_tests.cpp
         tests/player_motion_tests.cpp
         tests/character_state_tests.cpp
         tests/hitbox_placement_tests.cpp

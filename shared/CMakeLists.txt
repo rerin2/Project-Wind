@@ -10,7 +10,7 @@ configure_file(
 # 공용 코드 묶음(라이브러리: 여러 프로그램이 빌려 쓰는 코드 꾸러미)
 #   world/   : 바둑판 맵과 방향 정보
 #   content/ : 설명서(JSON) 읽기, 숙제 검사, 파일 위치 문지기
-#   combat/  : 공격·무기 데이터, 피해 계산 (SDL 없는 순수 규칙)
+#   combat/  : 공격·무기·마술 데이터, 피해 계산 (SDL 없는 순수 규칙)
 add_library(wind_shared STATIC
     src/log.cpp
     src/cli.cpp
@@ -31,7 +31,9 @@ add_library(wind_shared STATIC
     src/content/map_checks.cpp
     src/content/entity_loader.cpp
     src/content/attack_loader.cpp
+    src/content/combat_readers.cpp
     src/content/weapon_loader.cpp
+    src/content/spell_loader.cpp
     src/content/training_dummy_loader.cpp
     src/combat/damage.cpp)
 add_library(wind::shared ALIAS wind_shared)
@@ -65,6 +67,7 @@ if(WIND_BUILD_TESTS)
         tests/damage_tests.cpp
         tests/attack_loader_tests.cpp
         tests/weapon_loader_tests.cpp
+        tests/spell_loader_tests.cpp
         tests/entity_loader_tests.cpp
         tests/map_checks_tests.cpp
         tests/training_dummy_loader_tests.cpp)

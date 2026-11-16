@@ -6,7 +6,7 @@ All game content and branding are original. See [docs/MASTER_SPEC.md](docs/MASTE
 
 ## Status
 
-**Phase 9 (in progress, 9a–9c done) — sword and training dummies.** Press **J** (or Z) to swing the longsword; pressing again in the right moment chains a 3-hit combo (14 → 15 → 21 damage), and each swing costs 14 stamina. Two straw training dummies stand below the start of the meadow path: hit them to see the slash arc and their HP bar drop; at 0 HP they tip over and stand up again after 1.5 s. F4 shows the sword hitbox and the dummies' hurtboxes.
+**Phase 9 (in progress, 9a–9d done) — sword, training dummies and MP.** Press **J** (or Z) to swing the longsword; pressing again in the right moment chains a 3-hit combo (14 → 15 → 21 damage), and each swing costs 14 stamina. Two straw training dummies stand below the start of the meadow path: hit them to see the slash arc and their HP bar drop; at 0 HP they tip over and stand up again after 1.5 s. F4 shows the sword hitbox and the dummies' hurtboxes. A blue MP bar (50 MP) now sits under the stamina bar; the first spell, the star shard, is defined in `content/spells/star_shard.json` and becomes castable with L / C in 9e.
 
 **Phase 8 — text, UI and stamina.** Korean text with the Galmuri11 pixel font: an area name banner slides in when you enter a map (시험 초원, 시험 동굴, 시험 숲), and the F7 UI test panel shows 9-slice windows, wrapped and clipped text and buttons you pick with ↑/↓ and Enter. Hold **Shift** to run (165 px/s); running and dodging use stamina, shown by the bar at the top left, and running dry leaves the heroine exhausted until it refills to 25.
 

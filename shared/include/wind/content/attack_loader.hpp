@@ -7,7 +7,7 @@
 //     "hitbox": { "offset": [18, -8], "size": [28, 24] },
 //     "power": 1.0, "knockback": 90, "hitstop": 0.06, "shake": 0.25,
 //     "next_combo": "longsword_2" }
-// 선택 칸: "mp_cost", "fx", "sfx", "next_combo". 범위는 docs/ENGINE.md "Attack" 절에 있어요.
+// 선택 칸: "mp_cost", "projectile"(날아가는 공격, combat_readers), "fx", "sfx", "next_combo". 범위는 docs/ENGINE.md "Attack" 절에 있어요.
 
 #include "wind/combat/attack.hpp"
 #include "wind/content/load_result.hpp"

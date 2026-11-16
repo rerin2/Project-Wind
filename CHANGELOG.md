@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Phase 9d — MP and spell data
+- `Mana` (max 50, +2/s, all-or-nothing `try_spend`), owned by `PlayerMotion`; HUD MP bar under the stamina bar
+  (0.8 px per point, sky blue `#5fa3d0`, delayed trail).
+- `shared/combat`: `Spell` (projectile / melee / beam, MP per cast or per second, optional fx, sfx, light) and
+  `ProjectileData`; `AttackData` gains optional `projectile`.
+- Validated `spell_loader` (exactly one MP field, exactly one motion, per-second MP only on beams). Hitbox and
+  projectile parsing moved to shared `combat_readers` (used by attacks and spells).
+- Star shard data `content/spells/star_shard.json` (6 MP, 0.25 s cast, power 1.0, 360 px/s, 240 px, 6×6).
+- Phase 9 split into 9a–9e; casting and flying shards move to 9e.
+- 333 CTest tests.
+
 ### Phase 9c — training dummy and hits
 - Map `entities` (optional): `training_dummy` with id, tile and data file; validated (known type, unique id, inside
   the map, not on a spawn/exit/other entity, on a walkable tile). A dummy blocks its tile.

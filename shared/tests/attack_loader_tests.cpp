@@ -60,6 +60,27 @@ TEST(AttackLoader, OptionalFieldsDefault) {
     EXPECT_EQ(result.value->mp_cost, 0);
     EXPECT_FALSE(result.value->fx.has_value());
     EXPECT_FALSE(result.value->next_combo.has_value());
+    EXPECT_FALSE(result.value->projectile.has_value());
+}
+
+// 날아가는 공격 칸(9.2 projectile): 맞으면 읽히고, 틀리면 공격 전체가 거절돼요.
+TEST(AttackLoader, ReadsOptionalProjectile) {
+    auto doc = make_doc();
+    doc["projectile"] = {{"speed", 200}, {"range", 160}, {"size", {8, 8}}};
+    const auto result = parse_attack(doc, "a.json");
+    ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
+    ASSERT_TRUE(result.value->projectile.has_value());
+    EXPECT_FLOAT_EQ(result.value->projectile->speed, 200.0f);
+    EXPECT_FLOAT_EQ(result.value->projectile->height, 8.0f);
+    EXPECT_EQ(result.value->projectile->count, 1);
+
+    auto missing_range = make_doc();
+    missing_range["projectile"] = {{"speed", 200}, {"size", {8, 8}}};
+    EXPECT_TRUE(has_error_at(parse_attack(missing_range, "a.json").errors, "projectile.range"));
+
+    auto wild = make_doc();
+    wild["projectile"] = {{"speed", 200}, {"range", 160}, {"size", {8, 8}}, {"homing", 2}};
+    EXPECT_TRUE(has_error_at(parse_attack(wild, "a.json").errors, "projectile.homing"));
 }
 
 // 판정 0초, 음수 시간, 범위 밖 숫자는 거절해요.
