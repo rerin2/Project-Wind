@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "star_trail",
+  "shape": "pixel",
+  "blend": "add",
+  "lifetime": [0.25, 0.45],
+  "speed": [4, 14],
+  "spread": 360,
+  "drag": 3,
+  "spawn_radius": 2,
+  "start_size": [1, 2],
+  "end_size": 1,
+  "start_color": "#a8dceff0",
+  "end_color": "#5d4f8f00",
+  "fade_out": 0.5,
+  "rate": 70
+}

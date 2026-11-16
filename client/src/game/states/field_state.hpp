@@ -11,22 +11,23 @@
 // 4) render        : 그릴 것들을 그리기 목록에 넣기
 // 연출은 규칙 계산 결과를 "보기만" 해요. 연출 때문에 캐릭터 위치가 바뀌는 일은 없어요.
 
-#include "engine/camera/camera2d.hpp"
-#include "engine/camera/look_ahead.hpp"
 #include "engine/fx/particle_drawing.hpp"
 #include "engine/fx/particle_effect.hpp"
 #include "engine/fx/particle_pool.hpp"
 #include "engine/fx/particle_random.hpp"
 #include "engine/render/render_queue.hpp"
 #include "engine/resources/resource_manager.hpp"
+#include "game/combat/hit_stop.hpp"
 #include "game/entities/player_motion.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/input/movement_intent.hpp"
 #include "game/presentation/combat_view.hpp"
 #include "game/presentation/player_sprite.hpp"
 #include "game/presentation/slash_arc.hpp"
+#include "game/presentation/spell_view.hpp"
 #include "game/presentation/ambient_particles.hpp"
 #include "game/presentation/field_atmosphere.hpp"
+#include "game/presentation/field_camera.hpp"
 #include "game/presentation/field_effects.hpp"
 #include "game/states/field_assets.hpp"
 #include "game/states/field_combat.hpp"
@@ -71,6 +72,8 @@ struct FieldDebugInfo {
     float stamina = 0.0f;                              // 지금 스태미나
     float stamina_max = 0.0f;                          // 최대 스태미나
     bool exhausted = false;                            // 지침 상태인가
+    float mana = 0.0f;                                 // 지금 MP (9e)
+    float mana_max = 0.0f;                             // 최대 MP
     int combo_hit = 0;                                 // 콤보 몇 타째 휘두르는 중 (0 = 공격 안 함)
     std::string combat;                                // 허수아비 수와 마지막으로 맞힌 피해 (9c)
 };
@@ -132,6 +135,8 @@ public:
     [[nodiscard]] const Stamina& stamina() const { return player_.stamina(); }
     // 주인공 MP (HUD 바용)
     [[nodiscard]] const Mana& mana() const { return player_.mana(); }
+    // MP가 모자라 마술이 안 나간 횟수 (HUD가 바뀐 걸 보고 MP 바를 깜빡여요)
+    [[nodiscard]] unsigned mana_denied_count() const { return player_.mana_denied_count(); }
 
     // 주인공 몸 가운데가 보이는 화면 위치 (아이리스 전환의 가운데)
     [[nodiscard]] engine::Vec2 focus_on_screen() const;
@@ -161,12 +166,14 @@ private:
     engine::TextureHandle tileset_texture_;  // 맵 타일 그림
     FieldTextures textures_;                 // 코드로 만든 그림자·파티클·빛 그림 (필드가 끝나면 지워요)
     FieldEffects effects_;                   // 파티클 효과 요리법들 (아래 먼지·분위기가 빌려 써요)
-    engine::Camera2D camera_;                // 사진사: 맵의 어느 부분을 화면에 보여 줄지
-    engine::LookAhead look_ahead_;           // 가는 쪽을 조금 더 보여 주기
+    FieldCamera camera_rig_;                 // 사진사: 주인공을 따라가며 가는 쪽을 조금 더 보여 줘요
     PlayerMotion player_;                    // 캐릭터의 몸: 다리(이동) + 스태미나 + 구르기 버튼 메모장
     FieldCombat combat_;                     // 허수아비들과 칼 판정 (9c)
+    HitStop hit_stop_;                       // 맞는 순간 멈칫: 시뮬레이션 시간 배수 (10a)
     CombatView combat_view_;                 // 허수아비 그림·HP 바·F4 판정 상자
     SlashArc slash_;                         // 휘두를 때 보이는 칼자국
+    SpellView spell_view_;                   // 손끝 빛, 날아가는 빛 탄, 꼬리·반짝, 마술 빛 (9e)
+    std::vector<ProjectileEndEvent> shard_ends_;  // 지난 화면 뒤에 사라진 빛 탄 (반짝임용)
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요

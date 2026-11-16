@@ -74,6 +74,8 @@ add_library(wind_game_core STATIC
     src/game/combat/hitbox_placement.cpp
     src/game/combat/attack_runner.cpp
     src/game/combat/training_dummy.cpp
+    src/game/combat/projectile.cpp
+    src/game/combat/spell_caster.cpp
     src/game/combat/hit_resolution.cpp
     src/game/presentation/dust_emitter.cpp
     src/game/presentation/afterimage_trail.cpp
@@ -83,6 +85,9 @@ add_library(wind_game_core STATIC
     src/game/presentation/ambient_particles.cpp
     src/game/presentation/field_lighting.cpp
     src/game/presentation/field_effects.cpp
+    src/game/presentation/field_camera.cpp
+    src/game/presentation/spell_view.cpp
+    src/game/presentation/shadow_drawing.cpp
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
@@ -144,6 +149,9 @@ if(WIND_BUILD_TESTS)
         tests/hitbox_placement_tests.cpp
         tests/attack_runner_tests.cpp
         tests/training_dummy_tests.cpp
+        tests/projectile_tests.cpp
+        tests/spell_view_tests.cpp
+        tests/spell_caster_tests.cpp
         tests/hit_resolution_tests.cpp
         tests/field_combat_tests.cpp
         tests/slash_arc_tests.cpp

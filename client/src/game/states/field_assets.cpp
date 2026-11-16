@@ -7,6 +7,7 @@
 #include "engine/map/coordinates.hpp"
 
 #include "wind/content/day_cycle_loader.hpp"
+#include "wind/content/spell_loader.hpp"
 #include "wind/content/weapon_loader.hpp"
 #include "wind/content/error_list.hpp"
 #include "wind/content/training_dummy_loader.hpp"
@@ -25,6 +26,8 @@ constexpr std::string_view kIdleClip = "idle";  // 가만히 서 있기
 constexpr std::string_view kWalkClip = "walk";  // 걷기
 // 시작 무기 (명세 8.1). 장비 화면이 생기면(단계 15) 저장된 장비에서 골라요.
 constexpr std::string_view kStartWeapon = "weapons/longsword.json";
+// 시작 마술 (명세 8.6). 마술 칸이 생기면(단계 15) 저장된 칸에서 골라요.
+constexpr std::string_view kStartSpell = "spells/star_shard.json";
 
 // 맵의 허수아비 자리마다 설명 파일을 읽어 허수아비를 만들어요.
 // 같은 파일은 한 번만 읽어요. 하나라도 잘못되면 이유를 기록하고 "없음"을 돌려줘요.
@@ -123,9 +126,31 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
         return std::nullopt;  // 이유는 이미 기록했어요
     }
 
+    // 9) 고른 마술 (잘못되면 기록하고 마술 없음: L/C만 안 되고 나머지는 그대로 돼요)
+    std::optional<combat::Spell> spell;
+    if (auto loaded = content::load_spell_file(content_root, kStartSpell); loaded.ok()) {
+        spell = std::move(*loaded.value);
+    } else {
+        content::log_content_errors("spell " + std::string(kStartSpell), loaded.errors);
+    }
+
     return FieldAssets{std::move(*map.value), std::move(*sheet.value), spawn_tile, std::move(effects),
                        std::move(day_cycle), std::move(weather), std::move(weapon),
-                       std::move(*dummies)};
+                       std::move(*dummies), std::move(spell)};
+}
+
+void log_field_entry(const FieldAssets& assets) {
+    const auto& map = assets.map.map;
+    log::info("Entered map '{}' ({}x{} tiles, {} ambient effect(s), {} light(s), lighting {}, "
+              "day cycle {}, weather {})",
+              map.map_id, map.width, map.height, assets.effects.ambient.size(),
+              map.ambience.lights.size(), map.ambience.ambient_light ? "fixed" : "off",
+              assets.day_cycle ? "on" : "off",
+              assets.weather ? std::to_string(assets.weather->states.size()) + " state(s)"
+                             : std::string("off"));
+    if (!assets.dummies.empty()) {
+        log::info("Training dummies: {}", assets.dummies.size());
+    }
 }
 
 }  // namespace wind::game

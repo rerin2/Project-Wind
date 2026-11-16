@@ -244,4 +244,118 @@ TEST(PlayerMotion, BareHandsDoNothing) {
     EXPECT_FLOAT_EQ(player.stamina().current(), 100.0f);
 }
 
+// ---- 9e: 마술 시전 (명세 8.6, 9.2) ----
+
+PlayerMotion make_caster() {
+    auto player = make_fighter();
+    wind::combat::Spell spell;
+    spell.id = "star_shard";
+    spell.mp_cost = 6;
+    spell.cast_seconds = 0.25f;
+    spell.projectile = wind::combat::ProjectileData{360.0f, 240.0f, 6.0f, 6.0f};
+    player.set_spell(spell);
+    return player;
+}
+
+// 누르면 MP 6을 먼저 내고, 0.25초(15박자) 시전한 뒤 한 박자만 "나갔다"를 알려 줘요.
+TEST(PlayerMotion, CastSpendsManaThenReleasesOnce) {
+    const auto map = open_map();
+    auto player = make_caster();
+    player.press_cast();
+    player.step(kDt, {}, false, map);
+    EXPECT_EQ(player.state(), CharacterState::Casting);
+    EXPECT_NEAR(player.mana().current(), 44.0f, 0.1f);  // 50 - 6 (+ 한 박자 회복)
+    int released = 0;
+    int released_at = -1;
+    for (int i = 2; i <= 20; ++i) {
+        player.step(kDt, {}, false, map);
+        if (player.spell_released()) {
+            ++released;
+            released_at = i;
+        }
+    }
+    EXPECT_EQ(released, 1);
+    EXPECT_EQ(released_at, 15);
+    EXPECT_NE(player.state(), CharacterState::Casting);
+}
+
+// MP가 모자라면 마술이 나가지 않고, MP도 그대로이고, "모자람" 횟수만 올라요. (9단계 완료 조건)
+TEST(PlayerMotion, NotEnoughManaDoesNotCast) {
+    const auto map = open_map();
+    auto player = make_caster();
+    // 9번 쏘기: 6 x 9 = 54를 쓰고, 그동안 약 4.8 회복해서 1 정도 남아요
+    for (int shot = 0; shot < 9; ++shot) {
+        player.press_cast();
+        run_for(player, 16, {}, false, map);
+    }
+    ASSERT_LT(player.mana().current(), 6.0f);
+    const float before = player.mana().current();
+    player.press_cast();
+    player.step(kDt, {}, false, map);
+    EXPECT_NE(player.state(), CharacterState::Casting);
+    EXPECT_NEAR(player.mana().current(), before + 2.0f / 60.0f, 1e-3f);  // 회복만 됐어요
+    EXPECT_EQ(player.mana_denied_count(), 1u);
+    run_for(player, 20, {}, false, map);  // 메모는 지워져서 나중에 저절로 나가지도 않아요
+    EXPECT_EQ(player.mana_denied_count(), 1u);
+    EXPECT_NE(player.state(), CharacterState::Casting);
+}
+
+// 시전 중에는 천천히 걷고(0.4배 = 44 px/s), 달리지 않고, 바라보는 방향은 시전 방향 그대로예요.
+TEST(PlayerMotion, CastingWalksSlowlyAndKeepsFacing) {
+    const auto map = open_map();
+    auto player = make_caster();  // 오른쪽을 보고 시작
+    player.press_cast();
+    player.step(kDt, {}, false, map);
+    run_for(player, 12, {0.0f, 1.0f}, true, map);  // 아래로 Shift 걷기
+    EXPECT_EQ(player.state(), CharacterState::Casting);
+    EXPECT_NEAR(player.mover().speed(), 44.0f, 1.0f);
+    EXPECT_EQ(player.mover().facing(), wind::world::Direction::Right);
+    EXPECT_FLOAT_EQ(player.stamina().current(), 100.0f);  // 달리지 않았어요
+}
+
+// 마술 방향은 누른 방향이에요.
+TEST(PlayerMotion, CastFacesInput) {
+    const auto map = open_map();
+    auto player = make_caster();
+    player.press_cast();
+    player.step(kDt, {0.0f, -1.0f}, false, map);
+    EXPECT_EQ(player.cast_facing(), wind::world::Direction::Up);
+}
+
+// 시전 중에는 구르기도 공격도 안 돼요. 끝나면 메모해 둔 구르기가 나갈 수 있어요.
+TEST(PlayerMotion, CastingBlocksDodgeAndAttack) {
+    const auto map = open_map();
+    auto player = make_caster();
+    player.press_cast();
+    player.step(kDt, {}, false, map);
+    player.press_dodge();
+    player.press_attack();
+    EXPECT_FALSE(player.step(kDt, kRight, false, map));
+    EXPECT_FALSE(player.attack_started());
+    EXPECT_EQ(player.state(), CharacterState::Casting);
+}
+
+// 공격 중에는 마술이 안 나가요 (상태 표). MP도 그대로예요.
+TEST(PlayerMotion, AttackingBlocksCast) {
+    const auto map = open_map();
+    auto player = make_caster();
+    player.press_attack();
+    player.step(kDt, {}, false, map);
+    player.press_cast();
+    player.step(kDt, {}, false, map);
+    EXPECT_EQ(player.state(), CharacterState::Attacking);
+    EXPECT_FLOAT_EQ(player.mana().current(), 50.0f);
+}
+
+// 마술이 없으면 눌러도 아무 일 없어요.
+TEST(PlayerMotion, NoSpellDoesNothing) {
+    const auto map = open_map();
+    auto player = make_player();
+    player.press_cast();
+    player.step(kDt, {}, false, map);
+    EXPECT_NE(player.state(), CharacterState::Casting);
+    EXPECT_FLOAT_EQ(player.mana().current(), 50.0f);
+    EXPECT_EQ(player.mana_denied_count(), 0u);
+}
+
 }  // namespace

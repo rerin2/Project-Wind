@@ -4,6 +4,8 @@
 
 #include "game/presentation/combat_view.hpp"
 
+#include "game/presentation/shadow_drawing.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <utility>
@@ -92,14 +94,9 @@ void CombatView::queue(const engine::Camera2D& camera, std::span<const TrainingD
 void CombatView::queue_dummy(const engine::Camera2D& camera, const TrainingDummy& dummy,
                              std::size_t index, engine::RenderQueue& queue) const {
     const auto& sprite = dummy.data().sprite;                   // 그림 설명 (칸 크기, 발 위치)
-    const engine::Vec2 screen = camera.world_to_screen(dummy.feet());  // 발의 화면 위치
-    if (shadow_.valid()) {                                      // 발밑 그림자
-        engine::SpriteDraw shadow;
-        shadow.texture = shadow_;
-        shadow.dest = {std::round(screen.x - kShadowWidth * 0.5f), std::round(screen.y - kShadowHeight * 0.5f),
-                       kShadowWidth, kShadowHeight};
-        queue.push_sprite(engine::DrawLayer::Shadows, dummy.feet().y, shadow);
-    }
+    // 그림은 밀린 몸통 위치에 (넉백 흔들림, 10a). 그림자는 박힌 자리 그대로라 "밀렸다"가 잘 보여요.
+    const engine::Vec2 screen = camera.world_to_screen(dummy.feet() + dummy.body_offset());
+    queue_shadow(camera, shadow_, dummy.feet(), {kShadowWidth, kShadowHeight}, queue);  // 발밑 그림자
     engine::SpriteDraw draw;
     draw.texture = textures_[index];                            // 이 허수아비 그림
     const int frame = dummy.down() ? 1 : 0;                     // 0 = 서 있음, 1 = 쓰러짐

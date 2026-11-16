@@ -4,23 +4,28 @@
 // 주인공의 몸 움직임 규칙을 한데 묶어요. (명세 7.2, 7.2.1, 8.5, 9.2)
 // - Mover(다리): 걷기, 달리기, 구르기, 벽 미끄러짐
 // - Stamina(기력): 달리기·구르기·공격에 쓰고, 쉬면 다시 참
-// - Mana(MP): 마술에 쓰고(9e), 늘 1초에 2씩 다시 참
+// - Mana(MP): 마술에 쓰고, 늘 1초에 2씩 다시 참
 // - AttackRunner(칼 휘두르기): 준비 -> 판정 -> 후딜, 콤보
-// - InputBuffer(버튼 메모장): 구르기·공격 버튼을 0.15초 기억
+// - SpellCaster(마술 시전): 시전 시간을 모았다가 마술을 내보냄
+// - InputBuffer(버튼 메모장): 구르기·공격·마술 버튼을 0.15초 기억
 // 한 박자 순서:
 //   1) 구르기 메모가 있고, 구를 수 있으면 -> 구르기 (스태미나 25 씀)
-//      공격 중이면 취소 구간에서만 굴러요 (공격은 취소돼요)
+//      공격 중이면 취소 구간에서만 굴러요 (공격은 취소돼요). 시전 중에는 못 굴러요 (명세 8.5)
 //   2) 공격 메모가 있고, 휘두를 수 있고, 지침이 아니고 스태미나가 0보다 많으면
 //      -> 공격 시작 또는 다음 콤보 (무기의 공격 스태미나만큼 씀, 모자라면 0이 돼요)
-//   3) 공격 중에는 발이 멈추고(서서히 감속), 달리지 않아요
-//   4) Shift를 누르고 움직이며 지침이 아니면 -> 달리기 (달리는 동안 1초에 25 씀)
-//   5) 쓰지 않았으면 0.6초 뒤부터 다시 참
-//   6) MP는 박자마다 조금씩 참
+//   3) 마술 메모가 있고, 시전할 수 있으면:
+//      MP가 충분하면 -> MP를 먼저 내고 시전 시작 (방향은 이때 정해져요)
+//      MP가 모자라면 -> 메모를 지우고 "MP 모자람" 횟수를 하나 올려요 (HUD가 깜빡여요)
+//   4) 공격 중에는 발이 멈추고, 시전 중에는 천천히 걸어요(0.4배). 둘 다 달리지 않아요
+//   5) Shift를 누르고 움직이며 지침이 아니면 -> 달리기 (달리는 동안 1초에 25 씀)
+//   6) 스태미나는 쓰지 않았으면 0.6초 뒤부터 다시 참, MP는 박자마다 조금씩 참
+//   7) 시전이 끝난 박자에는 spell_released()가 true예요 (FieldCombat이 빛 탄을 만들어요)
 // 어떤 상태에서 무엇을 시작할 수 있는지는 상태 전이 표(character_state)를 따라요.
 // SDL을 몰라서 창 없이 테스트할 수 있어요.
 
 #include "engine/core/math.hpp"
 #include "game/combat/attack_runner.hpp"
+#include "game/combat/spell_caster.hpp"
 #include "game/entities/character_state.hpp"
 #include "game/entities/mana.hpp"
 #include "game/entities/mover.hpp"
@@ -48,6 +53,10 @@ public:
     void press_dodge();
     // 공격 버튼을 눌렀어요. 메모장에 적어 둬요.
     void press_attack();
+    // 마술 버튼을 눌렀어요 (L / C). 메모장에 적어 둬요.
+    void press_cast();
+    // 고른 마술을 정해요 (없으면 마술을 못 써요)
+    void set_spell(std::optional<combat::Spell> spell) { caster_.set_spell(std::move(spell)); }
     // 한 박자. move: 가고 싶은 방향, run_held: Shift를 누르고 있나
     // 구르기를 시작했으면 true
     bool step(double dt_seconds, engine::Vec2 move, bool run_held, const world::MapData& map);
@@ -57,26 +66,38 @@ public:
     // 이번 휘두르기에서 이 대상을 처음 맞혔으면 true (판정 구간에서만)
     bool register_hit(TargetId target) { return attack_.register_hit(target); }
 
-    // 지금 상태 (idle, moving, running, attacking, dodging)
+    // 지금 상태 (idle, moving, running, attacking, casting, dodging)
     [[nodiscard]] CharacterState state() const;
     // 이번 박자에 공격(또는 다음 콤보)을 시작했나 (연출용)
     [[nodiscard]] bool attack_started() const { return attack_started_; }
+    // 이번 박자에 시전이 끝나 마술이 나갔나 (FieldCombat이 빛 탄을 만들어요)
+    [[nodiscard]] bool spell_released() const { return spell_released_; }
+    // 마술을 쓸 방향 (시전을 시작할 때 정해요)
+    [[nodiscard]] world::Direction cast_facing() const { return cast_facing_; }
+    // MP가 모자라서 마술이 안 나간 횟수 (늘기만 해요). HUD가 바뀐 걸 보고 MP 바를 깜빡여요.
+    [[nodiscard]] unsigned mana_denied_count() const { return mana_denied_count_; }
 
     [[nodiscard]] const Mover& mover() const { return mover_; }
     [[nodiscard]] const Stamina& stamina() const { return stamina_; }
     [[nodiscard]] const Mana& mana() const { return mana_; }
     [[nodiscard]] const AttackRunner& attack() const { return attack_; }
+    [[nodiscard]] const SpellCaster& caster() const { return caster_; }
 
 private:
     bool try_dodge();
     void try_attack(engine::Vec2 move);
+    void try_cast(engine::Vec2 move);
 
     Mover mover_;
     Stamina stamina_;
     Mana mana_;
     AttackRunner attack_;
+    SpellCaster caster_;
     InputBuffer buffer_;
     bool attack_started_ = false;
+    bool spell_released_ = false;
+    world::Direction cast_facing_ = world::Direction::Down;
+    unsigned mana_denied_count_ = 0;
 };
 
 }  // namespace wind::game

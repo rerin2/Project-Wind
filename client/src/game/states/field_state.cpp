@@ -10,6 +10,7 @@
 #include "engine/map/tilemap_renderer.hpp"
 #include "engine/render/renderer.hpp"
 #include "game/physics/tile_collision.hpp"
+#include "game/presentation/shadow_drawing.hpp"
 
 #include "wind/log.hpp"
 
@@ -23,11 +24,6 @@
 namespace wind::game {
 namespace {
 
-// 카메라가 플레이어를 따라가는 속도 (클수록 빨리 따라붙어요)
-constexpr float kCameraStiffness = 8.0f;
-// 카메라 앞보기: 최대 몇 픽셀 앞을 보여 줄지, 얼마나 빨리 따라갈지
-constexpr float kLookAheadDistance = 28.0f;
-constexpr float kLookAheadSharpness = 3.0f;
 // 구르기 버튼을 몇 초 동안 기억해 줄지 (명세 5.8 입력 버퍼 기본값)
 constexpr double kInputBufferSeconds = 0.15;
 // 파티클 통 크기 (이보다 많으면 버리고 세요, 명세 6.6)
@@ -40,8 +36,6 @@ constexpr std::uint32_t kFxSeed = 20261109;
 constexpr engine::Color kBodyBoxColor{80, 200, 255, 140};
 // 휘두를 때 보이는 칼자국 그림 (흰 반달, 생성기 스크립트가 그려요)
 constexpr std::string_view kSlashTexture = "fx/slash_arc.bmp";
-
-
 
 }  // namespace
 
@@ -71,18 +65,7 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     if (stress.lights > 0) {
         log::info("Light stress test: {} extra lights", stress.lights);
     }
-
-    const auto& map = assets->map.map;
-    log::info("Entered map '{}' ({}x{} tiles, {} ambient effect(s), {} light(s), lighting {}, "
-              "day cycle {}, weather {})",
-              map.map_id, map.width, map.height, assets->effects.ambient.size(),
-              map.ambience.lights.size(), map.ambience.ambient_light ? "fixed" : "off",
-              assets->day_cycle ? "on" : "off",
-              assets->weather ? std::to_string(assets->weather->states.size()) + " state(s)"
-                              : std::string("off"));
-    if (!assets->dummies.empty()) {
-        log::info("Training dummies: {}", assets->dummies.size());
-    }
+    log_field_entry(*assets);  // 맵 크기·효과·빛·허수아비 수 기록
     return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture,
                                                       player_texture,
                                                       std::move(combat_textures), start_weather,
@@ -100,14 +83,23 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       tileset_texture_(tileset_texture),
       textures_(renderer),  // 그림자·파티클·빛 그림을 코드로 만들어요 (실패해도 그 효과만 안 보여요)
       effects_(std::move(assets.effects)),
-      look_ahead_(kLookAheadDistance, kLookAheadSharpness),
+      // 카메라: 화면 크기, 맵 크기(픽셀), 처음 볼 곳(등장 자리)
+      camera_rig_(viewport,
+                  engine::Vec2{static_cast<float>(map_.map.width), static_cast<float>(map_.map.height)} *
+                      static_cast<float>(map_.map.tile_size),
+                  static_cast<float>(map_.map.tile_size),
+                  engine::tile_feet(assets.spawn_tile, map_.map.tile_size)),
       // 캐릭터가 처음 설 곳 (준비물을 읽을 때 고른 등장 자리)
       player_(engine::tile_feet(assets.spawn_tile, map_.map.tile_size),
               world::Direction::Down, MovementTuning{}, StaminaTuning{}, kInputBufferSeconds,
               std::move(assets.weapon)),
-      combat_(std::move(assets.dummies)),                                      // 맵의 허수아비들
+      combat_(std::move(assets.dummies), std::random_device{}()),            // 허수아비들, 치명타 주사위 씨앗
       combat_view_(textures_.shadow(), std::move(combat_textures.dummies)),    // 허수아비 그림 (그림자 같이 씀)
       slash_(combat_textures.slash),                                           // 칼자국 그림
+      // 마술 연출: 꼬리·반짝 효과, 둥근 빛 그림, 마술이 내는 빛
+      spell_view_(effects_.star_trail ? &*effects_.star_trail : nullptr,
+                  effects_.star_burst ? &*effects_.star_burst : nullptr, textures_.light(),
+                  assets.spell ? assets.spell->light : std::nullopt),
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -123,13 +115,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
     for (const auto& effect : effects_.ambient) {
         ambient_.add(effect);
     }
-    // 카메라 준비: 화면 크기를 알려 주고, 맵 밖은 보여 주지 않도록 맵 크기를 경계로 정해요.
-    const auto size = static_cast<float>(map_.map.tile_size);
-    camera_.set_viewport(viewport);
-    camera_.set_world_bounds({0.0f, 0.0f, static_cast<float>(map_.map.width) * size,
-                              static_cast<float>(map_.map.height) * size});
-    // 카메라는 캐릭터 몸 가운데(발에서 반 칸 위)를 봐요. 시작할 때는 바로 맞춰요.
-    camera_.center_on(player_.mover().feet() - engine::Vec2{0.0f, size * 0.5f});
+    player_.set_spell(std::move(assets.spell));  // 고른 마술 (9e: 별빛 조각)
 }
 
 FieldState::~FieldState() = default;  // 코드로 만든 그림은 FieldTextures가 지워요
@@ -144,6 +130,9 @@ void FieldState::handle_input(const engine::InputState& input, const InputBindin
     if (bindings.pressed(Action::Attack, input)) {
         player_.press_attack();  // 공격도 메모장에 적어 둬요 (콤보는 취소 구간에서 이어져요)
     }
+    if (bindings.pressed(Action::Cast, input)) {
+        player_.press_cast();  // 마술도 메모장에 (L / C)
+    }
     if (bindings.pressed(Action::ToggleCollision, input)) {
         show_collision_ = !show_collision_;  // F4: 못 가는 칸과 발 상자 표시 켜기/끄기
     }
@@ -155,11 +144,20 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     const engine::Vec2 direction = intent_.direction(bindings, input);
     // 구르기·달리기는 스태미나 규칙에 맞을 때만 돼요 (PlayerMotion이 확인해요).
     const bool run = bindings.held(Action::Run, input);
-    if (player_.step(dt_seconds, direction, run, map_.map)) {
+    // 히트스톱: 시뮬레이션 시간 = 박자 × 배수(멈칫 중이면 0). 이 배수가 시간을 멈추는 유일한 길이에요 (명세 3.2).
+    const double sim_dt = dt_seconds * hit_stop_.time_scale();
+    if (player_.step(sim_dt, direction, run, map_.map)) {
         // 구르기 시작! 연출(먼지 팍)은 다음 frame_update에서 해요.
         dodge_burst_ = engine::normalized(player_.mover().velocity());
     }
-    combat_.step(dt_seconds, player_);  // 칼이 판정 중이면 허수아비에 맞았는지 보고 피해 주기
+    combat_.step(sim_dt, player_, map_.map);  // 칼 판정, 빛 탄 만들기·날리기, 피해·넉백 주기
+    hit_stop_.update(static_cast<float>(dt_seconds));  // 멈춤은 진짜 시간으로 줄어요
+    for (const auto& hit : combat_.hits()) {
+        hit_stop_.trigger(hit.hitstop);  // 이번에 맞았으면 다음 박자부터 멈칫
+    }
+    // 사라진 빛 탄은 다음 frame_update에서 반짝여요 (한 화면에 박자가 여러 번이어도 안 빠지게 모아 둬요)
+    const auto& ends = combat_.projectile_ends();
+    shard_ends_.insert(shard_ends_.end(), ends.begin(), ends.end());
 
     // 출구 확인: 발이 출구 칸에 들어가면 "다른 맵으로 가 주세요" 요청을 남겨요.
     // 출구가 아닌 칸을 한 번 밟은 뒤에만 출구가 동작해요(무장). 그래야 출구 바로 옆에서
@@ -180,7 +178,6 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     const auto dt = static_cast<float>(dt_seconds);
     const engine::Vec2 feet = drawn_feet();
 
-
     // 먼지: 구르기 시작이면 확 뿌리고, 걷는 중이면 조금씩
     if (dodge_burst_) {
         dust_emitter_.dodge_burst(feet, *dodge_burst_, fx_random_, ground_fx_);
@@ -192,11 +189,19 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     }
     ground_fx_.update(dt);
     // 분위기 효과(꽃잎·반딧불)는 카메라가 보는 곳 근처에서 계속 생겨나요.
-    ambient_.update(dt, camera_.view_rect(), fx_random_, air_fx_);
+    ambient_.update(dt, camera_rig_.camera().view_rect(), fx_random_, air_fx_);
     // 조명: 깜빡임 시계, 주인공 빛 위치, 횃불 불티
     // 하늘과 공기: 시간 색, 날씨(빗줄기·눈·물 튀김), 밤 효과. 그 결과를 조명에 알려 줘요.
-    atmosphere_.update(dt, hour, camera_.view_rect(), fx_random_, air_fx_, ground_fx_);
+    atmosphere_.update(dt, hour, camera_rig_.camera().view_rect(), fx_random_, air_fx_, ground_fx_);
     lighting_.set_conditions(atmosphere_.conditions().ambient, atmosphere_.conditions().night);
+    // 마술 연출: 시전 중 손끝 빛, 빛 탄 꼬리, 사라진 자리 반짝. 빛 탄 빛은 조명에 더해요.
+    std::optional<CastGlow> cast;
+    if (player_.caster().busy()) {
+        cast = CastGlow{FieldCombat::spell_hand(feet, player_.cast_facing()), player_.caster().progress()};
+    }
+    spell_view_.update(dt, combat_.projectiles(), static_cast<float>(alpha), shard_ends_, cast, fx_random_, air_fx_);
+    shard_ends_.clear();
+    lighting_.set_moving_lights(spell_view_.lights(combat_.projectiles(), static_cast<float>(alpha)));
     lighting_.update(dt, feet, fx_random_, air_fx_);
     air_fx_.update(dt);
 
@@ -207,60 +212,48 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     slash_.update(dt, player_.attack(), player_.attack_hitbox(), player_.mover().facing());
 
     // 카메라: 가는 쪽을 조금 더 보여 주면서 캐릭터 몸 가운데를 따라가요.
-    const float max_speed = player_.mover().tuning().max_speed;
-    const float run = max_speed > 0.0f ? std::min(1.0f, player_.mover().speed() / max_speed) : 0.0f;
-    look_ahead_.update(engine::normalized(player_.mover().velocity()) * run, dt);
-    const float half_tile = static_cast<float>(map_.map.tile_size) * 0.5f;
-    camera_.follow(feet - engine::Vec2{0.0f, half_tile} + look_ahead_.offset(), dt,
-                   kCameraStiffness);
+    camera_rig_.follow(feet, player_.mover().velocity(), player_.mover().speed(),
+                       player_.mover().tuning().max_speed, dt);
 }
-
 
 // 이번 화면에 그릴 것들을 그리기 목록(렌더 큐)에 넣어요. 실제로 그리는 건 렌더러가 해요.
 void FieldState::render(engine::RenderQueue& queue) {
     const engine::Vec2 feet = drawn_feet();
 
     // 1) 맵 타일 (화면에 보이는 칸만)
-    tiles_queued_ = engine::queue_tilemap(map_.map, map_.tileset, tileset_texture_, camera_,
+    tiles_queued_ = engine::queue_tilemap(map_.map, map_.tileset, tileset_texture_, camera_rig_.camera(),
                                           scene_seconds_, queue);
 
-    // 2) 발밑 그림자: 바닥 위, 캐릭터 아래 단계에 그려요.
-    if (textures_.shadow().valid()) {
-        const engine::Vec2 screen = camera_.world_to_screen(feet);
-        engine::SpriteDraw shadow;
-        shadow.texture = textures_.shadow();
-        const engine::Vec2 size = textures_.shadow_size();  // 그림자 크기 (22x8)
-        shadow.dest = {std::round(screen.x - size.x * 0.5f), std::round(screen.y - size.y * 0.5f),
-                       size.x, size.y};
-        queue.push_sprite(engine::DrawLayer::Shadows, feet.y, shadow);
-    }
+    // 2) 발밑 그림자 (22x8): 바닥 위, 캐릭터 아래 단계에 그려요.
+    queue_shadow(camera_rig_.camera(), textures_.shadow(), feet, textures_.shadow_size(), queue);
 
     // 3) 잔상, 플레이어, 먼지: 모두 발 위치(y)로 줄을 서요.
-    sprite_.queue(camera_, feet, player_.mover().facing(), queue);
+    sprite_.queue(camera_rig_.camera(), feet, player_.mover().facing(), queue);
     // 허수아비(주인공과 발 위치로 줄 서기), HP 바, 칼자국, F4면 판정 상자
-    combat_view_.queue(camera_, combat_.dummies(), player_.attack_hitbox(), show_collision_, queue);
-    slash_.queue(camera_, queue);
-    engine::queue_particles(ground_fx_, camera_, textures_.particles(), engine::DrawLayer::YSorted, queue);
+    combat_view_.queue(camera_rig_.camera(), combat_.dummies(), player_.attack_hitbox(), show_collision_, queue);
+    slash_.queue(camera_rig_.camera(), queue);
+    // 손끝 빛과 날아가는 빛 탄 (F4면 빛 탄 네모)
+    spell_view_.queue(camera_rig_.camera(), combat_.projectiles(), static_cast<float>(alpha_), show_collision_, queue);
+    engine::queue_particles(ground_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::YSorted, queue);
     // 공중 효과는 나뭇잎보다도 위에 그려요.
-    engine::queue_particles(air_fx_, camera_, textures_.particles(), engine::DrawLayer::WorldFx, queue,
+    engine::queue_particles(air_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::WorldFx, queue,
                             engine::DrawLayer::Glow);
 
     // 4) F4를 켰으면 못 가는 칸을 빨갛게, 발 상자를 하늘색으로 덮어요.
     if (show_collision_) {
-        engine::queue_collision_overlay(map_.map, camera_, queue);
+        engine::queue_collision_overlay(map_.map, camera_rig_.camera(), queue);
         queue_body_box(queue, feet);
     }
 
     // 5) 조명 준비물: 화면에 보이는 빛만 골라요. 실제로 입히는 건 렌더러가 해요.
     // 안개는 공중 효과의 맨 위에 (조명보다는 먼저 그려져서 밤에는 안개도 어두워요).
-    atmosphere_.queue(camera_, textures_.light(), queue);
-    lighting_frame_ = &lighting_.build(camera_, textures_.light());
+    atmosphere_.queue(camera_rig_.camera(), textures_.light(), queue);
+    lighting_frame_ = &lighting_.build(camera_rig_.camera(), textures_.light());
 }
-
 
 void FieldState::queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) const {
     const engine::RectF box = body_box(feet, player_.mover().tuning().body);
-    const engine::Vec2 top_left = camera_.world_to_screen({box.x, box.y});
+    const engine::Vec2 top_left = camera_rig_.camera().world_to_screen({box.x, box.y});
     queue.push_fill(engine::DrawLayer::DebugOverlay, 0.0f, {top_left.x, top_left.y, box.w, box.h},
                     kBodyBoxColor);
 }
@@ -272,7 +265,7 @@ engine::Vec2 FieldState::drawn_feet() const {
 // 주인공 몸 가운데가 화면(640x360)의 어디에 보이는지. 아이리스 전환이 이 점을 향해 오므라들어요.
 engine::Vec2 FieldState::focus_on_screen() const {
     const float half_tile = static_cast<float>(map_.map.tile_size) * 0.5f;
-    return camera_.world_to_screen(drawn_feet() - engine::Vec2{0.0f, half_tile});
+    return camera_rig_.camera().world_to_screen(drawn_feet() - engine::Vec2{0.0f, half_tile});
 }
 
 // 디버그 화면(F3)에 보여 줄 정보를 모아 줘요.
@@ -297,9 +290,10 @@ FieldDebugInfo FieldState::debug_info() const {
             player_.stamina().current(),
             player_.stamina().max(),
             player_.stamina().exhausted(),
+            player_.mana().current(),
+            player_.mana().max(),
             player_.attack().combo_index() + 1,
             combat_.debug_text()};
 }
-
 
 }  // namespace wind::game

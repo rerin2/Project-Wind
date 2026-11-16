@@ -202,7 +202,8 @@ Code: `client/src/app/field_ui.cpp`, `ui_test_panel.cpp`, `client/src/engine/ui/
 | Stamina bar | top-left (12, 12), 82×7 with 1 px dark outline; fill `#7ece5c`, trail `#faeec4`, empty `#282c3c` | Small and out of the way (spec 13.2); the cream trail shows how much was just spent |
 | Stamina auto-hide | dims to 30 % after 1.2 s at full, back to full opacity on the first spend | Stays visible only when it matters |
 | Exhausted | fill and outline `#de5c48`, blinking 4 Hz | Visible even when the bar is empty |
-| MP bar (phase 9d) | 2 px below the stamina bar (y = 21), same 7 px height and outline; inner length = max MP × 0.8 px (50 MP → 40 px, clamped 8–200); fill `#5fa3d0` (palette sky), trail `#faeec4`, empty `#282c3c`; never fades | Same pixels-per-point as stamina so the bars compare at a glance and grow with stats (spec 13.2); blue is the usual MP colour and stays apart from green stamina and red HP. The "not enough MP" blink comes with casting in 9e. When the HP bar arrives it goes on top (spec order HP·MP·stamina) |
+| MP bar (phase 9d) | 2 px below the stamina bar (y = 21), same 7 px height and outline; inner length = max MP × 0.8 px (50 MP → 40 px, clamped 8–200); fill `#5fa3d0` (palette sky), trail `#faeec4`, empty `#282c3c`; never fades | Same pixels-per-point as stamina so the bars compare at a glance and grow with stats (spec 13.2); blue is the usual MP colour and stays apart from green stamina and red HP. When the HP bar arrives it goes on top (spec order HP·MP·stamina) |
+| Not enough MP (phase 9e) | when a cast is refused, the MP bar outline blinks `#de5c48` at 8 Hz for 0.6 s (alpha 80–255) | Spec 9.2: the player must see why nothing happened; faster than the 4 Hz exhausted blink because it is a one-off "no" rather than a lasting state |
 | Area banner | bold name centred at y = 44, two 36 px gold lines 8 px from the text, translucent black band behind; 0.5 s slide-in (8 px) and fade, 2.2 s hold, 0.7 s fade-out | Announces the place without covering the hero |
 | UI test panel (F7) | 240×178, pops in over 0.2 s (`out_back` from 85 % size) | Spec 6.9: windows open with a 0.15–0.25 s tween |
 
@@ -215,6 +216,7 @@ Code: `client/src/game/presentation/combat_view.cpp`, `slash_arc.cpp`. Art from 
 | Element | Look | Why |
 |---|---|---|
 | Dummy | wooden post and arm bar, straw sack body with rope belt, red-and-white target on the chest, burlap head with stitched face and straw tufts; same soft shadow as the hero (20×7) | Reads as "something to hit" at 32 px tiles; the target shows where the hurtbox is |
+| Knockback sway (10a) | the sprite is drawn at feet + the simulated body offset (up to 8 px toward the hit), the shadow stays on the planted spot | The gap between body and shadow reads as "pushed" even at a few pixels |
 | Knocked down | frame 1: the same dummy tilted 22° | Clear state change without new animation work; the frame is wide enough that the head is not clipped |
 | HP bar | 24×3 inside a 1 px dark outline, 3 px above the head; fill `#d64840`, trail `#faeec4`, empty `#282c3c`; drawn after lighting | Red = enemy HP, cream trail = damage just dealt (same delayed bar as stamina) |
 | HP bar visibility | hidden while full (also right after entering the map), shown on the first hit, hidden again 2.5 s after it has refilled | Standing dummies do not clutter the screen |
@@ -223,6 +225,19 @@ Code: `client/src/game/presentation/combat_view.cpp`, `slash_arc.cpp`. Art from 
 | F4 boxes | sword hitbox `#f03c3c` at 110 alpha (only while active), dummy hurtboxes `#f0d23c` at 100 alpha | Debug only |
 
 Known look issue: when the hero stands directly above a dummy, its HP bar overlaps her waist. Acceptable for a training prop; revisit with enemy HP bars in phase 11.
+
+## Star shard (phase 9e)
+
+Code: `client/src/game/presentation/spell_view.cpp`; effects `content/fx/star_trail.json`, `content/fx/star_burst.json`; light from `content/spells/star_shard.json`. All drawing uses the soft round light texture with additive blend in the Glow layer, so it glows at night and in caves and never changes the result.
+
+| Element | Look | Why |
+|---|---|---|
+| Cast glow | at the hand point (10 px ahead, 14 px up), grows from 4 to 14 px over the cast: halo `#a8dcef` at 1.8× size, white core `#f2f6f7` at 0.6×; adds a light of half the spell radius whose brightness follows the cast progress | No cast animation exists yet; the growing spark shows the 0.25 s wind-up and where the shot will come from |
+| Shard | halo 20 px `#a8dcef` (alpha 210) twinkling ±12 % at 9 Hz, white core 7 px; drawn between the last two fixed steps | Palette ice/snow = "starlight"; the twinkle keeps a small 6 px shot readable at speed |
+| Trail | `star_trail`: pixel sparks, 70/s, 0.25–0.45 s, drift 4–14 px/s, ice → violet `#5d4f8f` fading out | A short glittering tail shows direction and speed without hiding the target |
+| Vanish | `star_burst`: 12 white → ice sparks, 30–75 px/s, 0.2–0.4 s, at the point the shard ended (wall, target or range) | Tells the player the shot is gone and where; damage feedback (flash, numbers) comes in phase 10 |
+| Light | radius 36, `#a8dcef`, intensity 0.8, one per shard (added after the hero light so it is never cut by the light cap) | Spec 8.6: spells light their surroundings; at night the shot lights the grass as it flies |
+| F4 box | shard hit rect `#aa78ff` at 140 alpha | Debug only; purple keeps it apart from sword (red) and hurtboxes (yellow) |
 
 ## Dodge afterimages
 

@@ -12,6 +12,7 @@
 #include "game/combat/training_dummy.hpp"
 #include "game/presentation/field_effects.hpp"
 
+#include "wind/combat/spell.hpp"
 #include "wind/combat/weapon.hpp"
 #include "wind/content/map_loader.hpp"
 #include "wind/world/day_cycle.hpp"
@@ -35,7 +36,11 @@ struct FieldAssets {
     std::optional<world::WeatherTable> weather;
     combat::Weapon weapon;  // 든 무기 (불러오기 실패면 콤보가 빈 맨손)
     std::vector<TrainingDummy> dummies;  // 맵에 놓인 훈련용 허수아비들 (9c)
+    std::optional<combat::Spell> spell;  // 고른 마술 (9e: 별빛 조각 고정, 실패면 마술 없음)
 };
+
+// 맵에 들어갈 때 무엇을 읽었는지 기록해요 (맵 크기, 효과·빛 수, 허수아비 수).
+void log_field_entry(const FieldAssets& assets);
 
 // spawn_id: 등장 자리 이름. "default"인데 없으면 첫 번째 자리를 써요.
 // stress_particles: 성능 시험용 파티클 수 (보통 0)

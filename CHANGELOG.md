@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Phase 10a — hitstop, knockback, crits (simulation)
+- `HitStop`: a landed hit freezes the field simulation for the attack's `hitstop`; it reaches the simulation only as
+  `time_scale` (`sim_dt = step × scale`). Longer freeze wins, capped at 0.5 s.
+- `KnockSway`: training dummies sway up to 8 px toward the hit on a damped spring; the hurtbox follows, the tile stays.
+- Crits: 5 % + weapon `crit_bonus`, × 1.5, rolled by the seeded `CombatRandom` (splitmix64). F3 marks crits with `!`.
+- `HitEvent` now carries critical, direction, knockback, hitstop and shake for 10b. Spells gain optional `knockback`,
+  `hitstop`, `shake` (star shard 40 / 0.03 / 0.05).
+- 381 CTest tests.
+
+### Phase 9e — casting the star shard
+- L / C cast (`Action::Cast`, keys L and C, scriptable `--press l@N`). `SpellCaster` times the cast; `PlayerMotion`
+  pays MP up front (all or nothing, refused casts counted for the HUD), locks the direction, walks at 0.4× while
+  casting and blocks attack / dodge / run.
+- `Projectile`: flies in sub-steps of half its size, checks target → wall → range, ignores tiles blocked only by
+  entities. `FieldCombat` spawns shards on release and resolves hits (first target only). `magic_attack_power`.
+- Presentation: `SpellView` (hand glow, twinkling halo + core, `fx/star_trail.json`, `fx/star_burst.json`, a light per
+  shard via `FieldLighting::set_moving_lights`, purple F4 box), MP bar red blink when a cast is refused, F3 `mp` and
+  `shards`, key help shows L.
+- Behaviour-preserving split of `field_state.cpp` (305 → 293 lines): `FieldCamera`, `log_field_entry`,
+  `queue_shadow` (also used by `CombatView`). Phase 9 complete.
+- 362 CTest tests.
+
 ### Phase 9d — MP and spell data
 - `Mana` (max 50, +2/s, all-or-nothing `try_spend`), owned by `PlayerMotion`; HUD MP bar under the stamina bar
   (0.8 px per point, sky blue `#5fa3d0`, delayed trail).

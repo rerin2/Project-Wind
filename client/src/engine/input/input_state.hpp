@@ -31,6 +31,8 @@ enum class Key : std::uint8_t {
     K,
     X,
     Z,
+    L,
+    C,
     Shift,  // 왼쪽·오른쪽 Shift 둘 다
     F3,
     F4,

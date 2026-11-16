@@ -26,7 +26,7 @@ constexpr std::uint64_t kMaxLightStress = 64;
 // --press로 누를 수 있는 키 이름인가요?
 bool is_scriptable_key(std::string_view name) {
     for (const std::string_view known :
-         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right", "j"}) {
+         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right", "j", "l"}) {
         if (name == known) {
             return true;
         }
@@ -128,7 +128,7 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
                                                      std::numeric_limits<std::uint64_t>::max());
             const std::string_view key = at == std::string_view::npos ? value : value.substr(0, at);
             if (!frame || !is_scriptable_key(key)) {
-                return fail("--press must look like f6@60 (keys: f3 f4 f5 f6 f7 f12 space shift enter esc up down left right)");
+                return fail("--press must look like f6@60 (keys: f3 f4 f5 f6 f7 f12 space shift enter esc up down left right j l)");
             }
             options.presses.push_back({std::string(key), *frame});
         }

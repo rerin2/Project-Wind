@@ -79,4 +79,15 @@ TEST(Damage, PhysicalAttackPower) {
     EXPECT_FLOAT_EQ(physical_attack_power(-3, 0.8f, 1.0f), 0.0f);
 }
 
+// 마법 공격력 = 기본 마력 × (1 + 지능 보너스). 시작 지능 10은 보너스 0이라 12 그대로.
+// 별빛 조각(위력 1.0)은 방어 0인 허수아비에게 12를 줘요.
+TEST(Damage, MagicAttackPower) {
+    using wind::combat::magic_attack_power;
+    EXPECT_FLOAT_EQ(magic_attack_power(12.0f, 0.0f), 12.0f);
+    EXPECT_FLOAT_EQ(magic_attack_power(12.0f, 0.5f), 18.0f);
+    EXPECT_FLOAT_EQ(magic_attack_power(12.0f, -1.0f), 12.0f);  // 음수 보너스는 0
+    EXPECT_FLOAT_EQ(magic_attack_power(-12.0f, 1.0f), 0.0f);
+    EXPECT_EQ(compute_damage({.attack_power = magic_attack_power(12.0f, 0.0f), .power = 1.0f}).amount, 12);
+}
+
 }  // namespace

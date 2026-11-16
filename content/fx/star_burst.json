@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "star_burst",
+  "shape": "pixel",
+  "blend": "add",
+  "lifetime": [0.2, 0.4],
+  "speed": [30, 75],
+  "spread": 360,
+  "drag": 4,
+  "spawn_radius": 1,
+  "start_size": [1, 2],
+  "end_size": 1,
+  "start_color": "#f2f6f7ff",
+  "end_color": "#a8dcef00",
+  "fade_out": 0.4,
+  "burst": 12
+}

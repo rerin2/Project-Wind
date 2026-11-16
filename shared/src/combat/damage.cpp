@@ -20,6 +20,10 @@ float physical_attack_power(float base_power, float strength_scaling, float stre
     return sane(base_power) * (1.0f + sane(strength_scaling) * sane(strength_bonus));
 }
 
+float magic_attack_power(float base_magic, float intelligence_bonus) {
+    return sane(base_magic) * (1.0f + sane(intelligence_bonus));
+}
+
 DamageResult compute_damage(const DamageInput& input, const DamageRules& rules) {
     if (input.invulnerable) {
         return {};

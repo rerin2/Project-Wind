@@ -74,7 +74,7 @@ Code: `client/src/game/entities/mana.*`, owned by `PlayerMotion`; spec 8.2. Test
 | `max` | 50 | Spec 8.2 curve at intelligence/mind 10; fixed until phase 13 |
 | `regen_per_second` | 2 | Spec 8.2; slow on purpose: 25 s from empty to full, so spells are a resource and resting refills them |
 
-## Star shard numbers (phase 9d data, cast in 9e)
+## Star shard numbers (phase 9d data, cast since 9e)
 
 `content/spells/star_shard.json`. Spec 8.6 gives MP 6, cast 0.25 s, power 1.0, intelligence 10; the flight values below were chosen in 9d (agreed with the developer).
 
@@ -85,7 +85,30 @@ Code: `client/src/game/entities/mana.*`, owned by `PlayerMotion`; spec 8.2. Test
 | `size` | 6 × 6 px | A small spark; smaller than a dummy hurtbox (20×34) so aim matters a little |
 | cost / regen | 6 MP of 50 | 8 shots from full; 3 s of regen per shot |
 | damage | 12 | magic attack 12 × (1 + 0 intelligence bonus) × power 1.0 against defense 0 |
-| moving while casting | slow walk | The heavy "great star shard" is the one that roots you (spec 8.6); the basic spell keeps you mobile. Exact walk speed is set in 9e |
+| moving while casting | slow walk, 0.4 × 110 = 44 px/s | The heavy "great star shard" is the one that roots you (spec 8.6); the basic spell keeps you mobile. 0.4 is slow enough that casting is a commitment but you can still step out of a slow attack |
+
+## Casting (phase 9e)
+
+Code: `client/src/game/combat/spell_caster.*`, `projectile.*`, `client/src/game/entities/player_motion.*`, `client/src/game/states/field_combat.*`; spec 8.6, 9.2. Tested in `spell_caster_tests.cpp`, `projectile_tests.cpp`, `player_motion_tests.cpp`, `field_combat_tests.cpp` (the last one with the real `star_shard.json`).
+
+- **Keys:** L or C. The press goes into the input buffer (0.15 s) like attack and dodge.
+- **Start:** allowed from idle, moving or running (state table). Not while attacking, dodging or already casting; the press then waits in the buffer and expires. One spell is fixed for now (star shard); Q and spell slots come in phase 15.
+- **MP is paid at the start, all or nothing.** With enough MP it is spent and the cast starts. With too little, nothing is spent, no cast starts, the press is used up (it does not fire later by itself), and a counter goes up so the HUD MP bar blinks.
+- **Cast time:** `cast_seconds` (0.25 s = 15 fixed steps). The spell goes off on the step the time is reached. The direction is fixed when the cast starts (the pressed direction, else the facing) and the hero keeps facing it while casting.
+- **While casting:** walk at 0.4 × speed, no running, no attack, no dodge (spec 8.5: only before a cast or while holding a beam; beams come later). Only projectile spells can be cast yet; melee and beam spells load but do nothing until phase 15.
+- **The shard** starts 10 px in front of the feet and flies at chest height (14 px above its ground point). Damage = magic attack 12 × (1 + intelligence bonus 0) × power, then spec 9.3 (`magic_attack_power`, `compute_damage`).
+
+| Spawn value | Number | Why |
+|---|---|---|
+| forward | 10 px | Just past the hero's body box, so it does not start inside the hero |
+| lift | 14 px | Chest height: hits a dummy hurtbox (34 px tall) whether you face it from the side or from above/below |
+
+### Flying shard rules
+
+- Each fixed step the shard moves `speed × dt`, split into steps of at most half its smallest side (3 px for the star shard), so a fast shot cannot jump over a 1-tile wall or a thin target.
+- After every small step it checks, in order: **target** (its body-height rect against standing dummy hurtboxes; the first one hit takes damage and the shard ends), then **wall** (its ground point's tile), then **range** (`range` px flown in total).
+- A tile blocked only by a standing entity (a dummy) is **not** a wall for shards, otherwise the shard would vanish just before the dummy. Out of the map counts as a wall.
+- Known limitation: shards use the walking map, so water and other "not walkable" ground also stop them. A separate "blocks shots" tile flag can come with the first map that needs it.
 
 ## Damage
 
@@ -99,13 +122,51 @@ Code: `shared/include/wind/combat/damage.hpp`; spec 8.2, 9.3. Tested in `shared/
   4. `max(minimum, raw − defense)`.
   5. Critical → × `crit_multiplier` (after defense).
   6. Round **down**, then clamp to `minimum…maximum`.
-- Critical hits are decided by the caller (a seeded game RNG arrives with the first crit chance; nothing rolls crits yet).
+- Critical hits are decided by the caller (see "Critical hits" below).
 
 | Rule | Value | Why |
 |---|---|---|
 | `minimum` | 1 | A hit always does something, even through heavy defense |
 | `maximum` | 99,999 | Far above any planned number; keeps the int conversion safe |
 | `crit_multiplier` | 1.5 | Noticeable without one-shotting |
+
+## Critical hits (phase 10a)
+
+Code: `client/src/game/combat/combat_random.*`, `hit_resolution.*`, `client/src/game/states/field_combat.*`. Tested in `combat_random_tests.cpp`, `field_combat_tests.cpp`.
+
+- Every hit that lands rolls once: chance = **5 %** + the weapon's `crit_bonus` (sword), or 5 % (spells). Chosen with the developer; the dagger's +10 % (spec 8.4) makes 15 %.
+- The roll uses `CombatRandom`, a seeded splitmix64 generator written out in code, so the same seed gives the same crits on every compiler (spec 9.3). It is separate from the particle RNG, so effects can never change combat. The field seeds it randomly on entry; tests pass a fixed seed (or chance 0 to check exact damage).
+- A critical hit deals × 1.5 after defense (longsword 1st hit 14 → 21). F3 marks it with `!` (`last hit 21!`); the big coloured number comes in 10b.
+
+## Knockback (phase 10a)
+
+Code: `client/src/game/combat/knock_sway.*`, `training_dummy.*`. Tested in `knock_sway_tests.cpp`, `field_combat_tests.cpp`.
+
+- The hit pushes along the swing direction (the hero's facing) or the shard's flight direction, with the attack's or spell's `knockback` (px/s) as starting speed.
+- **Training dummies** stand on a blocked tile, so they are never moved off it (chosen with the developer). Their body sways instead: a damped spring pulls the offset back to 0. The offset is simulation state: the hurtbox moves with it, the feet/tile do not. Real knockback that moves a character through the map (with wall sliding) comes with monsters in phase 11.
+
+| Spring | Value | Why |
+|---|---|---|
+| `stiffness` | 300 /s² | Returns in about a third of a second, snappy like a padded post |
+| `damping` | 14 /s | One small overshoot, then still |
+| `max_offset` | 8 px | A quarter tile: clearly visible, never leaves the tile; the finisher (160) reaches it |
+
+Longsword hit 1 (90) peaks at about 4 px; hit 3 (160) at about 7–8 px; the star shard (40) at about 2 px.
+
+## Hitstop (phase 10a)
+
+Code: `client/src/game/combat/hit_stop.*`, `client/src/game/states/field_state.cpp`. Tested in `hit_stop_tests.cpp`.
+
+- When a hit lands, the field simulation (hero, dummies, shards) freezes for the attack's `hitstop` seconds. Spec 3.2: the only way it reaches the simulation is the time scale, `sim_dt = step × time_scale` (0 while frozen, 1 otherwise). Nothing is moved or skipped; frozen steps simply advance by 0.
+- The freeze counts down in real step time and starts on the step after the hit. A second hit during a freeze keeps the **longer** of the two (no stacking); values are capped at 0.5 s.
+- Button presses during the freeze stay in the input buffer (its timer does not run), so a combo press during hitstop still chains.
+- Time of day and presentation (particles, later shake and numbers) keep running.
+
+| Data | Hitstop | Frozen steps (60 Hz) |
+|---|---|---|
+| longsword 1 / 2 | 0.05 s | 3 |
+| longsword 3 | 0.09 s | 6 |
+| star shard | 0.03 s | 2 |
 
 ## Longsword combo
 
@@ -164,7 +225,7 @@ Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `charact
 | dead | transitioning, idle (respawn) |
 | transitioning | idle |
 
-For now the hero only uses idle, moving, running, attacking and dodging; F3 shows the state and the combo hit (`attacking 2`).
+For now the hero uses idle, moving, running, attacking, casting and dodging; F3 shows the state and the combo hit (`attacking 2`).
 
 ## Time
 
@@ -173,4 +234,4 @@ For now the hero only uses idle, moving, running, attacking and dodging; F3 show
 
 ## Not yet defined
 
-The rest of combat (casting and flying star shards in phase 9e; hit feel, monsters, survival in 10–12), growth and items (13–15), and saves (16) are defined later (spec section 19).
+The rest of combat (hit feel, monsters, survival in 10–12; more spells, Q and spell slots in 15), growth and items (13–15), and saves (16) are defined later (spec section 19).

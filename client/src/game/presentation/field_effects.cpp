@@ -17,6 +17,9 @@ namespace {
 // 먼지 효과 파일 (콘텐츠 폴더 기준)
 constexpr std::string_view kDustWalkFx = "fx/dust_walk.json";
 constexpr std::string_view kDustDodgeFx = "fx/dust_dodge.json";
+// 별빛 조각 효과 파일: 날아가는 꼬리, 사라질 때 반짝 (9e)
+constexpr std::string_view kStarTrailFx = "fx/star_trail.json";
+constexpr std::string_view kStarBurstFx = "fx/star_burst.json";
 // 시험용 부하 효과의 수명(초). 부하 개수 ÷ 수명 = 1초에 만들 개수
 constexpr float kStressLifetime = 4.0f;
 
@@ -55,6 +58,8 @@ FieldEffects load_field_effects(const std::filesystem::path& content_root,
     FieldEffects effects;
     effects.dust_walk = load_effect(content_root, kDustWalkFx);
     effects.dust_dodge = load_effect(content_root, kDustDodgeFx);
+    effects.star_trail = load_effect(content_root, kStarTrailFx);
+    effects.star_burst = load_effect(content_root, kStarBurstFx);
     for (const auto& path : ambience.ambient_fx) {
         if (auto effect = load_effect(content_root, path)) {
             effects.ambient.push_back(std::move(*effect));

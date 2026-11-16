@@ -210,7 +210,7 @@ int ClientApp::run() {
         travel.update(static_cast<float>(frame_seconds), enter_map);
         field_ui.update(static_cast<float>(frame_seconds),
                         {field->stamina().fraction(), field->stamina().exhausted(),
-                         field->mana().fraction(), field->mana().max()});
+                         field->mana().fraction(), field->mana().max(), field->mana_denied_count()});
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();

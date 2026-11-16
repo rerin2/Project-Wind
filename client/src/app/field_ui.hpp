@@ -13,6 +13,7 @@
 #include "game/ui/area_banner.hpp"
 #include "game/ui/delayed_bar.hpp"
 
+#include <optional>
 #include <string_view>
 
 namespace wind::client {
@@ -23,6 +24,7 @@ struct HudInfo {
     bool exhausted = false;
     float mana = 1.0f;       // 0~1
     float mana_max = 50.0f;  // 최대 MP (바 길이가 이 값에 비례해요, 명세 13.2)
+    unsigned mana_denied = 0;  // MP가 모자라 마술이 안 나간 횟수. 늘면 MP 바가 깜빡여요 (명세 9.2)
 };
 
 class FieldUi {
@@ -52,6 +54,8 @@ private:
     game::DelayedBar stamina_;
     game::DelayedBar mana_;
     float mana_max_ = 50.0f;  // 바 길이 계산용
+    std::optional<unsigned> mana_denied_seen_;  // 마지막으로 본 "MP 모자람" 횟수 (처음엔 없음)
+    float mana_blink_ = 0.0f;  // MP 바가 깜빡일 남은 시간 (초)
     bool exhausted_ = false;
     float clock_ = 0.0f;  // 깜빡임용 시계
     UiTestPanel panel_;

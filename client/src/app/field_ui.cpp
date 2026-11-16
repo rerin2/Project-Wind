@@ -26,6 +26,8 @@ constexpr float kHudPixelsPerPoint = 0.8f;
 constexpr float kManaInnerMin = 8.0f;    // 최대 MP가 아주 작아도 보이게
 constexpr float kManaInnerMax = 200.0f;  // 이상한 값이 와도 화면을 넘지 않게
 constexpr engine::Color kManaColor{95, 163, 208, 255};  // 하늘색 (팔레트 sky #5fa3d0)
+constexpr float kManaBlinkSeconds = 0.6f;  // MP가 모자라 마술이 안 나가면 이만큼 깜빡여요
+constexpr float kManaBlinkHz = 8.0f;       // 1초에 8번 (지침 4번보다 빠르게: 순간 알림이라서)
 
 // 배너: 화면 위에서 44픽셀 아래, 이름 양옆으로 짧은 선
 constexpr float kBannerY = 44.0f;
@@ -66,6 +68,12 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     mana_.set(hud.mana);
     mana_.update(dt_seconds);
     mana_max_ = hud.mana_max;
+    // "MP 모자람" 횟수가 늘었으면 깜빡이기 시작. 처음 본 값과, 맵을 옮겨 0으로 돌아간 값은 깜빡이지 않아요.
+    if (mana_denied_seen_ && hud.mana_denied > *mana_denied_seen_) {
+        mana_blink_ = kManaBlinkSeconds;
+    }
+    mana_denied_seen_ = hud.mana_denied;
+    mana_blink_ = std::max(0.0f, mana_blink_ - dt_seconds);
     banner_.update(dt_seconds);
     panel_.update(dt_seconds);
 }
@@ -113,6 +121,12 @@ void FieldUi::draw_mana(engine::UiPainter& painter) {
     const engine::RectF outer{kStaminaRect.x, kManaBarY, inner_w + 2.0f, kStaminaRect.h};
     const engine::RectF inner{outer.x + 1.0f, outer.y + 1.0f, inner_w, outer.h - 2.0f};
     renderer.fill_rect(outer, kBarOutline);  // 테두리
+    if (mana_blink_ > 0.0f) {                // MP 모자람: 테두리가 빨갛게 빠르게 깜빡여요
+        const float wave = 0.5f + 0.5f * std::sin(clock_ * kManaBlinkHz * 2.0f * std::numbers::pi_v<float>);
+        engine::Color warn = kExhaustedColor;
+        warn.a = static_cast<std::uint8_t>(80.0f + 175.0f * wave);
+        renderer.fill_rect(outer, warn);
+    }
     renderer.fill_rect(inner, kBarEmpty);    // 빈칸
     // 꼬리(방금 쓴 만큼) 먼저, 그 위에 진짜 바
     const float trail_w = std::round(inner.w * mana_.trail());

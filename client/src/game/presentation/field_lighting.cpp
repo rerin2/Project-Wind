@@ -118,6 +118,8 @@ const engine::LightingFrame& FieldLighting::build(const engine::Camera2D& camera
     if (player_light_) {
         visible_.push_back(*player_light_);
     }
+    // 움직이는 빛(빛 탄)도 앞쪽에: 몇 개 안 되고, 잘리면 마술이 어둡게 날아가 보여요
+    visible_.insert(visible_.end(), moving_.begin(), moving_.end());
     for (std::size_t i = 0; i < lights_.size(); ++i) {
         engine::Light light = lights_[i];
         if (night_only_[i]) {

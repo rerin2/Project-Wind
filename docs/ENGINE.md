@@ -26,9 +26,9 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/engine/platform` | `wind_client` | **yes** | `SdlPlatform`: SDL and SDL_ttf init, window, `Renderer`, `TextRenderer`, event → `InputState` |
 | `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
-| `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `Mana` (MP, all-or-nothing spend, steady regen), `CharacterState` + `can_transition` (state table), `PlayerMotion` (mover + stamina + attack + dodge/attack buffer in one fixed step), facing helpers |
-| `client/src/game/combat` | `wind_game_core` | no | `AttackRunner` (windup → active → recovery, cancel window, combo order, one hit per target per swing), `place_hitbox` (facing-aware hitbox rect), `TrainingDummy` (HP, knockdown, recovery), `resolve_swing` (hitbox ∩ hurtbox → one hit per swing → `compute_damage`) |
-| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `CombatView` (dummies, HP bars, F4 hit/hurt boxes), `SlashArc` (swing arc), `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
+| `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `Mana` (MP, all-or-nothing spend, steady regen), `CharacterState` + `can_transition` (state table), `PlayerMotion` (mover + stamina + MP + attack + cast + dodge/attack/cast buffer in one fixed step), facing helpers |
+| `client/src/game/combat` | `wind_game_core` | no | `AttackRunner` (windup → active → recovery, cancel window, combo order, one hit per target per swing), `place_hitbox` (facing-aware hitbox rect), `TrainingDummy` (HP, knockdown, recovery), `resolve_swing` (hitbox ∩ hurtbox → one hit per swing → `compute_damage`), `SpellCaster` (cast timer, projectile spells only), `CombatRandom` (seeded splitmix64 for crits), `KnockSway` (spring knockback for planted props), `HitStop` (hit freeze → simulation `time_scale`), `Projectile` (flight in sub-steps of half its size; target → wall → range; entity-only tiles are not walls) |
+| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `CombatView` (dummies, HP bars, F4 hit/hurt boxes), `SlashArc` (swing arc), `SpellView` (cast glow, shards, trail/burst, shard lights, F4 shard boxes), `FieldCamera` (follow + look-ahead), `queue_shadow`, `AmbientParticles`, `FieldLighting` (also takes moving lights each frame), `load_field_effects` (effects that only read simulation state) |
 | `client/src/game/ui` | `wind_game_core` | no | `AreaBanner` (in → hold → out timeline), `DelayedBar` (trail, smooth fill, auto-hide) |
 | `client/src/app` (`field_ui`, `ui_test_panel`, `ui_resources`, `transition_view`) | `wind_client` | no (uses `UiPainter`) | HUD stamina bar, area banner, F7 UI test panel, UI resource loading, fade/iris/notice drawing |
 | `client/src/game/world` | `wind_game_core` | no | `GameClock` (time of day), `MapTravel` (cover screen → enter map → uncover, failure notice) |
@@ -228,6 +228,7 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 | `cast_seconds` | yes | 0–5 s before the spell goes off |
 | `power` | yes | 0–10; damage = magic attack (spec 8.2) × power, then spec 9.3 |
 | `projectile` **or** `melee` **or** `beam` | exactly one | the spell's motion (below) |
+| `knockback`, `hitstop`, `shake` | no (0) | 0–1000 px/s, 0–0.5 s, 0–1; same meaning as on an attack (phase 10a) |
 | `fx`, `sfx` | no | content paths |
 | `light` | no | `radius` 1–512 px, `color` `#rrggbb[aa]`, `intensity` 0–1 (presentation only) |
 
@@ -267,9 +268,9 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 ## Input (spec 5.8)
 
 - `SdlPlatform` translates SDL **scancodes** (physical keys, layout-independent) into engine `Key`s; OS key-repeat events are ignored.
-- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Shift run (held), Space/K/X dodge, Enter confirm (UI), F3 debug overlay, F4 collision overlay, F5 skip time, F6 next weather, F7 UI test panel, F12 screenshot, Esc quit (closes the UI test panel instead when it is open). Left and right Shift both map to `Key::Shift`.
+- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Shift run (held), Space/K/X dodge, J/Z attack, L/C cast, Enter confirm (UI), F3 debug overlay, F4 collision overlay, F5 skip time, F6 next weather, F7 UI test panel, F12 screenshot, Esc quit (closes the UI test panel instead when it is open). Left and right Shift both map to `Key::Shift`.
 - `MovementIntent` turns held move keys into an 8-way unit vector (diagonals are normalized). When opposite keys are both held, the most recently pressed one wins.
-- `InputBuffer` remembers a dodge press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
+- `InputBuffer` remembers a dodge, attack or cast press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
 - `InputState::set_ui_capture(true)` makes all game queries return false (for menus and text input, phases 15 and 17). In phase 8 the game loop gives the field an empty input while `FieldUi::captures_input()` (UI test panel open) or a map transition is running; the UI itself reads the real input first.
 - Saving custom bindings is not implemented yet.
 
@@ -371,7 +372,7 @@ F12, or `--screenshot-at N` (repeatable) for automated checks, saves the frame t
 
 ## Debug overlay (spec 5.10)
 
-F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/running/dodging), facing, speed, stamina (and "exhausted"), draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures, UI text draws / cached texts / clipped texts this frame, and two lines of key help. F4 toggles the red collision overlay, the cyan feet box, the yellow hurtboxes of standing dummies and the red sword hitbox while it is active. Phase 9c adds a combat line: `dummies N  last hit A -> #id hp/max (down)`. Since phase 8 the panel starts **hidden**, because the HUD now sits in the top-left corner (`--press f3@2` shows it in scripted runs).
+F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/running/dodging), facing, speed, stamina (and "exhausted"), draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures, UI text draws / cached texts / clipped texts this frame, and two lines of key help. F4 toggles the red collision overlay, the cyan feet box, the yellow hurtboxes of standing dummies and the red sword hitbox while it is active. Phase 9c adds a combat line, extended in 9e: `mp 44/50  dummies N  shards N  last hit A -> #id hp/max (down)`; F4 also shows flying shards as purple boxes. Scripted runs can press `l` (`--press l@60`). Since phase 8 the panel starts **hidden**, because the HUD now sits in the top-left corner (`--press f3@2` shows it in scripted runs).
 
 ## Known limitations
 
@@ -384,3 +385,4 @@ F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map 
 - Key binding persistence is not implemented.
 - Sprites have 4 directions; 8-way movement picks the nearest of the four (`facing_from_vector`). There is no dedicated dodge animation yet (the walk clip plays at 2× speed).
 - Movement tuning lives in code (`MovementTuning`) until a character data file exists.
+- Shards are stopped by every non-walkable tile, water included (there is no "blocks shots" tile flag yet).

@@ -3,7 +3,7 @@
 // 이 파일은 무엇을 하나요?
 // 필드 화면의 조명 담당이에요. (명세 6.3)
 // - 맵의 분위기 정보(주변광, 횃불 같은 빛)를 받아서 빛 목록을 만들어요.
-// - 주인공을 따라다니는 작은 빛을 움직여요.
+// - 주인공을 따라다니는 작은 빛을 움직여요. 날아가는 빛 탄 같은 움직이는 빛도 받아요.
 // - 횃불 자리에서 불티(파티클)를 계속 뿜어요.
 // - 매 화면, 보이는 빛만 골라 렌더러에 줄 "조명 준비물"(LightingFrame)을 만들어요.
 // 맵에 주변광이 없으면(밝은 낮 맵) 조명을 쓰지 않아요.
@@ -39,6 +39,8 @@ public:
     // ambient: 바깥 주변광 (있으면 맵의 고정 주변광 대신 써요), night: 밤 정도 0~1
     // night_only 빛(가로등)은 밤 정도만큼 밝아져요.
     void set_conditions(std::optional<world::Rgba> ambient, float night);
+    // 이번 화면에 움직이는 빛들 (날아가는 빛 탄 등). 주인공 빛 다음, 맵 빛보다 먼저 그려요.
+    void set_moving_lights(std::vector<engine::Light> lights) { moving_ = std::move(lights); }
 
     // 시간이 흘렀어요: 깜빡임 시계를 돌리고, 주인공 빛을 옮기고, 불티를 뿜어요.
     void update(float dt_seconds, engine::Vec2 player_feet, engine::ParticleRandom& random,
@@ -65,6 +67,7 @@ private:
     std::vector<bool> night_only_;               // lights_와 같은 순서: 밤에만 켜지는 빛인가
     std::vector<engine::Light> lights_;           // 맵에 놓인 빛 (+ 시험용 빛)
     std::optional<engine::Light> player_light_;   // 주인공을 따라다니는 빛
+    std::vector<engine::Light> moving_;           // 이번 화면의 움직이는 빛 (빛 탄)
     std::vector<FxSource> fx_sources_;
     std::vector<engine::Light> visible_;          // build 때 쓰는 임시 목록 (매번 새로 만들지 않으려고)
     double time_ = 0.0;                           // 깜빡임 시계 (초)
