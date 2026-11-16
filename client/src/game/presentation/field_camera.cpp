@@ -24,6 +24,12 @@ FieldCamera::FieldCamera(engine::Vec2 viewport, engine::Vec2 map_size, float til
     camera_.set_viewport(viewport);
     camera_.set_world_bounds({0.0f, 0.0f, map_size.x, map_size.y});  // 맵 밖은 안 보여요
     camera_.center_on(body_center(start_feet));
+    view_ = camera_;  // 처음엔 흔들림 없음
+}
+
+void FieldCamera::set_shake(engine::Vec2 offset) {
+    view_ = camera_;                                // 따라가는 카메라를 복사해서
+    view_.center_on(camera_.center() + offset);     // 흔들림만큼 옮겨요 (맵 끝에서는 경계에 막혀요)
 }
 
 void FieldCamera::follow(engine::Vec2 feet, engine::Vec2 velocity, float speed, float max_speed,
@@ -32,6 +38,7 @@ void FieldCamera::follow(engine::Vec2 feet, engine::Vec2 velocity, float speed, 
     const float run = max_speed > 0.0f ? std::min(1.0f, speed / max_speed) : 0.0f;
     look_ahead_.update(engine::normalized(velocity) * run, dt_seconds);
     camera_.follow(body_center(feet) + look_ahead_.offset(), dt_seconds, kCameraStiffness);
+    view_ = camera_;  // 흔들림은 set_shake가 다시 얹어요
 }
 
 engine::Vec2 FieldCamera::body_center(engine::Vec2 feet) const {

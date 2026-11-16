@@ -5,6 +5,7 @@
 
 #include "app/client_app.hpp"
 
+#include "app/damage_number_drawing.hpp"
 #include "app/debug_overlay.hpp"
 #include "app/field_ui.hpp"
 #include "app/screenshot_flash.hpp"
@@ -110,9 +111,13 @@ int ClientApp::run() {
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
     auto make_field = [&](std::string_view map_path, std::string_view spawn_id) {
-        return game::FieldState::create(resources, renderer, map_path, kPlayerSheet,
-                                        renderer.logical_size(), spawn_id, stress,
-                                        options_.start_weather);
+        auto made = game::FieldState::create(resources, renderer, map_path, kPlayerSheet,
+                                             renderer.logical_size(), spawn_id, stress,
+                                             options_.start_weather);
+        if (made) {
+            made->set_feel(options_.feel);  // 흔들림·번쩍임 세기 (접근성, 새 맵마다)
+        }
+        return made;
     };
     auto field = make_field(options_.map, "default");
     if (!field) {
@@ -224,6 +229,8 @@ int ClientApp::run() {
         renderer.submit(queue, engine::DrawLayer::Ground, engine::DrawLayer::WorldFx);
         renderer.apply_lighting(field->lighting());
         renderer.submit(queue, engine::DrawLayer::Glow, engine::DrawLayer::DebugOverlay);
+        // 피해 숫자: 조명 뒤라 밤에도 잘 보이고, HUD보다 아래예요 (10b)
+        draw_damage_numbers(painter, field->camera(), field->damage_numbers());
         // 7. HUD(스태미나 바)와 지역 이름 배너. 화면 가리기보다 아래라서 맵과 함께 어두워져요.
         const engine::Vec2 screen = renderer.logical_size();
         field_ui.draw_hud(painter, screen);

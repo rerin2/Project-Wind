@@ -4,6 +4,8 @@
 // 게임을 켤 때 고를 수 있는 설정(창 크기, 맵 파일 등)을 담는 "주문서"의 모양을 정해요.
 // SDL(창 도구 상자)을 쓰지 않아서, 창을 띄우지 않고도 숙제 검사(테스트)를 할 수 있어요.
 
+#include "game/presentation/feel_settings.hpp"
+
 #include "wind/log.hpp"
 #include "wind/world/direction.hpp"
 
@@ -52,6 +54,8 @@ struct ClientOptions {
     std::vector<KeyHold> holds;
     // 시작 시각 (0~24). 비어 있으면 아침 9시.
     std::optional<float> start_hour;
+    // 접근성: 화면 흔들림·번쩍임 세기 0~1 (--shake, --flash). 설정 화면은 15단계
+    game::FeelSettings feel;
     // 처음 날씨 이름 ("rain" 등). 비어 있으면 날씨 표의 확률대로.
     std::string start_weather;
     // 스크린샷 저장 폴더. 비어 있으면 %APPDATA%\ProjectWIND\screenshots

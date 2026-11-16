@@ -37,6 +37,11 @@ constexpr engine::Color kBodyBoxColor{80, 200, 255, 140};
 // 휘두를 때 보이는 칼자국 그림 (흰 반달, 생성기 스크립트가 그려요)
 constexpr std::string_view kSlashTexture = "fx/slash_arc.bmp";
 
+// 읽은 효과가 있으면 그 주소, 없으면 nullptr (효과를 빌려 쓰는 담당들에게 넘겨요)
+const engine::ParticleEffect* effect_ptr(const std::optional<engine::ParticleEffect>& effect) {
+    return effect ? &*effect : nullptr;
+}
+
 }  // namespace
 
 // 필드 화면 만들기: 파일 준비물을 읽고, 그림을 만들어요. 꼭 필요한 게 잘못되면 nullptr(없음).
@@ -94,18 +99,16 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
               world::Direction::Down, MovementTuning{}, StaminaTuning{}, kInputBufferSeconds,
               std::move(assets.weapon)),
       combat_(std::move(assets.dummies), std::random_device{}()),            // 허수아비들, 치명타 주사위 씨앗
-      combat_view_(textures_.shadow(), std::move(combat_textures.dummies)),    // 허수아비 그림 (그림자 같이 씀)
-      slash_(combat_textures.slash),                                           // 칼자국 그림
-      // 마술 연출: 꼬리·반짝 효과, 둥근 빛 그림, 마술이 내는 빛
-      spell_view_(effects_.star_trail ? &*effects_.star_trail : nullptr,
-                  effects_.star_burst ? &*effects_.star_burst : nullptr, textures_.light(),
-                  assets.spell ? assets.spell->light : std::nullopt),
+      // 싸움 연출: 그림자·칼자국·빛 그림, 허수아비 그림, 빛 탄·불꽃 효과, 마술 빛
+      combat_fx_(CombatFxSetup{textures_.shadow(), combat_textures.slash, textures_.light(),
+                               std::move(combat_textures.dummies), effect_ptr(effects_.star_trail),
+                               effect_ptr(effects_.star_burst), effect_ptr(effects_.hit_spark),
+                               assets.spell ? assets.spell->light : std::nullopt}),
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
       // effects_는 위에서 이미 만들어졌고, 이 화면이 사라질 때까지 그대로라서 빌려 써도 안전해요.
-      dust_emitter_(effects_.dust_walk ? &*effects_.dust_walk : nullptr,
-                    effects_.dust_dodge ? &*effects_.dust_dodge : nullptr),
+      dust_emitter_(effect_ptr(effects_.dust_walk), effect_ptr(effects_.dust_dodge)),
       // 조명: 맵 분위기 + (시험용이면) 시작 위치 주변에 빛을 더 놓아요.
       lighting_(map_.map.ambience, map_.map.tile_size, effects_.light_fx, stress_lights,
                 player_.mover().feet()),
@@ -155,9 +158,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     for (const auto& hit : combat_.hits()) {
         hit_stop_.trigger(hit.hitstop);  // 이번에 맞았으면 다음 박자부터 멈칫
     }
-    // 사라진 빛 탄은 다음 frame_update에서 반짝여요 (한 화면에 박자가 여러 번이어도 안 빠지게 모아 둬요)
-    const auto& ends = combat_.projectile_ends();
-    shard_ends_.insert(shard_ends_.end(), ends.begin(), ends.end());
+    combat_fx_.collect(combat_);  // 맞은 일·사라진 빛 탄은 다음 frame_update에서 연출해요 (안 빠지게 모아 둬요)
 
     // 출구 확인: 발이 출구 칸에 들어가면 "다른 맵으로 가 주세요" 요청을 남겨요.
     // 출구가 아닌 칸을 한 번 밟은 뒤에만 출구가 동작해요(무장). 그래야 출구 바로 옆에서
@@ -194,26 +195,19 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     // 하늘과 공기: 시간 색, 날씨(빗줄기·눈·물 튀김), 밤 효과. 그 결과를 조명에 알려 줘요.
     atmosphere_.update(dt, hour, camera_rig_.camera().view_rect(), fx_random_, air_fx_, ground_fx_);
     lighting_.set_conditions(atmosphere_.conditions().ambient, atmosphere_.conditions().night);
-    // 마술 연출: 시전 중 손끝 빛, 빛 탄 꼬리, 사라진 자리 반짝. 빛 탄 빛은 조명에 더해요.
-    std::optional<CastGlow> cast;
-    if (player_.caster().busy()) {
-        cast = CastGlow{FieldCombat::spell_hand(feet, player_.cast_facing()), player_.caster().progress()};
-    }
-    spell_view_.update(dt, combat_.projectiles(), static_cast<float>(alpha), shard_ends_, cast, fx_random_, air_fx_);
-    shard_ends_.clear();
-    lighting_.set_moving_lights(spell_view_.lights(combat_.projectiles(), static_cast<float>(alpha)));
+    // 싸움 연출: 번쩍임·흔들림·숫자·불꽃, HP 바, 칼자국, 손끝 빛·빛 탄 (결과를 보기만 해요)
+    combat_fx_.update(dt, static_cast<float>(alpha), combat_, player_, feet, fx_random_, air_fx_);
+    lighting_.set_moving_lights(combat_fx_.lights(combat_, static_cast<float>(alpha)));  // 빛 탄 빛
     lighting_.update(dt, feet, fx_random_, air_fx_);
     air_fx_.update(dt);
 
     // 주인공 그림: 동작 그림 넘기기와 구르기 잔상
     sprite_.update(dt_seconds, player_.mover(), feet);
-    // 싸움 연출: 허수아비 HP 바와 칼자국 (판정 결과를 보기만 해요)
-    combat_view_.update(dt, combat_.dummies());
-    slash_.update(dt, player_.attack(), player_.attack_hitbox(), player_.mover().facing());
 
-    // 카메라: 가는 쪽을 조금 더 보여 주면서 캐릭터 몸 가운데를 따라가요.
+    // 카메라: 가는 쪽을 조금 더 보여 주면서 캐릭터 몸 가운데를 따라가고, 흔들림을 얹어요.
     camera_rig_.follow(feet, player_.mover().velocity(), player_.mover().speed(),
                        player_.mover().tuning().max_speed, dt);
+    camera_rig_.set_shake(combat_fx_.shake_offset());
 }
 
 // 이번 화면에 그릴 것들을 그리기 목록(렌더 큐)에 넣어요. 실제로 그리는 건 렌더러가 해요.
@@ -229,11 +223,8 @@ void FieldState::render(engine::RenderQueue& queue) {
 
     // 3) 잔상, 플레이어, 먼지: 모두 발 위치(y)로 줄을 서요.
     sprite_.queue(camera_rig_.camera(), feet, player_.mover().facing(), queue);
-    // 허수아비(주인공과 발 위치로 줄 서기), HP 바, 칼자국, F4면 판정 상자
-    combat_view_.queue(camera_rig_.camera(), combat_.dummies(), player_.attack_hitbox(), show_collision_, queue);
-    slash_.queue(camera_rig_.camera(), queue);
-    // 손끝 빛과 날아가는 빛 탄 (F4면 빛 탄 네모)
-    spell_view_.queue(camera_rig_.camera(), combat_.projectiles(), static_cast<float>(alpha_), show_collision_, queue);
+    // 허수아비·HP 바·번쩍임, 칼자국, 손끝 빛·빛 탄 (F4면 판정 상자)
+    combat_fx_.queue(camera_rig_.camera(), combat_, player_, static_cast<float>(alpha_), show_collision_, queue);
     engine::queue_particles(ground_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::YSorted, queue);
     // 공중 효과는 나뭇잎보다도 위에 그려요.
     engine::queue_particles(air_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::WorldFx, queue,

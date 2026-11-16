@@ -118,4 +118,22 @@ TEST(ClientOptions, ParsesHold) {
     EXPECT_FALSE(parse({"--hold", "shift@30"}).options.has_value());
 }
 
+// 접근성 (10b): 흔들림·번쩍임 세기 0~1. 기본은 1, 0이면 끔. 범위 밖이나 숫자가 아니면 거절해요.
+TEST(ClientOptions, ParsesFeelStrengths) {
+    const auto plain = parse({});
+    ASSERT_TRUE(plain.options.has_value());
+    EXPECT_FLOAT_EQ(plain.options->feel.shake, 1.0f);
+    EXPECT_FLOAT_EQ(plain.options->feel.flash, 1.0f);
+
+    const auto result = parse({"--shake", "0", "--flash", "0.5"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_FLOAT_EQ(result.options->feel.shake, 0.0f);
+    EXPECT_FLOAT_EQ(result.options->feel.flash, 0.5f);
+
+    EXPECT_FALSE(parse({"--shake", "1.5"}).options.has_value());
+    EXPECT_FALSE(parse({"--flash", "-0.1"}).options.has_value());
+    EXPECT_FALSE(parse({"--shake", "lots"}).options.has_value());
+    EXPECT_FALSE(parse({"--flash", "nan"}).options.has_value());
+}
+
 }  // namespace

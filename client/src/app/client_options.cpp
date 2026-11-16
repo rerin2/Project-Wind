@@ -34,6 +34,17 @@ bool is_scriptable_key(std::string_view name) {
     return false;
 }
 
+// 0 이상 1 이하의 숫자 글자를 읽어요 ("0.5"). 숫자가 아니거나 범위 밖이면 nullopt
+std::optional<float> parse_unit(std::string_view value) {
+    const std::string text(value);
+    char* end = nullptr;
+    const float number = std::strtof(text.c_str(), &end);
+    if (text.empty() || end != text.c_str() + text.size() || !(number >= 0.0f && number <= 1.0f)) {
+        return std::nullopt;  // NaN도 여기서 걸러요 (비교가 늘 거짓)
+    }
+    return number;
+}
+
 // "잘못됐어요" 결과를 만들어요. 왜 잘못됐는지 메시지를 함께 담아요.
 ClientParseResult fail(std::string message) {
     return ClientParseResult{.options = std::nullopt, .error = std::move(message)};
@@ -159,6 +170,14 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
             }
             options.start_hour = hour;
         }
+        else if (arg == "--shake" || arg == "--flash") {
+            // 접근성: 화면 흔들림 / 맞을 때 번쩍임 세기 0~1 (0이면 끔)
+            const auto strength = parse_unit(value);
+            if (!strength) {
+                return fail(std::string(arg) + " must be a number from 0 to 1 (0 turns it off)");
+            }
+            (arg == "--shake" ? options.feel.shake : options.feel.flash) = *strength;
+        }
         else if (arg == "--weather") {
             // 처음 날씨 이름. 맵의 날씨 표에 없는 이름이면 확률대로 골라요.
             if (value.empty() || value.size() > 32) {
@@ -211,6 +230,8 @@ std::string_view client_usage() {
            "  --hold <key@a-b>     hold a key from frame a to b, e.g. shift@30-200; may repeat\n"
            "  --time <hours>       start time of day, 0 to below 24 (default 9)\n"
            "  --weather <id>       start weather from the map's table, e.g. rain\n"
+           "  --shake <0-1>        screen shake strength (default 1, 0 = off)\n"
+           "  --flash <0-1>        hit flash strength (default 1, 0 = off)\n"
            "  --help               show this message\n";
 }
 

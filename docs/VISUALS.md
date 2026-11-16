@@ -235,9 +235,22 @@ Code: `client/src/game/presentation/spell_view.cpp`; effects `content/fx/star_tr
 | Cast glow | at the hand point (10 px ahead, 14 px up), grows from 4 to 14 px over the cast: halo `#a8dcef` at 1.8× size, white core `#f2f6f7` at 0.6×; adds a light of half the spell radius whose brightness follows the cast progress | No cast animation exists yet; the growing spark shows the 0.25 s wind-up and where the shot will come from |
 | Shard | halo 20 px `#a8dcef` (alpha 210) twinkling ±12 % at 9 Hz, white core 7 px; drawn between the last two fixed steps | Palette ice/snow = "starlight"; the twinkle keeps a small 6 px shot readable at speed |
 | Trail | `star_trail`: pixel sparks, 70/s, 0.25–0.45 s, drift 4–14 px/s, ice → violet `#5d4f8f` fading out | A short glittering tail shows direction and speed without hiding the target |
-| Vanish | `star_burst`: 12 white → ice sparks, 30–75 px/s, 0.2–0.4 s, at the point the shard ended (wall, target or range) | Tells the player the shot is gone and where; damage feedback (flash, numbers) comes in phase 10 |
+| Vanish | `star_burst`: 12 white → ice sparks, 30–75 px/s, 0.2–0.4 s, at the point the shard ended (wall, target or range) | Tells the player the shot is gone and where; damage feedback (flash, numbers) is in "Hit feel" below |
 | Light | radius 36, `#a8dcef`, intensity 0.8, one per shard (added after the hero light so it is never cut by the light cap) | Spec 8.6: spells light their surroundings; at night the shot lights the grass as it flies |
 | F4 box | shard hit rect `#aa78ff` at 140 alpha | Debug only; purple keeps it apart from sword (red) and hurtboxes (yellow) |
+
+## Hit feel (phase 10b)
+
+Code: `client/src/game/presentation/field_combat_fx.cpp` (gathers hits per fixed step, plays them per frame), `screen_shake.cpp`, `damage_numbers.cpp`, `combat_view.cpp` (flash), `client/src/app/damage_number_drawing.cpp`; effect `content/fx/hit_spark.json`. Hitstop and knockback are simulation (phase 10a, `docs/GAMEPLAY.md`). All of this only reads hit events; none of it changes the result.
+
+| Element | Look | Why |
+|---|---|---|
+| White flash | the hit dummy is drawn a second time with additive blend, white tint, alpha 255 → 0 over **0.08 s** (spec 6.7), times the flash setting | Reads as a bright pop on the frame of impact. It brightens toward white rather than a flat white silhouette, which would need a mask texture; good enough for straw and wood |
+| Screen shake | trauma += attack `shake` × 2 (max 1), decays 1.6/s (full → 0 in about 0.6 s); offset = 6 px × setting × trauma², from two sine waves (11 Hz and 17 Hz, y phase-shifted); applied to a copy of the camera used for drawing only | Spec 6.7 "intensity² ": single light hits barely move the view (sword hit 1 ≈ 0.5 px), the finisher (0.35 → trauma 0.7 ≈ 3 px) and fast combos clearly do; sines keep it smooth and testable instead of jittery noise. The follow camera itself never shakes, so it never drifts |
+| Hit sparks | `hit_spark`: 9 streaks, gold-white `#fff0a8` → `#f2b544`, 70–150 px/s within 80° of the push direction, 0.12–0.25 s, additive; critical hits burst twice | Points the eye along the hit direction; one shared effect until more weapons arrive (phase 15, per-attack `fx`) |
+| Damage number | starts 32 px above the hurtbox centre (just above the HP bar), rises 14 px with ease-out over the first 35 % of 0.7 s, holds, fades from 60 %; consecutive numbers step 0 / +5 / −5 px sideways; max 32 on screen; text colour `#f2efe6` with the usual 1 px shadow; drawn after lighting | Readable at night, does not cover the HP bar (10 and 24 px starts overlapped it), stacked combo numbers do not sit on top of each other |
+| Critical number | bold, gold `#f2b544`, "!" suffix, rises 20 px, lives 0.9 s | Only one 12 px font size exists, so colour, weight, height and time carry the emphasis instead of size |
+| Settings | `--shake 0-1`, `--flash 0-1` (default 1) multiply shake distance and flash alpha; 0 turns them off. A settings screen and file come in phase 15 | Spec 6.7 / 13.3 accessibility |
 
 ## Dodge afterimages
 

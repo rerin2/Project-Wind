@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Phase 10b — hit feel (presentation)
+- `FieldCombatFx` gathers the combat views (dummies, slash, spell) and turns each hit into: white additive flash
+  (0.08 s), screen shake (`ScreenShake`, trauma² × 6 px on a drawing copy of the camera), hit sparks
+  (`fx/hit_spark.json`, twice on crits) and damage numbers (`DamageNumbers`; crits bold gold with "!").
+  `field_state.cpp` 299 → 290 lines.
+- Accessibility options `--shake 0-1`, `--flash 0-1` (`FeelSettings`); 0 turns them off.
+- 392 CTest tests. Phase 10 complete.
+
 ### Phase 10a — hitstop, knockback, crits (simulation)
 - `HitStop`: a landed hit freezes the field simulation for the attack's `hitstop`; it reaches the simulation only as
   `time_scale` (`sim_dt = step × scale`). Longer freeze wins, capped at 0.5 s.

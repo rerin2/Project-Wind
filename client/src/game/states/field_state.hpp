@@ -21,13 +21,12 @@
 #include "game/entities/player_motion.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/input/movement_intent.hpp"
-#include "game/presentation/combat_view.hpp"
 #include "game/presentation/player_sprite.hpp"
-#include "game/presentation/slash_arc.hpp"
-#include "game/presentation/spell_view.hpp"
 #include "game/presentation/ambient_particles.hpp"
+#include "game/presentation/feel_settings.hpp"
 #include "game/presentation/field_atmosphere.hpp"
 #include "game/presentation/field_camera.hpp"
+#include "game/presentation/field_combat_fx.hpp"
 #include "game/presentation/field_effects.hpp"
 #include "game/states/field_assets.hpp"
 #include "game/states/field_combat.hpp"
@@ -135,6 +134,11 @@ public:
     [[nodiscard]] const Stamina& stamina() const { return player_.stamina(); }
     // 주인공 MP (HUD 바용)
     [[nodiscard]] const Mana& mana() const { return player_.mana(); }
+    // 흔들림·번쩍임 세기 (접근성, --shake / --flash). 맵을 옮길 때마다 새 필드에 다시 알려 줘요.
+    void set_feel(const FeelSettings& settings) { combat_fx_.set_settings(settings); }
+    // 떠 있는 피해 숫자와, 그것을 화면 위치로 바꿀 카메라 (app 층이 글자로 그려요)
+    [[nodiscard]] const DamageNumbers& damage_numbers() const { return combat_fx_.damage_numbers(); }
+    [[nodiscard]] const engine::Camera2D& camera() const { return camera_rig_.camera(); }
     // MP가 모자라 마술이 안 나간 횟수 (HUD가 바뀐 걸 보고 MP 바를 깜빡여요)
     [[nodiscard]] unsigned mana_denied_count() const { return player_.mana_denied_count(); }
 
@@ -170,10 +174,7 @@ private:
     PlayerMotion player_;                    // 캐릭터의 몸: 다리(이동) + 스태미나 + 구르기 버튼 메모장
     FieldCombat combat_;                     // 허수아비들과 칼 판정 (9c)
     HitStop hit_stop_;                       // 맞는 순간 멈칫: 시뮬레이션 시간 배수 (10a)
-    CombatView combat_view_;                 // 허수아비 그림·HP 바·F4 판정 상자
-    SlashArc slash_;                         // 휘두를 때 보이는 칼자국
-    SpellView spell_view_;                   // 손끝 빛, 날아가는 빛 탄, 꼬리·반짝, 마술 빛 (9e)
-    std::vector<ProjectileEndEvent> shard_ends_;  // 지난 화면 뒤에 사라진 빛 탄 (반짝임용)
+    FieldCombatFx combat_fx_;                // 싸움 연출: 허수아비·칼자국·빛 탄·번쩍임·흔들림·피해 숫자
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요

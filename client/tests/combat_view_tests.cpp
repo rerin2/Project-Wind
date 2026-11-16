@@ -73,4 +73,40 @@ TEST(CombatView, BoxesOnlyWithF4) {
     EXPECT_EQ(count_layer(queue, DrawLayer::DebugOverlay), 2u);  // 허트박스 + 히트박스
 }
 
+// ---- 10b: 맞을 때 하얀 번쩍임 ----
+
+// 맞으면 0.08초 동안 같은 그림을 더하기 섞기로 한 번 더 그리고, 그 뒤에는 안 그려요.
+TEST(CombatView, FlashDrawsAdditiveCopyBriefly) {
+    CombatView view({1}, {{2}});
+    const std::vector<TrainingDummy> dummies{make_dummy()};
+    view.flash(dummies, 1);
+    EXPECT_FLOAT_EQ(view.flash_amount(0), 1.0f);
+    RenderQueue queue;
+    view.queue(make_camera(), dummies, std::nullopt, false, queue);
+    const auto adds = std::ranges::count_if(queue.commands(), [](const auto& c) {
+        return c.layer == DrawLayer::YSorted && c.sprite.blend == wind::engine::BlendMode::Add;
+    });
+    EXPECT_EQ(adds, 1);
+    view.update(0.05f, dummies);
+    EXPECT_NEAR(view.flash_amount(0), 0.375f, 1e-4f);  // 끝으로 갈수록 흐려져요
+    view.update(0.05f, dummies);
+    EXPECT_FLOAT_EQ(view.flash_amount(0), 0.0f);
+}
+
+// 번쩍임 세기 0이면 (접근성) 맞아도 번쩍이지 않아요. 다른 번호는 안 번쩍여요.
+TEST(CombatView, FlashRespectsStrengthAndTarget) {
+    CombatView view({1}, {{2}});
+    const std::vector<TrainingDummy> dummies{make_dummy()};
+    view.flash(dummies, 7);  // 없는 번호
+    EXPECT_FLOAT_EQ(view.flash_amount(0), 0.0f);
+    view.set_flash_strength(0.0f);
+    view.flash(dummies, 1);
+    EXPECT_FLOAT_EQ(view.flash_amount(0), 0.0f);
+    RenderQueue queue;
+    view.queue(make_camera(), dummies, std::nullopt, false, queue);
+    EXPECT_EQ(count_layer(queue, DrawLayer::YSorted), 1u);  // 원래 그림만
+    view.set_flash_strength(0.5f);
+    EXPECT_FLOAT_EQ(view.flash_amount(0), 0.5f);
+}
+
 }  // namespace

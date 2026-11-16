@@ -91,6 +91,9 @@ add_library(wind_game_core STATIC
     src/game/presentation/field_camera.cpp
     src/game/presentation/spell_view.cpp
     src/game/presentation/shadow_drawing.cpp
+    src/game/presentation/screen_shake.cpp
+    src/game/presentation/damage_numbers.cpp
+    src/game/presentation/field_combat_fx.cpp
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
@@ -111,6 +114,7 @@ add_executable(wind_client
     src/app/screenshot_flash.cpp
     src/app/scripted_input.cpp
     src/app/field_ui.cpp
+    src/app/damage_number_drawing.cpp
     src/app/ui_test_panel.cpp
     src/app/ui_resources.cpp
     src/app/transition_view.cpp
@@ -154,6 +158,8 @@ if(WIND_BUILD_TESTS)
         tests/training_dummy_tests.cpp
         tests/projectile_tests.cpp
         tests/spell_view_tests.cpp
+        tests/screen_shake_tests.cpp
+        tests/damage_numbers_tests.cpp
         tests/spell_caster_tests.cpp
         tests/combat_random_tests.cpp
         tests/knock_sway_tests.cpp

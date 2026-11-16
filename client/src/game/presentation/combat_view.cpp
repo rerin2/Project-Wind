@@ -24,6 +24,8 @@ constexpr engine::Color kBarOutline{16, 19, 28, 255};
 constexpr engine::Color kBarEmpty{40, 44, 60, 255};
 constexpr engine::Color kBarFill{214, 72, 64, 255};    // 빨강 (적 HP)
 constexpr engine::Color kBarTrail{250, 238, 196, 255};  // 방금 깎인 만큼 (크림색)
+// 맞을 때 하얀 번쩍임 (명세 6.7 기본값 0.08초)
+constexpr float kFlashSeconds = 0.08f;
 // F4 판정 상자 색 (반투명)
 constexpr engine::Color kHitboxColor{240, 60, 60, 110};    // 칼: 빨강
 constexpr engine::Color kHurtboxColor{240, 210, 60, 100};  // 허수아비: 노랑
@@ -57,6 +59,25 @@ CombatView::CombatView(engine::TextureHandle shadow, std::vector<engine::Texture
     for (std::size_t i = 0; i < textures_.size(); ++i) {
         bars_.emplace_back(bar_tuning(), 1.0f);  // 허수아비마다 바 하나 (가득 찬 채 시작)
     }
+    flash_left_.assign(textures_.size(), 0.0f);  // 처음에는 아무도 안 번쩍여요
+}
+
+void CombatView::flash(std::span<const TrainingDummy> dummies, TargetId target) {
+    const std::size_t count = std::min(dummies.size(), flash_left_.size());
+    for (std::size_t i = 0; i < count; ++i) {
+        if (dummies[i].id() == target) {
+            flash_left_[i] = kFlashSeconds;  // 맞은 허수아비를 처음부터 다시 번쩍
+        }
+    }
+}
+
+void CombatView::set_flash_strength(float strength) {
+    flash_strength_ = std::isfinite(strength) ? std::clamp(strength, 0.0f, 1.0f) : 1.0f;
+}
+
+float CombatView::flash_amount(std::size_t index) const {
+    if (index >= flash_left_.size()) return 0.0f;
+    return flash_strength_ * std::clamp(flash_left_[index] / kFlashSeconds, 0.0f, 1.0f);  // 끝으로 갈수록 흐려져요
 }
 
 void CombatView::update(float dt_seconds, std::span<const TrainingDummy> dummies) {
@@ -68,6 +89,9 @@ void CombatView::update(float dt_seconds, std::span<const TrainingDummy> dummies
                                    : 0.0f;          // 0~1
         bars_[i].set(fraction);                     // 줄면 바로 줄고 꼬리를 남겨요
         bars_[i].update(dt_seconds);                // 꼬리 따라가기, 차오르기, 숨기기
+    }
+    for (auto& left : flash_left_) {                // 번쩍임 시간 줄이기
+        left = std::max(0.0f, left - std::max(0.0f, dt_seconds));
     }
 }
 
@@ -105,6 +129,12 @@ void CombatView::queue_dummy(const engine::Camera2D& camera, const TrainingDummy
                  std::round(screen.y - static_cast<float>(sprite.origin_y)),
                  static_cast<float>(sprite.frame_width), static_cast<float>(sprite.frame_height)};
     queue.push_sprite(engine::DrawLayer::YSorted, dummy.feet().y, draw);  // 주인공과 발 위치로 줄 서기
+    const float flash = flash_amount(index);
+    if (flash > 0.0f) {  // 번쩍임: 같은 그림을 하얗게 더해요. 줄 서기 값이 같으면 나중에 넣은 게 위에 그려져요
+        draw.blend = engine::BlendMode::Add;
+        draw.tint = {255, 255, 255, static_cast<std::uint8_t>(std::lround(255.0f * flash))};
+        queue.push_sprite(engine::DrawLayer::YSorted, dummy.feet().y, draw);
+    }
 }
 
 void CombatView::queue_bar(const engine::Camera2D& camera, const TrainingDummy& dummy,

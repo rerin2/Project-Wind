@@ -6,7 +6,7 @@ All game content and branding are original. See [docs/MASTER_SPEC.md](docs/MASTE
 
 ## Status
 
-**Phase 10 (in progress, 10a done) — hit feel.** A landed hit now freezes the action for a few frames (hitstop), the dummy's body is pushed toward the hit and springs back, and 5 % of hits are critical for 1.5× damage (F3 shows `!`). Flash, screen shake, hit sparks and damage numbers come in 10b.
+**Phase 10 — hit feel.** A landed hit freezes the action for a few frames (hitstop), the dummy flashes white, its body is pushed toward the hit and springs back, gold sparks fly, and a damage number pops up above its HP bar; the combo finisher shakes the screen. 5 % of hits are critical for 1.5× damage, shown as a bold gold number with "!". `--shake 0` and `--flash 0` turn shaking and flashing off (any value from 0 to 1 scales them).
 
 **Phase 9 — sword, training dummies and the first spell.** Press **J** (or Z) to swing the longsword; pressing again in the right moment chains a 3-hit combo (14 → 15 → 21 damage), and each swing costs 14 stamina. Two straw training dummies stand below the start of the meadow path: hit them to see the slash arc and their HP bar drop; at 0 HP they tip over and stand up again after 1.5 s. F4 shows the sword hitbox and the dummies' hurtboxes. Press **L** (or C) to cast the star shard: a spark gathers at her hand for 0.25 s (you can still walk slowly), then a glittering shard flies 240 px, deals 12 damage to the first dummy it touches and vanishes at walls. Each cast costs 6 of the 50 MP shown by the blue bar under the stamina bar; MP refills at 2 per second, and when it runs short the bar blinks red and nothing is cast. At night the shard lights up the grass as it flies.
 
