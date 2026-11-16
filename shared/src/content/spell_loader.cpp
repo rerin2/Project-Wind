@@ -30,6 +30,8 @@ constexpr double kMaxBeamLength = 640.0;       // 화면 너비
 constexpr double kMaxBeamWidth = 128.0;
 constexpr double kMinBeamTick = 0.02;          // 초. 너무 짧으면 한 박자에 여러 번 맞아요
 constexpr double kMaxBeamTick = 1.0;
+constexpr double kMaxKnockback = 1000.0;       // 픽셀/초 (공격 데이터와 같은 범위)
+constexpr double kMaxHitstop = 0.5;            // 초
 constexpr double kMinLightRadius = 1.0;        // 픽셀
 constexpr double kMaxLightRadius = 512.0;
 
@@ -117,6 +119,15 @@ void check_mp_matches_motion(JsonReader& reader, const combat::Spell& spell) {
     }
 }
 
+// 없어도 되는 숫자 칸: 있으면 범위를 확인하고, 없으면 기본값 0 그대로
+void read_optional_number(JsonReader& reader, std::string_view key, double max, float& out) {
+    if (reader.has(key)) {
+        if (const auto value = reader.number(key, 0.0, max)) {
+            out = static_cast<float>(*value);
+        }
+    }
+}
+
 // 없어도 되는 파일 위치 칸 (fx, sfx)
 void read_optional_path(JsonReader& reader, std::string_view key,
                         std::optional<std::string>& out) {
@@ -146,6 +157,9 @@ LoadResult<combat::Spell> parse_spell(const nlohmann::json& document, const std:
     const auto power = reader.number("power", 0.0, kMaxPower);
     read_mp(reader, spell);
     read_motion(reader, file, errors, spell);
+    read_optional_number(reader, "knockback", kMaxKnockback, spell.knockback);  // 타격감 (10a)
+    read_optional_number(reader, "hitstop", kMaxHitstop, spell.hitstop);
+    read_optional_number(reader, "shake", 1.0, spell.shake);
     read_optional_path(reader, "fx", spell.fx);
     read_optional_path(reader, "sfx", spell.sfx);
     if (reader.has("light")) {

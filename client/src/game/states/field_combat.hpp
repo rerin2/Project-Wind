@@ -4,7 +4,8 @@
 // 필드 화면의 싸움 담당이에요. (9단계 9c, 9e)
 // - 맵에 놓인 훈련용 허수아비들과, 날아가는 빛 탄들을 가지고 있어요.
 // - 정해진 박자마다:
-//   1) 주인공 칼이 판정 중이면 맞았는지 보고(hit_resolution) 피해를 줘요.
+//   1) 주인공 칼이 판정 중이면 맞았는지 보고(hit_resolution) 피해를 주고 밀어내요.
+//      치명타는 시드가 있는 싸움 주사위로 굴려요 (기본 5%, 10a).
 //   2) 주인공 시전이 이번 박자에 끝났으면 빛 탄을 하나 만들어요.
 //   3) 빛 탄을 날려요. 허수아비에 맞으면 피해를 주고 사라지고, 벽·거리 끝에서도 사라져요.
 //   4) 허수아비 시간을 흘려요 (쓰러졌다 다시 서기).
@@ -18,15 +19,21 @@
 
 #include "wind/world/map.hpp"
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace wind::game {
 
+// 기본 치명타 확률 (10a, 개발자와 정함). 무기 crit_bonus를 더해요. 이유는 docs/GAMEPLAY.md "Critical hits".
+inline constexpr float kBaseCritChance = 0.05f;
+
 class FieldCombat {
 public:
-    explicit FieldCombat(std::vector<TrainingDummy> dummies);
+    // seed: 치명타 주사위 씨앗 (같으면 같은 결과), base_crit_chance: 기본 치명타 확률
+    explicit FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed = 1,
+                         float base_crit_chance = kBaseCritChance);
 
     // 한 박자: 칼 판정 -> 빛 탄 만들기 -> 빛 탄 날리기 -> 허수아비 시간 흘리기
     void step(double dt_seconds, PlayerMotion& player, const world::MapData& map);
@@ -58,6 +65,8 @@ private:
     std::vector<HitEvent> hits_;              // 이번 박자에 맞은 일
     std::vector<ProjectileEndEvent> ended_;   // 이번 박자에 사라진 빛 탄
     std::optional<HitEvent> last_hit_;        // 마지막으로 맞은 일
+    CombatRandom random_;                     // 치명타 주사위 (시드가 있어 재현 가능)
+    float base_crit_chance_;                  // 기본 치명타 확률
 };
 
 }  // namespace wind::game

@@ -6,6 +6,9 @@
   "mp_cost": 6,
   "cast_seconds": 0.25,
   "power": 1.0,
+  "knockback": 40,
+  "hitstop": 0.03,
+  "shake": 0.05,
   "projectile": { "speed": 360, "range": 240, "size": [6, 6] },
   "light": { "radius": 36, "color": "#a8dcef", "intensity": 0.8 }
 }

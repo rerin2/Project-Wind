@@ -42,6 +42,9 @@ struct Spell {
     float mp_per_second = 0.0f;      // 유지하는 동안 1초에 쓰는 MP (광선만)
     float cast_seconds = 0.0f;       // 시전 시간: 누르고 이만큼 지나야 나가요
     float power = 1.0f;              // 위력 배수
+    float knockback = 0.0f;          // 밀어내는 힘 (픽셀/초, 선택, 10a)
+    float hitstop = 0.0f;            // 맞는 순간 멈칫 (초, 선택)
+    float shake = 0.0f;              // 화면 흔들림 세기 0~1 (선택, 연출)
     SpellMotion motion = SpellMotion::Projectile;
     std::optional<ProjectileData> projectile;  // motion이 Projectile일 때만
     std::optional<HitboxShape> melee;          // motion이 Melee일 때만

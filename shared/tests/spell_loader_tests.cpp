@@ -92,6 +92,35 @@ TEST(SpellLoader, ParsesBeamAndMeleeSpells) {
     EXPECT_FLOAT_EQ(melee.value->melee->length, 32.0f);
 }
 
+// 타격감 선택 칸 (10a): 없으면 0, 있으면 범위 검사
+TEST(SpellLoader, ReadsOptionalHitFeel) {
+    const auto plain = parse_spell(make_doc(), "s.json");
+    ASSERT_TRUE(plain.ok());
+    EXPECT_FLOAT_EQ(plain.value->knockback, 0.0f);
+    EXPECT_FLOAT_EQ(plain.value->hitstop, 0.0f);
+    EXPECT_FLOAT_EQ(plain.value->shake, 0.0f);
+
+    auto doc = make_doc();
+    doc["knockback"] = 40;
+    doc["hitstop"] = 0.03;
+    doc["shake"] = 0.05;
+    const auto felt = parse_spell(doc, "s.json");
+    ASSERT_TRUE(felt.ok());
+    EXPECT_FLOAT_EQ(felt.value->knockback, 40.0f);
+    EXPECT_FLOAT_EQ(felt.value->hitstop, 0.03f);
+    EXPECT_FLOAT_EQ(felt.value->shake, 0.05f);
+
+    auto long_stop = make_doc();
+    long_stop["hitstop"] = 0.6;  // 0.5초가 최대
+    EXPECT_TRUE(has_error_at(parse_spell(long_stop, "s.json").errors, "hitstop"));
+    auto backwards = make_doc();
+    backwards["knockback"] = -1;
+    EXPECT_TRUE(has_error_at(parse_spell(backwards, "s.json").errors, "knockback"));
+    auto wild = make_doc();
+    wild["shake"] = 2;
+    EXPECT_TRUE(has_error_at(parse_spell(wild, "s.json").errors, "shake"));
+}
+
 // 별무리처럼 여러 개·유도·돌기 칸도 읽혀요 (움직임은 15단계)
 TEST(SpellLoader, ReadsOptionalProjectileFields) {
     auto doc = make_doc();
@@ -207,6 +236,8 @@ TEST(SpellLoader, RealStarShardLoads) {
     EXPECT_FLOAT_EQ(s.projectile->range, 240.0f);
     EXPECT_FLOAT_EQ(s.projectile->width, 6.0f);
     ASSERT_TRUE(s.light.has_value());
+    EXPECT_FLOAT_EQ(s.knockback, 40.0f);  // 10a: 칼보다 약한 타격감
+    EXPECT_FLOAT_EQ(s.hitstop, 0.03f);
 }
 
 }  // namespace

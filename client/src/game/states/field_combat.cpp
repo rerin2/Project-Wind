@@ -25,7 +25,8 @@ constexpr float kSpellLift = 14.0f;
 
 }  // namespace
 
-FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies) : dummies_(std::move(dummies)) {}
+FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed, float base_crit_chance)
+    : dummies_(std::move(dummies)), random_(seed), base_crit_chance_(base_crit_chance) {}
 
 void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::MapData& map) {
     hits_.clear();   // 지난 박자 기록 지우기
@@ -52,8 +53,13 @@ void FieldCombat::resolve_sword(PlayerMotion& player) {
     swing.attack_power = combat::physical_attack_power(weapon.base_power, weapon.strength_scaling,
                                                        kStrengthBonus);  // 공격력
     swing.power = attack->power;                                // 콤보마다 다른 위력
+    swing.crit_chance = base_crit_chance_ + weapon.crit_bonus;  // 기본 5% + 무기 보너스
+    swing.push_direction = direction_vector(player.mover().facing());  // 바라보는 쪽으로 밀어요
+    swing.knockback = attack->knockback;                        // 타격감은 공격 데이터 값 그대로
+    swing.hitstop = attack->hitstop;
+    swing.shake = attack->shake;
     swing.register_hit = [&player](TargetId id) { return player.register_hit(id); };  // 한 번만 맞게
-    record_hits(resolve_swing(swing, dummies_));                // 맞았는지 보고 피해 주기
+    record_hits(resolve_swing(swing, dummies_, &random_));      // 맞았는지 보고 피해 주기
 }
 
 // 주인공 시전이 이번 박자에 끝났으면, 시전 방향으로 빛 탄을 하나 만들어요.
@@ -69,6 +75,10 @@ void FieldCombat::spawn_spell(const PlayerMotion& player) {
     shot.data = *spell->projectile;                                                // 빠르기·거리·크기
     shot.attack_power = combat::magic_attack_power(kBaseMagic, kIntelligenceBonus);  // 마법 공격력
     shot.power = spell->power;                                                     // 마술 위력
+    shot.crit_chance = base_crit_chance_;                                          // 마술도 기본 5%
+    shot.knockback = spell->knockback;                                             // 타격감 (마술 데이터)
+    shot.hitstop = spell->hitstop;
+    shot.shake = spell->shake;
     projectiles_.emplace_back(shot);
 }
 
@@ -82,8 +92,13 @@ void FieldCombat::step_projectiles(float dt_seconds, const world::MapData& map) 
             swing.hitbox = rect;
             swing.attack_power = projectile.shot().attack_power;
             swing.power = projectile.shot().power;
+            swing.crit_chance = projectile.shot().crit_chance;
+            swing.push_direction = projectile.shot().direction;    // 날아가던 쪽으로 밀어요
+            swing.knockback = projectile.shot().knockback;
+            swing.hitstop = projectile.shot().hitstop;
+            swing.shake = projectile.shot().shake;
             swing.register_hit = [&used](TargetId) { return !std::exchange(used, true); };  // 첫 대상만
-            const auto hits = resolve_swing(swing, dummies_);
+            const auto hits = resolve_swing(swing, dummies_, &random_);
             record_hits(hits);
             return !hits.empty();
         };
@@ -99,7 +114,7 @@ void FieldCombat::record_hits(const std::vector<HitEvent>& hits) {
     for (const auto& hit : hits) {
         hits_.push_back(hit);
         last_hit_ = hit;
-        log::debug("Hit dummy {} for {}{}", hit.target, hit.amount,
+        log::debug("Hit dummy {} for {}{}{}", hit.target, hit.amount, hit.critical ? " (critical)" : "",
                    hit.knocked_down ? " (knocked down)" : "");
     }
 }
@@ -113,7 +128,8 @@ std::string FieldCombat::debug_text() const {
     std::string text = "dummies " + std::to_string(dummies_.size());          // 허수아비 수
     text += "  shards " + std::to_string(projectiles_.size());                // 날고 있는 빛 탄 수
     if (!last_hit_) return text;                                              // 아직 아무도 안 맞았으면 여기까지
-    text += "  last hit " + std::to_string(last_hit_->amount) + " -> #" + std::to_string(last_hit_->target);
+    text += "  last hit " + std::to_string(last_hit_->amount) + (last_hit_->critical ? "!" : "") +  // ! = 치명타
+            " -> #" + std::to_string(last_hit_->target);
     const auto index = static_cast<std::size_t>(last_hit_->target);           // 대상 번호는 1부터
     if (index >= 1 && index <= dummies_.size()) {                             // 그 허수아비의 지금 HP
         const auto& dummy = dummies_[index - 1];

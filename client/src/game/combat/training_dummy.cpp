@@ -23,7 +23,8 @@ int TrainingDummy::take_damage(int amount) {
 }
 
 void TrainingDummy::step(float dt_seconds) {
-    if (!down() || dt_seconds <= 0.0f) return;     // 서 있으면 할 일 없음
+    sway_.step(dt_seconds);                        // 용수철 흔들림 (서 있든 쓰러졌든)
+    if (!down() || dt_seconds <= 0.0f) return;     // 서 있으면 더 할 일 없음
     down_left_ = std::max(0.0f, down_left_ - dt_seconds);  // 남은 시간 줄이기
     if (down_left_ <= 0.0f) {                      // 다 됐으면
         hp_ = data_.max_hp;                        // HP를 가득 채워 다시 서요
@@ -32,7 +33,8 @@ void TrainingDummy::step(float dt_seconds) {
 
 engine::RectF TrainingDummy::hurtbox() const {
     const auto& box = data_.hurtbox;                               // 발 기준 상자 설명
-    return {feet_.x + box.x, feet_.y + box.y, box.w, box.h};       // 맵 위 위치로 옮겨요
+    const engine::Vec2 body = feet_ + sway_.offset();              // 밀린 만큼 같이 움직여요
+    return {body.x + box.x, body.y + box.y, box.w, box.h};         // 맵 위 위치로 옮겨요
 }
 
 }  // namespace wind::game

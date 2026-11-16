@@ -76,6 +76,9 @@ add_library(wind_game_core STATIC
     src/game/combat/training_dummy.cpp
     src/game/combat/projectile.cpp
     src/game/combat/spell_caster.cpp
+    src/game/combat/combat_random.cpp
+    src/game/combat/knock_sway.cpp
+    src/game/combat/hit_stop.cpp
     src/game/combat/hit_resolution.cpp
     src/game/presentation/dust_emitter.cpp
     src/game/presentation/afterimage_trail.cpp
@@ -152,6 +155,9 @@ if(WIND_BUILD_TESTS)
         tests/projectile_tests.cpp
         tests/spell_view_tests.cpp
         tests/spell_caster_tests.cpp
+        tests/combat_random_tests.cpp
+        tests/knock_sway_tests.cpp
+        tests/hit_stop_tests.cpp
         tests/hit_resolution_tests.cpp
         tests/field_combat_tests.cpp
         tests/slash_arc_tests.cpp

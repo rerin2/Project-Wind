@@ -29,6 +29,10 @@ struct ProjectileShot {
     combat::ProjectileData data;       // 빠르기, 거리, 크기
     float attack_power = 0.0f;         // 공격력 (마법 공격력)
     float power = 1.0f;                // 위력 배수
+    float crit_chance = 0.0f;          // 치명타 확률 0~1
+    float knockback = 0.0f;            // 타격감 (10a): 밀어내는 힘, 멈칫, 화면 흔들림
+    float hitstop = 0.0f;
+    float shake = 0.0f;
 };
 
 // 탄이 사라진 이유 (연출이 다르게 보여 줄 수 있어요)

@@ -9,7 +9,7 @@
 // 검사 규칙:
 // - "mp_cost"와 "mp_per_second" 중 꼭 하나만 (mp_per_second는 광선만, 광선은 mp_per_second만)
 // - 동작 "projectile" / "melee" / "beam" 중 꼭 하나만
-// - 선택 칸: "fx", "sfx", "light"
+// - 선택 칸: "knockback"(0~1000), "hitstop"(0~0.5초), "shake"(0~1), "fx", "sfx", "light"
 // 범위는 docs/ENGINE.md "Spell" 절에 있어요.
 
 #include "wind/combat/spell.hpp"
