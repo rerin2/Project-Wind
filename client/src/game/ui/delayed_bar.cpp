@@ -11,7 +11,13 @@ DelayedBar::DelayedBar(DelayedBarTuning tuning, float start)
     : tuning_(tuning),
       target_(std::clamp(start, 0.0f, 1.0f)),
       value_(target_),
-      trail_(target_) {}
+      trail_(target_) {
+    // 처음부터 숨김: 가득 찬 채 시작하면 "가득 찬 지 오래된" 상태로 시작해요.
+    if (tuning_.auto_hide && tuning_.start_hidden && target_ >= 1.0f) {
+        full_for_ = tuning_.hide_after_seconds;  // 이미 충분히 기다린 셈
+        alpha_ = tuning_.hidden_alpha;           // 바로 흐린 상태
+    }
+}
 
 void DelayedBar::set(float fraction) {
     const float next = std::clamp(fraction, 0.0f, 1.0f);

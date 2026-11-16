@@ -26,4 +26,9 @@ world::TileCoord world_to_tile(Vec2 world, std::int32_t tile_size) {
             static_cast<std::int32_t>(std::floor(world.y / size))};
 }
 
+Vec2 tile_feet(world::TileCoord tile, std::int32_t tile_size) {
+    const auto size = static_cast<float>(tile_size);                 // 칸 크기
+    return tile_to_world(tile, tile_size) + Vec2{size * 0.5f, size * 0.75f};  // 가운데, 3/4 아래
+}
+
 }  // namespace wind::engine

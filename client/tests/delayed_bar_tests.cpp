@@ -60,4 +60,19 @@ TEST(DelayedBar, AutoHideFadesWhenFullAndReturnsOnUse) {
     EXPECT_FLOAT_EQ(bar.alpha(), 1.0f);  // 쓰자마자 진해짐
 }
 
+// 처음부터 숨김(허수아비 HP 바): 가득 찬 채 시작하면 바로 안 보이고, 줄면 보여요.
+TEST(DelayedBar, StartHiddenWhenFull) {
+    DelayedBarTuning tuning;
+    tuning.auto_hide = true;
+    tuning.hidden_alpha = 0.0f;
+    tuning.start_hidden = true;
+    DelayedBar bar(tuning);
+    EXPECT_FLOAT_EQ(bar.alpha(), 0.0f);
+    bar.update(0.1f);
+    EXPECT_FLOAT_EQ(bar.alpha(), 0.0f);
+    bar.set(0.5f);
+    bar.update(0.01f);
+    EXPECT_FLOAT_EQ(bar.alpha(), 1.0f);
+}
+
 }  // namespace

@@ -36,26 +36,12 @@ constexpr std::size_t kAirFxCapacity = 4000;     // 공중 효과 (꽃잎, 반�
 // 파티클 주사위 씨앗. 연출용이라 아무 숫자나 괜찮지만, 고정하면 매번 같은 모양이 나와요.
 constexpr std::uint32_t kFxSeed = 20261109;
 
-// 발밑 그림자 크기와 진하기 (가운데가 가장 진하고 가장자리는 투명해요)
-constexpr std::int32_t kShadowWidth = 22;
-constexpr std::int32_t kShadowHeight = 8;
-constexpr engine::Color kShadowColor{0, 0, 0, 110};
-// 파티클 그림: 흰색이라 효과 파일의 색을 곱해서 써요.
-constexpr std::int32_t kSoftParticleSize = 8;
-constexpr engine::Color kWhite{255, 255, 255, 255};
-// 빛 그림 크기 (확대해서 쓰니까 너무 크지 않아도 돼요)
-constexpr std::int32_t kLightTextureSize = 128;
 // F4: 발 상자 표시 색 (반투명 하늘색)
 constexpr engine::Color kBodyBoxColor{80, 200, 255, 140};
+// 휘두를 때 보이는 칼자국 그림 (흰 반달, 생성기 스크립트가 그려요)
+constexpr std::string_view kSlashTexture = "fx/slash_arc.bmp";
 
 
-// 시작 칸에서 발을 둘 위치: 칸의 가로 가운데, 세로는 칸의 3/4 지점.
-// 발 상자(높이 8)가 칸 안에 쏙 들어가서 시작하자마자 벽에 걸리지 않아요.
-engine::Vec2 spawn_feet(world::TileCoord tile, std::int32_t tile_size) {
-    const auto size = static_cast<float>(tile_size);
-    return {static_cast<float>(tile.x) * size + size * 0.5f,
-            static_cast<float>(tile.y) * size + size * 0.75f};
-}
 
 }  // namespace
 
@@ -77,13 +63,11 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     //    (무엇이 없는지는 리소스 관리자가 기록해 줘요.)
     const auto tileset_texture = resources.texture(assets->map.tileset.image);
     const auto player_texture = resources.texture(assets->sheet.image);
-    // 3) 그림자와 파티클·빛 그림은 파일 없이 코드로 만들어요. 실패해도 그 효과만 안 보일 뿐 계속해요.
-    const EffectTextures textures{
-        renderer.create_soft_ellipse_texture(kShadowWidth, kShadowHeight, kShadowColor),
-        {renderer.create_soft_ellipse_texture(kSoftParticleSize, kSoftParticleSize, kWhite),
-         renderer.create_solid_texture(1, 1, kWhite)},
-        renderer.create_light_texture(kLightTextureSize),
-    };
+    // 3) 싸움 그림: 칼자국과 허수아비마다 그림 (같은 파일은 리소스 관리자가 한 번만 읽어요)
+    CombatTextures combat_textures{resources.texture(kSlashTexture), {}};
+    for (const auto& dummy : assets->dummies) {
+        combat_textures.dummies.push_back(resources.texture(dummy.data().sprite.image));
+    }
     if (stress.lights > 0) {
         log::info("Light stress test: {} extra lights", stress.lights);
     }
@@ -96,27 +80,34 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
               assets->day_cycle ? "on" : "off",
               assets->weather ? std::to_string(assets->weather->states.size()) + " state(s)"
                               : std::string("off"));
+    if (!assets->dummies.empty()) {
+        log::info("Training dummies: {}", assets->dummies.size());
+    }
     return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture,
-                                                      player_texture, textures, start_weather,
+                                                      player_texture,
+                                                      std::move(combat_textures), start_weather,
                                                       viewport, stress.lights));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
 FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                        engine::TextureHandle tileset_texture, engine::TextureHandle player_texture,
-                       EffectTextures textures, std::string_view start_weather,
-                       engine::Vec2 viewport, std::uint32_t stress_lights)
-    : renderer_(&renderer),
-      map_(std::move(assets.map)),
+                       CombatTextures combat_textures,
+                       std::string_view start_weather, engine::Vec2 viewport,
+                       std::uint32_t stress_lights)
+    : map_(std::move(assets.map)),
       sprite_(std::move(assets.sheet), player_texture),
       tileset_texture_(tileset_texture),
-      textures_(textures),
+      textures_(renderer),  // 그림자·파티클·빛 그림을 코드로 만들어요 (실패해도 그 효과만 안 보여요)
       effects_(std::move(assets.effects)),
       look_ahead_(kLookAheadDistance, kLookAheadSharpness),
       // 캐릭터가 처음 설 곳 (준비물을 읽을 때 고른 등장 자리)
-      player_(spawn_feet(assets.spawn_tile, map_.map.tile_size),
+      player_(engine::tile_feet(assets.spawn_tile, map_.map.tile_size),
               world::Direction::Down, MovementTuning{}, StaminaTuning{}, kInputBufferSeconds,
               std::move(assets.weapon)),
+      combat_(std::move(assets.dummies)),                                      // 맵의 허수아비들
+      combat_view_(textures_.shadow(), std::move(combat_textures.dummies)),    // 허수아비 그림 (그림자 같이 씀)
+      slash_(combat_textures.slash),                                           // 칼자국 그림
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -141,13 +132,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
     camera_.center_on(player_.mover().feet() - engine::Vec2{0.0f, size * 0.5f});
 }
 
-FieldState::~FieldState() {
-    // 파일에서 읽은 그림(타일, 캐릭터)은 리소스 관리자가 정리해요. 여기서는 코드로 만든 것만.
-    for (const engine::TextureHandle texture :
-         {textures_.shadow, textures_.particles.soft, textures_.particles.pixel, textures_.light}) {
-        renderer_->destroy_texture(texture);
-    }
-}
+FieldState::~FieldState() = default;  // 코드로 만든 그림은 FieldTextures가 지워요
 
 void FieldState::handle_input(const engine::InputState& input, const InputBindings& bindings) {
     intent_.update(bindings, input);  // 새로 누른 방향키를 기억
@@ -174,6 +159,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
         // 구르기 시작! 연출(먼지 팍)은 다음 frame_update에서 해요.
         dodge_burst_ = engine::normalized(player_.mover().velocity());
     }
+    combat_.step(dt_seconds, player_);  // 칼이 판정 중이면 허수아비에 맞았는지 보고 피해 주기
 
     // 출구 확인: 발이 출구 칸에 들어가면 "다른 맵으로 가 주세요" 요청을 남겨요.
     // 출구가 아닌 칸을 한 번 밟은 뒤에만 출구가 동작해요(무장). 그래야 출구 바로 옆에서
@@ -216,6 +202,9 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
 
     // 주인공 그림: 동작 그림 넘기기와 구르기 잔상
     sprite_.update(dt_seconds, player_.mover(), feet);
+    // 싸움 연출: 허수아비 HP 바와 칼자국 (판정 결과를 보기만 해요)
+    combat_view_.update(dt, combat_.dummies());
+    slash_.update(dt, player_.attack(), player_.attack_hitbox(), player_.mover().facing());
 
     // 카메라: 가는 쪽을 조금 더 보여 주면서 캐릭터 몸 가운데를 따라가요.
     const float max_speed = player_.mover().tuning().max_speed;
@@ -236,21 +225,24 @@ void FieldState::render(engine::RenderQueue& queue) {
                                           scene_seconds_, queue);
 
     // 2) 발밑 그림자: 바닥 위, 캐릭터 아래 단계에 그려요.
-    if (textures_.shadow.valid()) {
+    if (textures_.shadow().valid()) {
         const engine::Vec2 screen = camera_.world_to_screen(feet);
         engine::SpriteDraw shadow;
-        shadow.texture = textures_.shadow;
-        shadow.dest = {std::round(screen.x - static_cast<float>(kShadowWidth) * 0.5f),
-                       std::round(screen.y - static_cast<float>(kShadowHeight) * 0.5f),
-                       static_cast<float>(kShadowWidth), static_cast<float>(kShadowHeight)};
+        shadow.texture = textures_.shadow();
+        const engine::Vec2 size = textures_.shadow_size();  // 그림자 크기 (22x8)
+        shadow.dest = {std::round(screen.x - size.x * 0.5f), std::round(screen.y - size.y * 0.5f),
+                       size.x, size.y};
         queue.push_sprite(engine::DrawLayer::Shadows, feet.y, shadow);
     }
 
     // 3) 잔상, 플레이어, 먼지: 모두 발 위치(y)로 줄을 서요.
     sprite_.queue(camera_, feet, player_.mover().facing(), queue);
-    engine::queue_particles(ground_fx_, camera_, textures_.particles, engine::DrawLayer::YSorted, queue);
+    // 허수아비(주인공과 발 위치로 줄 서기), HP 바, 칼자국, F4면 판정 상자
+    combat_view_.queue(camera_, combat_.dummies(), player_.attack_hitbox(), show_collision_, queue);
+    slash_.queue(camera_, queue);
+    engine::queue_particles(ground_fx_, camera_, textures_.particles(), engine::DrawLayer::YSorted, queue);
     // 공중 효과는 나뭇잎보다도 위에 그려요.
-    engine::queue_particles(air_fx_, camera_, textures_.particles, engine::DrawLayer::WorldFx, queue,
+    engine::queue_particles(air_fx_, camera_, textures_.particles(), engine::DrawLayer::WorldFx, queue,
                             engine::DrawLayer::Glow);
 
     // 4) F4를 켰으면 못 가는 칸을 빨갛게, 발 상자를 하늘색으로 덮어요.
@@ -261,8 +253,8 @@ void FieldState::render(engine::RenderQueue& queue) {
 
     // 5) 조명 준비물: 화면에 보이는 빛만 골라요. 실제로 입히는 건 렌더러가 해요.
     // 안개는 공중 효과의 맨 위에 (조명보다는 먼저 그려져서 밤에는 안개도 어두워요).
-    atmosphere_.queue(camera_, textures_.light, queue);
-    lighting_frame_ = &lighting_.build(camera_, textures_.light);
+    atmosphere_.queue(camera_, textures_.light(), queue);
+    lighting_frame_ = &lighting_.build(camera_, textures_.light());
 }
 
 
@@ -305,7 +297,9 @@ FieldDebugInfo FieldState::debug_info() const {
             player_.stamina().current(),
             player_.stamina().max(),
             player_.stamina().exhausted(),
-            player_.attack().combo_index() + 1};
+            player_.attack().combo_index() + 1,
+            combat_.debug_text()};
 }
+
 
 }  // namespace wind::game

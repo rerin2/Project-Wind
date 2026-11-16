@@ -50,6 +50,7 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
                     field.combo_hit > 0 ? std::format(" {}", field.combo_hit) : std::string(),
                     world::to_string(field.facing), field.speed, field.stamina, field.stamina_max,
                     field.exhausted ? " (exhausted)" : ""),
+        field.combat,  // 허수아비 수와 마지막으로 맞힌 피해 (9c)
         std::format("draw calls {}  culled {}  tiles {}", stats.draw_calls, stats.culled,
                     field.tiles_queued),
         std::format("particles {}  dropped {}  ambient fx {}", field.particles,

@@ -27,12 +27,12 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/game/input` | `wind_game_core` | no | `Action`, `InputBindings`, `MovementIntent` (8-way), `InputBuffer` |
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
 | `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `CharacterState` + `can_transition` (state table), `PlayerMotion` (mover + stamina + attack + dodge/attack buffer in one fixed step), facing helpers |
-| `client/src/game/combat` | `wind_game_core` | no | `AttackRunner` (windup → active → recovery, cancel window, combo order, one hit per target per swing), `place_hitbox` (facing-aware hitbox rect) |
-| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
+| `client/src/game/combat` | `wind_game_core` | no | `AttackRunner` (windup → active → recovery, cancel window, combo order, one hit per target per swing), `place_hitbox` (facing-aware hitbox rect), `TrainingDummy` (HP, knockdown, recovery), `resolve_swing` (hitbox ∩ hurtbox → one hit per swing → `compute_damage`) |
+| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `CombatView` (dummies, HP bars, F4 hit/hurt boxes), `SlashArc` (swing arc), `AmbientParticles`, `FieldLighting`, `load_field_effects` (effects that only read simulation state) |
 | `client/src/game/ui` | `wind_game_core` | no | `AreaBanner` (in → hold → out timeline), `DelayedBar` (trail, smooth fill, auto-hide) |
 | `client/src/app` (`field_ui`, `ui_test_panel`, `ui_resources`, `transition_view`) | `wind_client` | no (uses `UiPainter`) | HUD stamina bar, area banner, F7 UI test panel, UI resource loading, fade/iris/notice drawing |
 | `client/src/game/world` | `wind_game_core` | no | `GameClock` (time of day), `MapTravel` (cover screen → enter map → uncover, failure notice) |
-| `client/src/game/states` | `wind_game_core` (`field_assets`), `wind_client` (`field_state`) | no | `load_field_assets` (reads and checks map, sheet, effects, time, weather); `FieldState` scene: wires simulation, effects, camera, drawing |
+| `client/src/game/states` | `wind_game_core` (`field_assets`, `field_combat`), `wind_client` (`field_state`) | no | `load_field_assets` (reads and checks map, sheet, effects, time, weather, weapon, dummies); `FieldCombat` (field dummies, one hit check per fixed step, last hit); `FieldState` scene: wires simulation, effects, camera, drawing |
 | `shared/include/wind/world`, `wind/content` | `wind_shared` | no | map/tileset model, JSON validation (`ErrorList`, `LoadResult`, `JsonReader`, `json_file`), safe content paths, attack and weapon loaders |
 | `shared/include/wind/combat` | `wind_shared` | no | `AttackData`, `HitboxShape`, `Weapon`; `compute_damage` and `physical_attack_power` (pure damage functions) |
 
@@ -127,6 +127,7 @@ Tile id `N` is the N-th cell of the image, row by row (id 1 = top-left). Id 0 me
 - `exits` (optional, up to 32): `area` in tiles (`x`, `y`, `w`, `h`, inside the map), `to_map` (content path), `to_spawn` (spawn id in that map) and optional `transition` (`fade`, the default, or `iris`). At least one tile of the area must be walkable. The target map and spawn are checked when the hero actually travels; if either is missing, she stays on the current map, the error is logged and a short notice is shown on screen. The test `FieldAssets.EveryContentExitLeadsSomewhereValid` follows every exit in the shipped maps and fails if one points nowhere.
 - `ambience` is optional. `ambient_fx` lists up to 8 particle effect files (content paths) that float around the camera on this map. Paths are checked when the map loads; the effect files themselves are validated when the field starts, and a broken effect is logged and skipped.
 - `ambient_light` (`#rrggbb`) gives an indoor map a fixed ambient colour (caves). `day_cycle` (content path) makes an outdoor map follow the time of day instead; a map may not have both. `weather` (content path) names the weather table. `night_fx` lists effects that only appear at night (scaled by the night amount). A light with `"night_only": true` brightens with the night amount (street lamps).
+- `entities` (optional, up to 256, phase 9c, spec 7.1): `{ "type": "training_dummy", "id": "meadow_dummy_1", "x": 10, "y": 14, "data": "props/training_dummy.json" }`. `type` must be known (`training_dummy` only for now), `id` 1–64 bytes and unique in the map, `x`/`y` inside the map, `data` a content path. Two entities may not share a tile, and an entity may not stand on a spawn point or inside an exit area. Blocking types (`world::blocks_movement`, the dummy) must stand on a walkable tile, which then becomes **blocked**. Parsed by `wind/content/entity_loader`; the after-load checks (walkability, spawn/entity/exit placement) live in `wind/content/map_checks`. The `data` file is loaded with the field (`field_assets`); a broken data file rejects the map, so a blocked tile never appears without its dummy.
 - `ambient_light` (`#rrggbb`) turns lighting on for the map; without it the map is drawn fully lit. `player_light` (radius 4–512, colour, intensity 0–1) follows the hero. `lights` (up to 64) each need `x`, `y` (tile units, inside the map), `radius` (4–512 px), `color`, `intensity` (0–1); optional `flicker` (0–1), `pulse` (`frequency` 0–10 Hz, `depth` 0–1) and `fx` (an effect emitted continuously at the light). Parsed by `wind/content/ambience_loader`.
 
 ### Particle effect (`content/fx/*.json`)
@@ -208,6 +209,18 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 - `attacks`: 1–8 content paths in combo order. Every attack file is loaded and validated with the weapon; one broken file rejects the whole weapon and its own errors are reported too. Attack ids must be unique in the combo.
 - `next_combo`, when present on an attack, must equal the id of the next attack in the list; the last attack must not have one. The list order is the source of truth.
 - Parsed by `wind/content/weapon_loader` (`parse_weapon` takes an attack source, so tests run without files).
+
+### Training dummy (`content/props/*.json`, phase 9c)
+
+```json
+{ "schema_version": 1, "id": "training_dummy", "name": "훈련용 허수아비",
+  "max_hp": 100, "defense": 0, "recover_seconds": 1.5,
+  "hurtbox": { "offset": [-10, -34], "size": [20, 34] },
+  "sprite": { "image": "props/training_dummy.bmp", "frame": [48, 48], "origin": [24, 44] } }
+```
+
+- `max_hp` 1–99,999, `defense` 0–9,999, `recover_seconds` 0.1–30. `hurtbox.offset` is the top-left corner relative to the feet (−128…128 px), `size` 1–128 px. `sprite.image` a content path; `frame` 1–128 px; `origin` (the feet in the frame) must lie inside the frame. Frame 0 = standing, frame 1 = knocked down, side by side.
+- Parsed by `wind/content/training_dummy_loader`. Feet are placed with `engine::tile_feet` (tile centre, ¾ down), the same rule as hero spawns.
 
 ### Images
 
@@ -332,7 +345,7 @@ F12, or `--screenshot-at N` (repeatable) for automated checks, saves the frame t
 
 ## Debug overlay (spec 5.10)
 
-F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/running/dodging), facing, speed, stamina (and "exhausted"), draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures, UI text draws / cached texts / clipped texts this frame, and two lines of key help. F4 toggles the red collision overlay and the cyan feet box. Since phase 8 the panel starts **hidden**, because the HUD now sits in the top-left corner (`--press f3@2` shows it in scripted runs).
+F3 toggles: FPS and average frame time (0.5 s window), dropped-time frames, map id, feet position (px) and tile, movement state (idle/walking/running/dodging), facing, speed, stamina (and "exhausted"), draw calls, culled sprites, tiles queued, particle count and drops, texture count, cache hits, load failures, UI text draws / cached texts / clipped texts this frame, and two lines of key help. F4 toggles the red collision overlay, the cyan feet box, the yellow hurtboxes of standing dummies and the red sword hitbox while it is active. Phase 9c adds a combat line: `dummies N  last hit A -> #id hp/max (down)`. Since phase 8 the panel starts **hidden**, because the HUD now sits in the top-left corner (`--press f3@2` shows it in scripted runs).
 
 ## Known limitations
 

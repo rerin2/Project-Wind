@@ -7,6 +7,8 @@
 # 만들어지는 파일:
 #   content/tilesets/test_tiles.bmp   타일 스티커 판: 32x32 칸, 가로 8개 x 세로 3줄 (1번 = 왼쪽 위)
 #   content/ui/ui_frames.bmp          UI 창·버튼 9조각 테두리 (72x24)
+#   content/props/training_dummy.bmp  훈련용 허수아비 (96x48: 서 있음 / 쓰러짐, 칸 48x48)
+#   content/fx/slash_arc.bmp          칼자국 반달 (32x32, 흰색)
 #   content/sprites/test_hero.bmp     주인공(고양이 귀 은발 소녀) 그림 판: 32x48 칸, 가로 4개(걸음) x 세로 4줄(아래·왼쪽·오른쪽·위)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
 #   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
@@ -238,6 +240,50 @@ Draw-Frame 24 0 24 16 (Brush 96 106 132) (Brush 52 58 84) (Brush 44 50 74) (Brus
 Draw-Frame 48 0 24 16 (Brush 232 200 120) (Brush 120 100 64) (Brush 64 72 106) (Brush 96 104 140)
 
 Save-Bmp $bmp (Join-Path $content 'ui\ui_frames.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ------------------------------------------------------- 훈련용 허수아비 ----
+# 허수아비 그림 판 (96x48, 칸 48x48): 왼쪽 칸 = 서 있음, 오른쪽 칸 = 쓰러짐(옆으로 기울어짐).
+# 발 위치는 칸의 (24, 44). content/props/training_dummy.json의 "origin"과 같아요.
+$canvas = New-Canvas 96 48
+$bmp = $canvas[0]; $g = $canvas[1]
+
+# 허수아비 하나를 그려요. ox: 칸 왼쪽 위치, angle: 발을 중심으로 기울이는 각도(도)
+function Draw-Dummy([int]$ox, [float]$angle) {
+    $g.TranslateTransform($ox + 24, 44)    # 발 위치를 (0, 0)으로 옮겨요
+    $g.RotateTransform($angle)             # 발을 중심으로 기울여요
+    $g.FillRectangle((Brush 80 52 30), -6, -2, 12, 3)        # 바닥 받침
+    $g.FillRectangle((Brush 104 70 40), -2, -30, 4, 30)      # 나무 기둥
+    $g.FillRectangle((Brush 80 52 30), -2, -30, 1, 30)       # 기둥 그늘
+    $g.FillRectangle((Brush 104 70 40), -12, -23, 24, 3)     # 팔 막대
+    $g.FillEllipse((Brush 196 168 104), -8, -28, 16, 21)     # 짚 몸통
+    $g.FillRectangle((Brush 168 140 80), -6, -24, 1, 14)     # 짚 결
+    $g.FillRectangle((Brush 168 140 80), 5, -23, 1, 12)
+    $g.FillRectangle((Brush 120 84 48), -8, -12, 16, 2)      # 허리 끈
+    $g.FillEllipse((Brush 200 60 52), -4, -24, 8, 8)         # 과녁 바깥 (빨강)
+    $g.FillEllipse((Brush 240 230 210), -2, -22, 4, 4)       # 과녁 가운데 (흰색)
+    $g.FillRectangle((Brush 200 60 52), -1, -21, 2, 2)       # 과녁 점
+    $g.FillEllipse((Brush 210 184 124), -6, -41, 12, 13)     # 머리 (자루)
+    $g.FillRectangle((Brush 90 60 40), -4, -37, 2, 2)        # 꿰맨 눈 (왼쪽)
+    $g.FillRectangle((Brush 90 60 40), 2, -37, 2, 2)         # 꿰맨 눈 (오른쪽)
+    $g.FillRectangle((Brush 90 60 40), -2, -33, 4, 1)        # 꿰맨 입
+    $g.FillRectangle((Brush 232 204 112), -3, -43, 2, 3)     # 머리 위 짚 삐침
+    $g.FillRectangle((Brush 232 204 112), 1, -44, 2, 4)
+    $g.ResetTransform()                    # 다음 그림을 위해 기울기를 되돌려요
+}
+Draw-Dummy 0 0      # 서 있음
+Draw-Dummy 48 22    # 쓰러짐: 22도 기울어짐 (머리가 칸 밖으로 나가지 않을 만큼)
+Save-Bmp $bmp (Join-Path $content 'props\training_dummy.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# --------------------------------------------------------- 칼자국 (반달) ----
+# 휘두를 때 히트박스 자리에 잠깐 보이는 하얀 반달 (32x32). 오른쪽을 볼 때 모양이고, 게임이 방향대로 돌려요.
+# 흰색이라 게임에서 색을 곱하고(빛나게 Add 섞기) 투명도를 줄이며 사라지게 해요.
+$canvas = New-Canvas 32 32
+$bmp = $canvas[0]; $g = $canvas[1]
+$g.FillEllipse((Brush 255 255 255), 2, 2, 28, 28)        # 큰 흰 동그라미
+$g.FillEllipse((New-Object System.Drawing.SolidBrush($transparent)), -5, 3, 27, 26)  # 투명(분홍)으로 왼쪽을 파내서 반달만 남겨요
+Save-Bmp $bmp (Join-Path $content 'fx\slash_arc.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # ----------------------------------------------------- 캐릭터 스프라이트 ----
@@ -532,6 +578,10 @@ $json = @"
   "exits": [
     { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance", "transition": "iris" },
     { "area": { "x": 39, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_forest.json", "to_spawn": "from_meadow", "transition": "fade" }
+  ],
+  "entities": [
+    { "type": "training_dummy", "id": "meadow_dummy_1", "x": 10, "y": 14, "data": "props/training_dummy.json" },
+    { "type": "training_dummy", "id": "meadow_dummy_2", "x": 13, "y": 14, "data": "props/training_dummy.json" }
   ],
   "ambience": {
     "ambient_fx": ["fx/petals.json"],

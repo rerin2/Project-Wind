@@ -9,6 +9,7 @@
 // 있으면 좋은 것(효과, 하루 색, 날씨)이 잘못되면 기록만 하고 빼고 계속해요.
 
 #include "engine/animation/sprite_sheet.hpp"
+#include "game/combat/training_dummy.hpp"
 #include "game/presentation/field_effects.hpp"
 
 #include "wind/combat/weapon.hpp"
@@ -21,6 +22,7 @@
 #include <filesystem>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace wind::game {
 
@@ -32,6 +34,7 @@ struct FieldAssets {
     std::optional<world::DayCycle> day_cycle;
     std::optional<world::WeatherTable> weather;
     combat::Weapon weapon;  // 든 무기 (불러오기 실패면 콤보가 빈 맨손)
+    std::vector<TrainingDummy> dummies;  // 맵에 놓인 훈련용 허수아비들 (9c)
 };
 
 // spawn_id: 등장 자리 이름. "default"인데 없으면 첫 번째 자리를 써요.

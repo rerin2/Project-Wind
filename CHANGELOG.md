@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Phase 9c — training dummy and hits
+- Map `entities` (optional): `training_dummy` with id, tile and data file; validated (known type, unique id, inside
+  the map, not on a spawn/exit/other entity, on a walkable tile). A dummy blocks its tile.
+- Dummy data `content/props/training_dummy.json` (HP 100, defense 0, hurtbox, 1.5 s recovery, sprite) and loader.
+- `TrainingDummy` (HP, knockdown, stand up with full HP), `resolve_swing` (hitbox ∩ hurtbox, once per swing,
+  `compute_damage`), `FieldCombat` (field dummies, one check per fixed step). Longsword combo hits 14 → 15 → 21.
+- Presentation: generated dummy art (standing / knocked down), shadow, delayed HP bar above the head (hidden while
+  full), white additive slash arc that sweeps over the hit window, F4 hitbox (red) and hurtboxes (yellow), F3 combat line.
+- Two dummies in the test meadow. `map_checks` split out of `map_loader.cpp` (325 → 268 lines); `engine::tile_feet`
+  shared by spawns and dummies; `DelayedBar` gains `start_hidden`.
+- `AGENT.md` records repeated tool mistakes (CLAUDE.md rule 9).
+- 313 CTest tests.
+
 ### Phase 9b — attack runner, combo and state table
 - `AttackRunner`: windup → active → recovery, cancel window, combo order (1 → 2 → 3, then back to 1), one hit per
   target per swing. `place_hitbox` turns the right-facing hitbox into a rect for any facing.

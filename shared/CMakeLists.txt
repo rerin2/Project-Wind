@@ -28,8 +28,11 @@ add_library(wind_shared STATIC
     src/content/json_reader.cpp
     src/content/tileset_loader.cpp
     src/content/map_loader.cpp
+    src/content/map_checks.cpp
+    src/content/entity_loader.cpp
     src/content/attack_loader.cpp
     src/content/weapon_loader.cpp
+    src/content/training_dummy_loader.cpp
     src/combat/damage.cpp)
 add_library(wind::shared ALIAS wind_shared)
 
@@ -61,7 +64,10 @@ if(WIND_BUILD_TESTS)
         tests/weather_loader_tests.cpp
         tests/damage_tests.cpp
         tests/attack_loader_tests.cpp
-        tests/weapon_loader_tests.cpp)
+        tests/weapon_loader_tests.cpp
+        tests/entity_loader_tests.cpp
+        tests/map_checks_tests.cpp
+        tests/training_dummy_loader_tests.cpp)
     target_link_libraries(wind_shared_tests PRIVATE wind::shared GTest::gtest_main)
     # 진짜 시험 맵을 검사하는 시험이 저장소의 content 폴더 위치를 알 수 있게 알려 준다.
     target_compile_definitions(wind_shared_tests PRIVATE

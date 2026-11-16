@@ -18,6 +18,7 @@ struct DelayedBarTuning {
     float hide_after_seconds = 1.2f;    // 가득 찬 뒤 흐려지기 시작할 때까지
     float hidden_alpha = 0.3f;          // 흐려졌을 때 투명도
     float fade_speed = 2.0f;            // 흐려지는 빠르기 (1초에)
+    bool start_hidden = false;          // 자동 숨김이고 가득 찬 채 시작하면 처음부터 흐린 상태로 (허수아비 HP 바)
 };
 
 class DelayedBar {

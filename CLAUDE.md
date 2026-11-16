@@ -113,3 +113,10 @@ Do not attempt to implement the whole game in one task. Follow the phases in the
 - 다음 개발 단계
 - 선행되어야 하는 작업
 - 기존 구현에서 개선할 부분
+
+## 9. 그 외 규칙
+
+- 정보 없이 코딩 금지(무엇을, 왜, 어떻게) 서로 질문 할 것
+- 무조건 동의 금지, 구현 전에 문제점과 대안 검토
+- 같은 실수 반복 금지(AGENT.md나, CLAUDE.md에 기록 할 것, 쌓이면 중복을 줄일 것)
+- 코드 줄 마다 간결하게 뭘 하는지 주석 기록

@@ -56,7 +56,7 @@ wind_set_warnings(wind_engine_core)
 #   input/        : 키 버튼표, 가고 싶은 방향, 버튼 메모장(입력 버퍼)
 #   physics/      : 발 상자와 벽 충돌 (미끄러지기, 모서리 보정)
 #   entities/     : 캐릭터 다리(Mover), 바라보는 방향, 스태미나, 상태 전이 표
-#   combat/       : 칼 휘두르기 진행(AttackRunner), 히트박스 배치
+#   combat/       : 칼 휘두르기 진행(AttackRunner), 히트박스 배치, 허수아비, 맞았는지 판정
 #   presentation/ : 먼지, 잔상 같은 보여 주기용 효과 (그리기 목록에 넣기까지만, SDL은 안 씀)
 #   world/        : 게임 시계, 맵 옮기기 순서
 #   states/field_assets : 필드 화면 준비물(맵·캐릭터·효과 파일) 읽기
@@ -72,9 +72,13 @@ add_library(wind_game_core STATIC
     src/game/entities/player_motion.cpp
     src/game/combat/hitbox_placement.cpp
     src/game/combat/attack_runner.cpp
+    src/game/combat/training_dummy.cpp
+    src/game/combat/hit_resolution.cpp
     src/game/presentation/dust_emitter.cpp
     src/game/presentation/afterimage_trail.cpp
     src/game/presentation/player_sprite.cpp
+    src/game/presentation/combat_view.cpp
+    src/game/presentation/slash_arc.cpp
     src/game/presentation/ambient_particles.cpp
     src/game/presentation/field_lighting.cpp
     src/game/presentation/field_effects.cpp
@@ -85,7 +89,8 @@ add_library(wind_game_core STATIC
     src/game/world/map_travel.cpp
     src/game/ui/area_banner.cpp
     src/game/ui/delayed_bar.cpp
-    src/game/states/field_assets.cpp)
+    src/game/states/field_assets.cpp
+    src/game/states/field_combat.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -106,7 +111,8 @@ add_executable(wind_client
     src/engine/render/surface_painter.cpp
     src/engine/render/text_renderer.cpp
     src/engine/resources/resource_manager.cpp
-    src/game/states/field_state.cpp)
+    src/game/states/field_state.cpp
+    src/game/states/field_textures.cpp)
 target_link_libraries(wind_client PRIVATE wind_client_options wind_game_core SDL3_ttf::SDL3_ttf SDL3::SDL3)
 wind_set_warnings(wind_client)
 
@@ -135,6 +141,11 @@ if(WIND_BUILD_TESTS)
         tests/character_state_tests.cpp
         tests/hitbox_placement_tests.cpp
         tests/attack_runner_tests.cpp
+        tests/training_dummy_tests.cpp
+        tests/hit_resolution_tests.cpp
+        tests/field_combat_tests.cpp
+        tests/slash_arc_tests.cpp
+        tests/combat_view_tests.cpp
         tests/particle_pool_tests.cpp
         tests/look_ahead_tests.cpp
         tests/dust_emitter_tests.cpp

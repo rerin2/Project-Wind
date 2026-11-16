@@ -22,11 +22,15 @@
 #include "game/entities/player_motion.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/input/movement_intent.hpp"
+#include "game/presentation/combat_view.hpp"
 #include "game/presentation/player_sprite.hpp"
+#include "game/presentation/slash_arc.hpp"
 #include "game/presentation/ambient_particles.hpp"
 #include "game/presentation/field_atmosphere.hpp"
 #include "game/presentation/field_effects.hpp"
 #include "game/states/field_assets.hpp"
+#include "game/states/field_combat.hpp"
+#include "game/states/field_textures.hpp"
 #include "game/presentation/field_lighting.hpp"
 #include "game/presentation/dust_emitter.hpp"
 
@@ -68,6 +72,7 @@ struct FieldDebugInfo {
     float stamina_max = 0.0f;                          // 최대 스태미나
     bool exhausted = false;                            // 지침 상태인가
     int combo_hit = 0;                                 // 콤보 몇 타째 휘두르는 중 (0 = 공격 안 함)
+    std::string combat;                                // 허수아비 수와 마지막으로 맞힌 피해 (9c)
 };
 
 // 성능 시험용 부하 (실행 옵션 --fx-stress, --light-stress). 평소에는 0이에요.
@@ -133,31 +138,33 @@ public:
     [[nodiscard]] FieldDebugInfo debug_info() const;
 
 private:
-    // 그림자와 파티클처럼 파일 없이 코드로 만드는 그림들
-    struct EffectTextures {
-        engine::TextureHandle shadow;
-        engine::ParticleTextures particles;
-        engine::TextureHandle light;  // 둥근 빛 그림
+    // 싸움 그림 (파일에서 읽어서 리소스 관리자가 정리해요)
+    struct CombatTextures {
+        engine::TextureHandle slash;                   // 칼자국 반달
+        std::vector<engine::TextureHandle> dummies;    // 허수아비마다 그림 (assets.dummies와 같은 순서)
     };
 
     // create()를 통해서만 만들어요. (준비물 검사를 빼먹지 않도록)
     FieldState(engine::Renderer& renderer, FieldAssets assets, engine::TextureHandle tileset_texture,
-               engine::TextureHandle player_texture, EffectTextures textures,
+               engine::TextureHandle player_texture,
+               CombatTextures combat_textures,
                std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
     void queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) const;
 
-    engine::Renderer* renderer_;             // 그림을 만들고 정리할 화가 (빌려 씀)
     content::LoadedMap map_;                 // 맵과 타일셋 정보
     PlayerSprite sprite_;                    // 캐릭터 그림: 동작 넘기기, 구르기 잔상, 그리기
     engine::TextureHandle tileset_texture_;  // 맵 타일 그림
-    EffectTextures textures_;                // 그림자·파티클 그림
+    FieldTextures textures_;                 // 코드로 만든 그림자·파티클·빛 그림 (필드가 끝나면 지워요)
     FieldEffects effects_;                   // 파티클 효과 요리법들 (아래 먼지·분위기가 빌려 써요)
     engine::Camera2D camera_;                // 사진사: 맵의 어느 부분을 화면에 보여 줄지
     engine::LookAhead look_ahead_;           // 가는 쪽을 조금 더 보여 주기
     PlayerMotion player_;                    // 캐릭터의 몸: 다리(이동) + 스태미나 + 구르기 버튼 메모장
+    FieldCombat combat_;                     // 허수아비들과 칼 판정 (9c)
+    CombatView combat_view_;                 // 허수아비 그림·HP 바·F4 판정 상자
+    SlashArc slash_;                         // 휘두를 때 보이는 칼자국
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요

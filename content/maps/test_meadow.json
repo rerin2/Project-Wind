@@ -15,6 +15,10 @@
     { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_cave.json", "to_spawn": "entrance", "transition": "iris" },
     { "area": { "x": 39, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_forest.json", "to_spawn": "from_meadow", "transition": "fade" }
   ],
+  "entities": [
+    { "type": "training_dummy", "id": "meadow_dummy_1", "x": 10, "y": 14, "data": "props/training_dummy.json" },
+    { "type": "training_dummy", "id": "meadow_dummy_2", "x": 13, "y": 14, "data": "props/training_dummy.json" }
+  ],
   "ambience": {
     "ambient_fx": ["fx/petals.json"],
     "night_fx": ["fx/fireflies.json"],

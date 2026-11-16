@@ -105,6 +105,24 @@ Code: `client/src/game/combat/attack_runner.*`, `client/src/game/entities/player
 - **Dodge cancel:** during a swing a dodge only comes out inside the cancel window; it ends the swing at once. If both buttons are buffered in the same step, the dodge wins.
 - **Hits:** the hitbox exists only during `active`. Each target can be hit **once per swing**; the next combo hit is a new swing and can hit it again.
 
+## Training dummy (phase 9c)
+
+Code: `client/src/game/combat/training_dummy.*`, `hit_resolution.*`, `client/src/game/states/field_combat.*`; data `content/props/training_dummy.json`. Tested in `training_dummy_tests.cpp`, `hit_resolution_tests.cpp`, `field_combat_tests.cpp` (with the real longsword data).
+
+- Placed by the map's `entities` (two in the test meadow, tiles (10,14) and (13,14)). A dummy **blocks its tile**: the hero cannot walk through it.
+- **Each fixed step, after the hero moves:** if the sword is in its `active` part, every standing dummy whose hurtbox overlaps the hitbox and has not been hit by this swing takes damage. Damage uses `compute_damage` (see Damage): attack power = longsword 14 × (1 + 0.8 × strength bonus 0) = 14, times the hit's power, minus the dummy's defense 0.
+- With the longsword the combo deals **14 → 15 → 21** (50 per full combo); a 100 HP dummy falls after two combos.
+- **HP 0:** the dummy is knocked down for **1.5 s** (it cannot be hit meanwhile), then stands up with full HP. It never disappears, so it can be practised on forever.
+- One swing can hit several dummies if the hitbox reaches them.
+- Strength bonus is fixed at 0 until stats arrive in phase 13. No crits, knockback, hitstop or damage numbers yet (phase 10).
+
+| Dummy | Value | Why |
+|---|---|---|
+| `max_hp` | 100 | Two full longsword combos: enough to see the bar go down step by step |
+| `defense` | 0 | Shows the raw weapon numbers |
+| `recover_seconds` | 1.5 | Long enough to see it knocked down, short enough to keep training |
+| hurtbox | 20 × 34 px above the feet | Covers the straw body and head of the 48 px sprite |
+
 ## Character states
 
 Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `character_state_tests.cpp`. The table says which changes are ever allowed; conditions (cancel window, cast timing) are checked by the code that owns that state. Staying in the same state is always allowed. Exhaustion is a stamina flag, not a state, because an exhausted hero can still walk.

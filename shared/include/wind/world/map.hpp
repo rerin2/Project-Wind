@@ -8,6 +8,7 @@
 
 #include "wind/world/ambience.hpp"
 #include "wind/world/direction.hpp"
+#include "wind/world/map_entity.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -108,6 +109,7 @@ struct MapData {
     std::vector<MapLayer> layers;
     std::vector<SpawnPoint> spawn_points;
     std::vector<MapExit> exits;  // 다른 맵으로 가는 출구들 (없어도 돼요)
+    std::vector<MapEntity> entities;  // 맵에 놓은 물건들: 허수아비 등 (없어도 돼요)
     // 맵 분위기: 늘 떠다니는 효과, 주변광, 빛들. 없어도 돼요.
     Ambience ambience;
     // 칸마다 "지나갈 수 있나?"를 미리 계산해 둔 표예요. 1이면 갈 수 있고 0이면 못 가요.

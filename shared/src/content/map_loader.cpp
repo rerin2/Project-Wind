@@ -8,7 +8,9 @@
 
 #include "wind/content/ambience_loader.hpp"
 #include "wind/content/content_path.hpp"
+#include "wind/content/entity_loader.hpp"
 #include "wind/content/exit_loader.hpp"
+#include "wind/content/map_checks.hpp"
 
 #include <array>
 #include <limits>
@@ -43,41 +45,6 @@ std::optional<RenderLayer> parse_render_layer(std::string_view text) {
     return std::nullopt;
 }
 
-
-// 출구 영역 안에 걸어 들어갈 수 있는 칸이 하나라도 있나요?
-bool exit_is_reachable(const world::MapData& map, const world::MapExit& exit) {
-    for (std::int32_t y = exit.area_min.y; y <= exit.area_max.y; ++y) {
-        for (std::int32_t x = exit.area_min.x; x <= exit.area_max.x; ++x) {
-            if (map.is_walkable({x, y})) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-// 칸마다 "지나갈 수 있나?"를 계산해요.
-// 규칙: 카드가 하나라도 놓여 있고, 놓인 카드가 전부 "지나갈 수 있음"이면 OK.
-// 카드가 하나도 없는 칸은 허공이라 못 가요. 카드 하나라도 벽이면 못 가요.
-void compute_walkability(world::MapData& map, const world::Tileset& tileset) {
-    const auto cells = static_cast<std::size_t>(map.width) * static_cast<std::size_t>(map.height);
-    map.walkable.assign(cells, 0);  // 처음엔 모두 "못 가요"로 채워 두고 하나씩 확인
-    for (std::size_t i = 0; i < cells; ++i) {
-        bool any_tile = false;
-        bool blocked = false;
-        // 같은 칸에 겹쳐 있는 필름들을 모두 살펴봐요.
-        for (const auto& layer : map.layers) {
-            const TileId tile = layer.tiles[i];
-            if (tile == world::kEmptyTile) {
-                continue;
-            }
-            any_tile = true;
-            const auto* props = tileset.find(tile);
-            blocked = blocked || props == nullptr || !props->walkable;
-        }
-        map.walkable[i] = (any_tile && !blocked) ? 1 : 0;
-    }
-}
 
 // 맵의 필름(레이어)들을 읽어요.
 // 필름마다 이름이 겹치지 않는지, 필름 종류가 맞는지, 칸 수가 가로x세로와 딱 맞는지,
@@ -238,22 +205,16 @@ LoadResult<world::MapData> parse_map(const nlohmann::json& document, const std::
             }
         }
 
+        // 맵에 놓는 물건(entities)도 없어도 돼요. 등장 자리·출구를 먼저 읽어야 겹침을 검사할 수 있어요.
+        if (reader.has("entities") && width && height) {
+            if (const auto* entities = reader.raw("entities")) {  // 목록 모양 검사는 parse_entities가 해요
+                parse_entities(*entities, file, map, errors);
+            }
+        }
+
         // 여기까지 틀린 곳이 없을 때만 "지나갈 수 있는 칸" 표를 만들어요.
         if (errors.empty()) {
-            compute_walkability(map, tileset);
-            // 등장 자리가 벽 위라면 캐릭터가 갇혀 버려요. 그래서 꼭 지나갈 수 있는 칸이어야 해요.
-            for (std::size_t i = 0; i < map.spawn_points.size(); ++i) {
-                if (!map.is_walkable(map.spawn_points[i].position)) {
-                    reader.error(reader.index_path("spawn_points", i),
-                                 "spawn point is on a blocked tile");
-                }
-            }
-            // 출구 영역에 걸어 들어갈 수 있는 칸이 하나도 없으면, 그 출구는 절대 못 써요.
-            for (std::size_t i = 0; i < map.exits.size(); ++i) {
-                if (!exit_is_reachable(map, map.exits[i])) {
-                    reader.error(reader.index_path("exits", i), "exit area has no walkable tile");
-                }
-            }
+            finish_map_checks(map, tileset, file, errors);  // 지나갈 수 있는 칸 표 + 위치 검사 (map_checks.cpp)
         }
     }
 

@@ -207,6 +207,22 @@ Code: `client/src/app/field_ui.cpp`, `ui_test_panel.cpp`, `client/src/engine/ui/
 
 HUD and banner are drawn after lighting (never darkened by night or caves) but under the transition cover, so they fade out and in with the map.
 
+## Training dummy and slash arc (phase 9c)
+
+Code: `client/src/game/presentation/combat_view.cpp`, `slash_arc.cpp`. Art from the test-content generator: `content/props/training_dummy.bmp` (96×48, two 48×48 frames, feet at 24,44) and `content/fx/slash_arc.bmp` (32×32 white crescent).
+
+| Element | Look | Why |
+|---|---|---|
+| Dummy | wooden post and arm bar, straw sack body with rope belt, red-and-white target on the chest, burlap head with stitched face and straw tufts; same soft shadow as the hero (20×7) | Reads as "something to hit" at 32 px tiles; the target shows where the hurtbox is |
+| Knocked down | frame 1: the same dummy tilted 22° | Clear state change without new animation work; the frame is wide enough that the head is not clipped |
+| HP bar | 24×3 inside a 1 px dark outline, 3 px above the head; fill `#d64840`, trail `#faeec4`, empty `#282c3c`; drawn after lighting | Red = enemy HP, cream trail = damage just dealt (same delayed bar as stamina) |
+| HP bar visibility | hidden while full (also right after entering the map), shown on the first hit, hidden again 2.5 s after it has refilled | Standing dummies do not clutter the screen |
+| Slash arc | white crescent tinted `#dcecff`, additive, drawn in the Glow layer at the hitbox centre, rotated to the facing (right 0°, down 90°, left 180°, up 270°), 6 px longer than the hitbox | No attack animation exists yet; the arc shows where and when the sword hits, and glows at night and in caves |
+| Slash timing | appears when the hit's `active` part starts, sweeps 50° over the first 60 % of its life, fades over the rest; lives `active + 0.08 s`; even-numbered combo hits sweep the other way | A quick "whoosh" that matches the hit window; alternating sweeps make the combo read as back-and-forth slashes |
+| F4 boxes | sword hitbox `#f03c3c` at 110 alpha (only while active), dummy hurtboxes `#f0d23c` at 100 alpha | Debug only |
+
+Known look issue: when the hero stands directly above a dummy, its HP bar overlaps her waist. Acceptable for a training prop; revisit with enemy HP bars in phase 11.
+
 ## Dodge afterimages
 
 Code: `client/src/game/presentation/afterimage_trail.cpp`.

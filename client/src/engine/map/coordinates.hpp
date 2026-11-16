@@ -26,4 +26,8 @@ namespace wind::engine {
 // 맵 왼쪽 바깥(음수 위치)도 올바르게 계산해요. 예: -1픽셀은 -1번 칸이에요.
 [[nodiscard]] world::TileCoord world_to_tile(Vec2 world, std::int32_t tile_size);
 
+// 칸 위에 서는 발 위치: 칸의 가로 가운데, 세로는 칸의 3/4 지점.
+// 발 상자(높이 8)가 칸 안에 쏙 들어가요. 주인공 등장 자리와 허수아비가 같이 써요.
+[[nodiscard]] Vec2 tile_feet(world::TileCoord tile, std::int32_t tile_size);
+
 }  // namespace wind::engine
