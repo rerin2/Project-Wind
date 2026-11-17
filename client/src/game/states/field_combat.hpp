@@ -9,10 +9,13 @@
 //   2) 주인공 시전이 이번 박자에 끝났으면 빛 탄을 하나 만들어요.
 //   3) 빛 탄을 날려요. 허수아비에 맞으면 피해를 주고 사라지고, 벽·거리 끝에서도 사라져요.
 //   4) 허수아비 시간을 흘려요 (쓰러졌다 다시 서기).
-//   5) 몬스터를 움직여요 (11a: 대기·배회). 몬스터 주사위는 치명타 주사위와 따로 굴려요.
+//   5) 몬스터를 움직여요 (11a·11b). 몬스터 주사위는 치명타 주사위와 따로 굴려요.
+//   6) 덮치는 몬스터의 판정이 주인공 맞는 상자에 닿으면 주인공이 맞아요 (덮치기 한 번에 한 번, 무적이면 안 맞음, 11c).
+//   7) 겹친 몸(주인공·몬스터, 몬스터끼리)을 부드럽게 떼어 놓아요 (명세 7.3, 11c).
 // - 이번 박자에 맞은 일, 사라진 빛 탄, 마지막으로 맞은 일을 기억해요 (연출과 F3 정보판이 봐요).
 // 게임 규칙이라 SDL을 몰라요.
 
+#include "game/combat/hero_hit_event.hpp"
 #include "game/combat/hit_resolution.hpp"
 #include "game/combat/projectile.hpp"
 #include "game/combat/training_dummy.hpp"
@@ -39,6 +42,7 @@ public:
                          float base_crit_chance = kBaseCritChance, std::vector<Monster> monsters = {});
 
     // 한 박자: 칼 판정 -> 빛 탄 만들기 -> 빛 탄 날리기 -> 허수아비 시간 흘리기 -> 몬스터 움직이기
+    //         -> 몬스터 덮치기가 주인공을 맞혔나 -> 겹친 몸 떼어 놓기
     void step(double dt_seconds, PlayerMotion& player, const world::MapData& map);
 
     [[nodiscard]] const std::vector<TrainingDummy>& dummies() const { return dummies_; }
@@ -49,6 +53,10 @@ public:
     [[nodiscard]] const std::vector<HitEvent>& hits() const { return hits_; }
     // 이번 박자에 사라진 빛 탄들 (다음 박자에 지워져요)
     [[nodiscard]] const std::vector<ProjectileEndEvent>& projectile_ends() const { return ended_; }
+    // 이번 박자에 주인공이 맞은 일 (다음 박자에 지워져요, 11c)
+    [[nodiscard]] const std::vector<HeroHitEvent>& hero_hits() const { return hero_hits_; }
+    // 이번 박자에 맞은 일(허수아비·주인공) 중 가장 긴 멈칫 시간 (아무도 안 맞았으면 0). 히트스톱에 넘겨요.
+    [[nodiscard]] float strongest_hitstop() const;
     // 마지막으로 맞은 일 (F3 정보판용)
     [[nodiscard]] const std::optional<HitEvent>& last_hit() const { return last_hit_; }
     // F3 정보판의 싸움 줄: "dummies 2  mobs 2 (chase)  shards 1  last hit 14 -> #1 86/100 (down)"
@@ -63,12 +71,17 @@ private:
     void step_projectiles(float dt_seconds, const world::MapData& map);
     // 맞은 일을 이번 박자 목록과 "마지막으로 맞은 일"에 적어요
     void record_hits(const std::vector<HitEvent>& hits);
+    // 덮치는 몬스터가 주인공을 맞혔나 보고, 맞았으면 피해·경직·넉백을 줘요 (11c)
+    void resolve_monster_attacks(PlayerMotion& player);
+    // 겹친 몸을 떼어 놓아요: 주인공 ↔ 몬스터, 몬스터 ↔ 몬스터 (11c)
+    void separate(PlayerMotion& player, const world::MapData& map, float dt_seconds);
 
     std::vector<TrainingDummy> dummies_;      // 맵의 허수아비들
     std::vector<Monster> monsters_;           // 맵의 몬스터들 (11a)
     std::vector<Projectile> projectiles_;     // 날고 있는 빛 탄들
     std::vector<HitEvent> hits_;              // 이번 박자에 맞은 일
     std::vector<ProjectileEndEvent> ended_;   // 이번 박자에 사라진 빛 탄
+    std::vector<HeroHitEvent> hero_hits_;     // 이번 박자에 주인공이 맞은 일 (11c)
     std::optional<HitEvent> last_hit_;        // 마지막으로 맞은 일
     CombatRandom random_;                     // 치명타 주사위 (시드가 있어 재현 가능)
     CombatRandom monster_random_;             // 몬스터 행동 주사위 (치명타와 따로: 칼질이 걷는 길을 바꾸지 않게)

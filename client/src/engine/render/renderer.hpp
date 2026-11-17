@@ -76,6 +76,8 @@ public:
                                                      Color color);
     // 빛 그림: 가운데가 가장 밝고 가장자리로 부드럽게 사라지는 흰 동그라미 (size x size)
     [[nodiscard]] TextureHandle create_light_texture(std::int32_t size);
+    // 비네트 그림: 가운데 투명, 가장자리로 갈수록 진한 흰색 (색은 그릴 때 곱해요, 11c). 부드럽게 키워요.
+    [[nodiscard]] TextureHandle create_vignette_texture(std::int32_t width, std::int32_t height);
     // 스티커 종이 하나를 버려요.
     void destroy_texture(TextureHandle handle);
     // 지금 가진 스티커 종이 수

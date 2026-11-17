@@ -3,7 +3,7 @@
   "id": "slime_green",
   "name": "초록 슬라임",
   "max_hp": 30,
-  "attack_power": 4,
+  "attack_power": 40,
   "defense": 0,
   "move_speed": 40,
   "detect_range": 120,

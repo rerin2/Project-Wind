@@ -17,6 +17,9 @@ constexpr std::int32_t kSoftParticleSize = 8;
 constexpr engine::Color kWhite{255, 255, 255, 255};
 // 빛 그림 크기 (확대해서 쓰니까 너무 크지 않아도 돼요)
 constexpr std::int32_t kLightTextureSize = 128;
+// 피격 비네트 그림 크기: 화면(640x360)의 1/4. 부드럽게 늘려 그려요 (11c)
+constexpr std::int32_t kVignetteWidth = 160;
+constexpr std::int32_t kVignetteHeight = 90;
 
 }  // namespace
 
@@ -25,11 +28,12 @@ FieldTextures::FieldTextures(engine::Renderer& renderer)
       shadow_(renderer.create_soft_ellipse_texture(kShadowWidth, kShadowHeight, kShadowColor)),  // 그림자
       particles_{renderer.create_soft_ellipse_texture(kSoftParticleSize, kSoftParticleSize, kWhite),  // 부드러운 점
                  renderer.create_solid_texture(1, 1, kWhite)},                                      // 1픽셀 점
-      light_(renderer.create_light_texture(kLightTextureSize)) {}                                    // 빛
+      light_(renderer.create_light_texture(kLightTextureSize)),                                     // 빛
+      vignette_(renderer.create_vignette_texture(kVignetteWidth, kVignetteHeight)) {}                // 피격 비네트
 
 FieldTextures::~FieldTextures() {
     // 파일에서 읽은 그림은 리소스 관리자가 정리하고, 여기서는 코드로 만든 것만 지워요.
-    for (const engine::TextureHandle texture : {shadow_, particles_.soft, particles_.pixel, light_}) {
+    for (const engine::TextureHandle texture : {shadow_, particles_.soft, particles_.pixel, light_, vignette_}) {
         renderer_->destroy_texture(texture);
     }
 }

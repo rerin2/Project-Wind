@@ -80,6 +80,26 @@ SDL_Surface* paint_soft_ellipse(std::int32_t width, std::int32_t height, Color c
     return surface;
 }
 
+SDL_Surface* paint_vignette(std::int32_t width, std::int32_t height) {
+    constexpr float kInner = 0.55f;  // 이 거리 안은 완전히 투명 (화면 가운데가 가려지지 않게)
+    constexpr float kOuter = 1.25f;  // 이 거리부터 가장 진해요 (모서리는 거리 약 1.41)
+    SDL_Surface* surface = blank(width, height, "vignette");
+    if (surface == nullptr) {
+        return nullptr;
+    }
+    const float half_w = static_cast<float>(width) * 0.5f;
+    const float half_h = static_cast<float>(height) * 0.5f;
+    for (std::int32_t y = 0; y < height; ++y) {
+        for (std::int32_t x = 0; x < width; ++x) {
+            const float d = distance_from_center(x, y, half_w, half_h);          // 가운데 0, 가장자리 1
+            const float t = std::clamp((d - kInner) / (kOuter - kInner), 0.0f, 1.0f);
+            const float smooth = t * t * (3.0f - 2.0f * t);                        // smoothstep: 부드럽게 시작·끝
+            put(surface, x, y, {255, 255, 255, static_cast<std::uint8_t>(smooth * 255.0f)});
+        }
+    }
+    return surface;
+}
+
 SDL_Surface* paint_radial_light(std::int32_t size) {
     SDL_Surface* surface = blank(size, size, "light");
     if (surface == nullptr) {

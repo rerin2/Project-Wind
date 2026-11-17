@@ -4,6 +4,7 @@
 #include "game/states/field_combat.hpp"
 
 #include "game/entities/facing.hpp"
+#include "game/physics/body_separation.hpp"
 
 #include "wind/log.hpp"
 
@@ -25,6 +26,12 @@ constexpr float kSpellSpawnForward = 10.0f;
 constexpr float kSpellLift = 14.0f;
 // 몬스터 주사위 씨앗 = 싸움 씨앗 XOR 이 값. 같은 씨앗에서 치명타와 다른 줄의 수가 나와요 (0이 아닌 아무 수나 괜찮아요).
 constexpr std::uint64_t kMonsterStream = 0xD1B54A32D192ED03ULL;
+// 주인공 방어력 (명세 8.2·10.3). 장비가 생기는 15단계 전까지는 0이에요.
+constexpr float kHeroDefense = 0.0f;
+// 몸끼리 밀어내기 (명세 7.3, 11c). 이유는 docs/GAMEPLAY.md "Bodies pushing apart" 절에 있어요.
+constexpr float kSeparationSpeed = 120.0f;  // 한 쌍을 1초에 떼어 놓는 최대 거리 (픽셀/초, 힘 제한)
+constexpr float kHeroPushWeight = 1.0f;     // 주인공이 밀리는 몫 (몬스터의 1/3)
+constexpr float kMonsterPushWeight = 3.0f;  // 몬스터가 밀리는 몫 (슬라임은 가벼워요)
 
 }  // namespace
 
@@ -39,6 +46,7 @@ FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed,
 void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::MapData& map) {
     hits_.clear();   // 지난 박자 기록 지우기
     ended_.clear();
+    hero_hits_.clear();
     const auto dt = static_cast<float>(dt_seconds);
     resolve_sword(player);         // 1) 칼
     spawn_spell(player);           // 2) 시전이 끝났으면 빛 탄 하나
@@ -46,9 +54,11 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
     for (auto& dummy : dummies_) { // 4) 쓰러진 허수아비가 다시 서기까지 시간 세기
         dummy.step(dt);
     }
-    for (auto& monster : monsters_) {  // 5) 몬스터: 쉬기·돌아다니기 (11a)
+    for (auto& monster : monsters_) {  // 5) 몬스터: 쉬기·돌아다니기·쫓기·덮치기 (11a·11b)
         monster.step(dt, map, monster_random_, player.mover().feet());  // 주인공 발 위치를 보고 알아채요 (11b)
     }
+    resolve_monster_attacks(player);  // 6) 덮치기가 주인공에게 닿았나 (11c)
+    separate(player, map, dt);         // 7) 겹친 몸 떼어 놓기 (11c)
 }
 
 // 칼이 판정 중이면 허수아비에 맞았는지 보고 피해를 줘요 (9c).
@@ -130,9 +140,73 @@ void FieldCombat::record_hits(const std::vector<HitEvent>& hits) {
     }
 }
 
+// 덮치는 몬스터마다: 판정이 주인공 맞는 상자에 닿고, 주인공이 무적이 아니고, 이번 덮치기에서 처음이면 맞아요.
+void FieldCombat::resolve_monster_attacks(PlayerMotion& player) {
+    for (auto& monster : monsters_) {
+        const auto hitbox = monster.attack_hitbox();             // 덮치는 동안만 있어요
+        const combat::AttackData* attack = monster.attack();
+        if (!hitbox || attack == nullptr) continue;
+        const engine::RectF hurtbox = player.hurtbox();
+        if (!hitbox->intersects(hurtbox)) continue;              // 안 닿았어요
+        // 무적(맞은 직후·구르기 처음)이면 이번 박자는 안 맞아요. 덮치기는 "아직 안 맞힘"으로 남아서
+        // 무적이 끝났는데 아직 덮치는 중이면 그때 맞을 수 있어요.
+        if (!player.can_be_hit()) continue;
+        if (!monster.claim_hit()) continue;                      // 이번 덮치기에서 이미 맞혔어요
+        combat::DamageInput input;                               // 피해 계산 (명세 9.3)
+        input.attack_power = monster.data().attack_power;        // 슬라임 공격력 4
+        input.power = attack->power;                             // 공격 위력 1.0
+        input.defense = kHeroDefense;
+        const combat::DamageResult damage = combat::compute_damage(input);
+        const engine::Vec2 direction = monster.attack_direction();  // 덮친 쪽으로 밀려나요
+        HeroHitEvent hit;
+        hit.amount = player.take_hit(damage.amount, direction, attack->knockback);  // HP·경직·무적·넉백
+        hit.at = {hurtbox.x + hurtbox.w * 0.5f, hurtbox.y + hurtbox.h * 0.5f};
+        hit.direction = direction;
+        hit.knockback = attack->knockback;
+        hit.hitstop = attack->hitstop;
+        hit.shake = attack->shake;
+        hero_hits_.push_back(hit);
+        log::debug("Hero hit by {} for {} (hp {}/{})", monster.name(), hit.amount, player.health().current(),
+                   player.health().max());
+    }
+}
+
+// 겹친 몸을 부드럽게 떼어 놓아요. 한 쌍마다 한 박자에 kSeparationSpeed × dt까지만 (밀어내기 힘 제한).
+// 순서가 늘 같아서(주인공-몬스터 순서대로, 그다음 몬스터끼리) 같은 입력이면 같은 결과예요.
+void FieldCombat::separate(PlayerMotion& player, const world::MapData& map, float dt_seconds) {
+    const float max_step = kSeparationSpeed * dt_seconds;  // 히트스톱(0)이면 밀지 않아요
+    if (!(max_step > 0.0f)) return;
+    const float hero_radius = player.mover().tuning().body.width * 0.5f;  // 몸 반지름 = 발 상자 가로의 절반
+    for (auto& monster : monsters_) {                                     // 주인공 ↔ 몬스터
+        const SeparationPush push = separate_bodies(
+            {player.mover().feet(), hero_radius, kHeroPushWeight},
+            {monster.feet(), monster.body().width * 0.5f, kMonsterPushWeight}, max_step);
+        player.shove(push.first, map);   // 벽에 닿으면 벽을 따라 미끄러져요
+        monster.shove(push.second, map);
+    }
+    for (std::size_t i = 0; i < monsters_.size(); ++i) {                  // 몬스터 ↔ 몬스터
+        for (std::size_t j = i + 1; j < monsters_.size(); ++j) {
+            auto& a = monsters_[i];
+            auto& b = monsters_[j];
+            const SeparationPush push = separate_bodies({a.feet(), a.body().width * 0.5f, kMonsterPushWeight},
+                                                        {b.feet(), b.body().width * 0.5f, kMonsterPushWeight},
+                                                        max_step);
+            a.shove(push.first, map);
+            b.shove(push.second, map);
+        }
+    }
+}
+
 engine::Vec2 FieldCombat::spell_hand(engine::Vec2 feet, world::Direction facing) {
     const engine::Vec2 ground = feet + direction_vector(facing) * kSpellSpawnForward;  // 발 조금 앞
     return {ground.x, ground.y - kSpellLift};                                         // 가슴 높이
+}
+
+float FieldCombat::strongest_hitstop() const {
+    float longest = 0.0f;  // 아무도 안 맞았으면 0 (멈추지 않아요)
+    for (const auto& hit : hits_) longest = std::max(longest, hit.hitstop);
+    for (const auto& hit : hero_hits_) longest = std::max(longest, hit.hitstop);
+    return longest;
 }
 
 std::string FieldCombat::debug_text() const {

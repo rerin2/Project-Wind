@@ -4,7 +4,10 @@
 // - 제자리에서 Shift만 누르면 스태미나를 안 써요
 // - 구르기는 25를 쓰고, 25가 안 되면 구르지 않아요
 // - 다 쓰면 지침: 25까지 차야 다시 달리고 구를 수 있어요
+// - 11c: 맞으면 HP가 줄고 경직(행동 막힘)·넉백(벽 미끄러짐)·무적 0.6초, 구르기 처음 0.16초는 안 맞아요
 #include "game/entities/player_motion.hpp"
+
+#include "wind/combat/weapon.hpp"
 
 #include <gtest/gtest.h>
 
@@ -356,6 +359,83 @@ TEST(PlayerMotion, NoSpellDoesNothing) {
     EXPECT_NE(player.state(), CharacterState::Casting);
     EXPECT_FLOAT_EQ(player.mana().current(), 50.0f);
     EXPECT_EQ(player.mana_denied_count(), 0u);
+}
+
+
+// ---------------------------------------------------------------- 11c: 맞기 ----
+
+TEST(PlayerMotion, HitStaggersAndKnocksBack) {
+    const auto map = open_map();
+    auto player = make_player();
+    EXPECT_TRUE(player.can_be_hit());
+    EXPECT_EQ(player.take_hit(4, kRight, 160.0f), 4);
+    EXPECT_EQ(player.health().current(), 96);
+    EXPECT_EQ(player.state(), CharacterState::Hit);
+    EXPECT_FALSE(player.can_be_hit());  // 맞은 직후 무적
+    // 경직 0.3초 동안은 왼쪽 키도 구르기도 안 먹고, 오른쪽으로 24픽셀 밀려나요
+    player.press_dodge();
+    run_for(player, 18, Vec2{-1.0f, 0.0f}, false, map);
+    EXPECT_NE(player.mover().state(), Mover::State::Dodging);
+    EXPECT_NEAR(player.mover().feet().x, 124.0f, 0.5f);
+    EXPECT_NEAR(player.mover().feet().y, 300.0f, 0.01f);
+    // 경직이 끝나면 다시 걸어요
+    run_for(player, 2, Vec2{}, false, map);
+    EXPECT_NE(player.state(), CharacterState::Hit);
+    const float before = player.mover().feet().x;
+    run_for(player, 20, Vec2{-1.0f, 0.0f}, false, map);
+    EXPECT_LT(player.mover().feet().x, before);
+}
+
+TEST(PlayerMotion, KnockbackSlidesAlongWall) {
+    // 오른쪽 4번째 칸 줄(x 128~160)이 벽. 주인공 발 상자 오른쪽 끝은 125
+    auto map = open_map();
+    for (int y = 0; y < map.height; ++y) map.walkable[static_cast<std::size_t>(map.index_of({4, y}))] = 0;
+    PlayerMotion player({118.0f, 300.0f}, wind::world::Direction::Right, MovementTuning{}, StaminaTuning{}, 0.15);
+    const Vec2 diagonal{0.70710678f, 0.70710678f};  // 오른쪽 아래로 밀려요
+    (void)player.take_hit(4, diagonal, 160.0f);
+    run_for(player, 20, Vec2{}, false, map);
+    EXPECT_LE(player.mover().feet().x + 7.0f, 128.0f);    // 벽 속으로 안 들어가요
+    EXPECT_NEAR(player.mover().feet().y, 300.0f + 24.0f * diagonal.y, 0.5f);  // 아래로는 끝까지 미끄러져요
+}
+
+TEST(PlayerMotion, InvulnerabilityEndsAfterPointSixSeconds) {
+    const auto map = open_map();
+    auto player = make_player();
+    (void)player.take_hit(4, kRight, 0.0f);
+    run_for(player, 35, Vec2{}, false, map);  // 0.583초
+    EXPECT_FALSE(player.can_be_hit());
+    run_for(player, 2, Vec2{}, false, map);   // 0.617초
+    EXPECT_TRUE(player.can_be_hit());
+}
+
+TEST(PlayerMotion, DodgeStartIsInvulnerable) {
+    const auto map = open_map();
+    auto player = make_player();
+    player.press_dodge();
+    player.step(kDt, kRight, false, map);
+    ASSERT_EQ(player.mover().state(), Mover::State::Dodging);
+    EXPECT_FALSE(player.can_be_hit());  // 구르기 처음 0.16초는 안 맞아요 (11c에서 연결)
+    run_for(player, 12, kRight, false, map);  // 0.217초 (구르기 무적 0.16초가 지났어요)
+    EXPECT_TRUE(player.can_be_hit());
+}
+
+TEST(PlayerMotion, HitCancelsAttack) {
+    const auto map = open_map();
+    wind::combat::Weapon weapon;
+    wind::combat::AttackData swing;
+    swing.id = "s";
+    swing.windup = 0.1f;
+    swing.active = 0.1f;
+    swing.recovery = 0.2f;
+    weapon.combo.push_back(swing);
+    PlayerMotion player({100.0f, 300.0f}, wind::world::Direction::Right, MovementTuning{}, StaminaTuning{}, 0.15,
+                        weapon);
+    player.press_attack();
+    player.step(kDt, Vec2{}, false, map);
+    ASSERT_EQ(player.state(), CharacterState::Attacking);
+    (void)player.take_hit(4, kRight, 160.0f);
+    EXPECT_EQ(player.state(), CharacterState::Hit);   // 칼은 끊기고 경직
+    EXPECT_FALSE(player.attack().busy());
 }
 
 }  // namespace

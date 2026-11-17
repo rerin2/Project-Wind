@@ -10,7 +10,7 @@
 // - 걷기는 벽에 닿으면 벽을 따라 미끄러져요 (monster_moves).
 // - 주사위는 FieldCombat의 시드 있는 주사위를 빌려 써요. 같은 씨앗·같은 주인공 움직임이면 늘 같은 결과예요.
 // 게임 규칙이라 고정 박자로 계산하고, SDL을 몰라서 창 없이 테스트할 수 있어요.
-// 주인공이 맞는 것(11c), 몬스터가 맞고 쓰러지는 것(11d)은 다음 작업에서 더해요.
+// 덮치기 판정은 FieldCombat이 주인공 맞는 상자와 비교해요 (11c). 몬스터가 맞고 쓰러지는 것은 11d예요.
 
 #include "engine/core/math.hpp"
 #include "game/monsters/monster_state.hpp"
@@ -64,6 +64,10 @@ public:
     [[nodiscard]] std::optional<engine::Vec2> lunge_end() const;
     // 공격 판정 상자 (덮치는 동안만 있어요, 맵 위 픽셀)
     [[nodiscard]] std::optional<engine::RectF> attack_hitbox() const;
+    // 덮치기 한 번에 한 번만 맞히게: 이번 덮치기에서 처음이면 true를 돌려주고 기억해요 (11c)
+    bool claim_hit();
+    // 밖에서 밀어요 (11c: 몸끼리 밀어내기). 벽에 닿으면 벽을 따라 미끄러져요. 상태는 바꾸지 않아요.
+    void shove(engine::Vec2 delta, const world::MapData& map);
 
 private:
     // 상태를 바꾸고 상태 시계를 0으로
@@ -107,6 +111,7 @@ private:
     float idle_left_ = 0.0f;        // 쉬는 시간 남은 것 (초)
     float stuck_seconds_ = 0.0f;    // 거의 못 가고 있는 시간 (초, 배회·복귀)
     float distance_moved_ = 0.0f;   // 걸은 거리의 합 (픽셀)
+    bool hit_landed_ = false;       // 이번 덮치기에서 이미 맞혔나 (예고를 시작할 때 지워요)
 };
 
 }  // namespace wind::game

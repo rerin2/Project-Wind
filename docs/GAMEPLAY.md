@@ -31,7 +31,7 @@ Code: `client/src/game/entities/mover.*`, `movement_tuning.hpp`, `client/src/gam
 - Direction: the held direction, or the facing direction when nothing is held.
 - During a dodge, velocity is fixed at `dodge_direction × dodge_speed`; walls still stop it.
 - When it ends, velocity becomes `dodge_direction × max_speed` (no sudden stop) and a cooldown starts.
-- The first part of a dodge is invulnerable (`Mover::invulnerable`), used by combat in phase 12 (player survival).
+- The first part of a dodge is invulnerable (`Mover::invulnerable`). Since 11c monster hits use it (`PlayerMotion::can_be_hit`); it does not blink.
 
 | Tuning | Value | Why |
 |---|---|---|
@@ -221,7 +221,7 @@ Code: `client/src/game/monsters/monster.*`, `client/src/game/states/field_combat
 - Points are picked inside a square and rejected outside the circle, so no `sin`/`cos` is needed and the same seed gives the same walk on every machine.
 - **Dice:** all monsters share one seeded `CombatRandom` owned by `FieldCombat`, seeded with the field seed XOR a constant, so sword crits never change where monsters walk. Same seed → same walk (test `Monster.SameSeedSameWalk`). The field seed still changes every launch.
 - Hitstop (`time_scale` 0) freezes monsters too: a 0 s step changes nothing.
-- Monsters cannot be hit yet and their attack does not hurt the hero yet: hits on the hero come in 11c, damage and death in 11d.
+- Monsters cannot be hit yet (11d). Since 11c their lunge hurts the hero (see "Hero getting hit").
 
 | Green slime | Value | Why |
 |---|---|---|
@@ -250,7 +250,7 @@ Code: `client/src/game/monsters/monster.*`, `monster_moves.*`; data `content/att
 - **Range rule:** `wander.radius + detect_range ≤ leash_range`, so a monster never notices a hero it would give up on at once.
 - Hitstop freezes every state timer (a 0 s step changes nothing).
 - **Replay (spec 17.2):** the same seed and the same hero path give the same positions and state sequence, attacks included (`MonsterAi.SameSeedSameHeroSameResult`).
-- Known limit: after a lunge the slime can end on top of the hero; the next lunge direction is then almost random. Bodies pushing each other apart (11c) removes this.
+- After a lunge the slime used to end on top of the hero and lunge in an almost random direction next; bodies pushing apart (11c) fixes this.
 
 | Slime hop | Value | Why |
 |---|---|---|
@@ -261,6 +261,35 @@ Code: `client/src/game/monsters/monster.*`, `monster_moves.*`; data `content/att
 | `knockback`, `hitstop`, `shake` | 160, 0.06, 0.25 | Used when the hit lands on the hero (11c) |
 | `attack_range` | 40 px (spec example 28) | The lunge reaches 46 px ahead (40 + 6), so it starts when the hero is inside that reach |
 | `notice_seconds` | 0.4 s | Long enough to see the "!" hop; short enough not to feel slow |
+
+## Hero getting hit (phase 11c)
+
+Code: `client/src/game/entities/health.*`, `hit_reaction.*`, `player_motion.*`, `client/src/game/states/field_combat.*` (`resolve_monster_attacks`). Tested in `health_tests.cpp`, `hit_reaction_tests.cpp`, `player_motion_tests.cpp`, `field_combat_tests.cpp`.
+
+- **When:** each fixed step after monsters move, a lunging monster's attack hitbox is checked against the hero hurtbox (14 × 30 px above the feet). A hit needs: overlap, the hero not invulnerable, and the first hit of this lunge (`Monster::claim_hit`). If the hero is invulnerable the lunge stays "unused", so it can still land if the invulnerability ends while the lunge is active.
+- **Damage:** `compute_damage(monster attack_power × attack power − hero defense)`; hero defense is 0 until equipment (phase 15). Green slime: 4 × 1.0 − 0 = **4**.
+- **HP:** max **100** (spec 8.2, vigor 10). Temporary rule until phase 12 (agreed 2026-11-17): HP never drops below **1**; phase 12 changes the floor to 0 and adds death.
+- **Stagger (`hit`):** **0.3 s**. The state table blocks attacking, dodging and casting; the legs stop; a running attack and a cast are cancelled (MP already paid is not refunded); walking or dodge momentum stops. Buttons pressed during the stagger stay in the 0.15 s input buffer.
+- **Knockback:** along the lunge direction, starting at the attack's `knockback` (slime 160 px/s) and slowing evenly to 0 at the end of the stagger, so the distance is knockback × stagger ÷ 2 (**24 px**). It moves the feet box with `move_and_slide`, so a wall stops it on one axis and the hero slides along the wall on the other.
+- **Invulnerability:** **0.6 s** after a hit (spec 9.4). The first **0.16 s** of a dodge are invulnerable too (`dodge_invulnerable_seconds`, pulled into 11c from phase 12, agreed).
+- **Hitstop:** the hit's `hitstop` (slime 0.06 s) freezes the field like a sword hit; the longer freeze of the step wins (`FieldCombat::strongest_hitstop`).
+- No damage number over the hero (agreed); F3 shows `hp 96/100`. The HUD HP bar comes in phase 12.
+
+| Hero hit | Value | Why |
+|---|---|---|
+| stagger | 0.3 s | Long enough to feel the hit and see the push; short enough that the 0.6 s invulnerability leaves time to act before the next hit |
+| invulnerability | 0.6 s | Spec 9.4 default; also how long the red vignette fades |
+| hurtbox | 14 × 30 px, from 30 px above the feet | Body of the 32 × 48 sprite without the ears and hair edge, same width as the feet box |
+
+## Bodies pushing apart (phase 11c, spec 7.3)
+
+Code: `client/src/game/physics/body_separation.*`, `FieldCombat::separate`. Tested in `body_separation_tests.cpp`, `field_combat_tests.cpp`.
+
+- Bodies are circles at the feet with radius = feet box width ÷ 2 (hero 7, slime 6). After hits are resolved each fixed step, hero ↔ monster pairs, then monster ↔ monster pairs (fixed order, so replays match) that overlap are moved apart.
+- **Force limit:** at most **120 px/s** of correction per pair (2 px per step), so bodies slide apart instead of popping, and a fast dodge or lunge can still pass through.
+- **Shares:** hero 1 : monster 3 (the hero moves 25 %, a slime 75 %); two monsters split evenly. Each body moves with `move_and_slide`, so nobody is pushed into a wall.
+- Hitstop (0 s step) pushes nothing.
+- This fixes the 11b issue where a slime ended on top of the hero and lunged in a random direction next.
 
 ## Character states
 
@@ -277,7 +306,7 @@ Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `charact
 | dead | transitioning, idle (respawn) |
 | transitioning | idle |
 
-For now the hero uses idle, moving, running, attacking, casting and dodging; F3 shows the state and the combo hit (`attacking 2`).
+For now the hero uses idle, moving, running, attacking, casting, dodging and hit (11c); F3 shows the state and the combo hit (`attacking 2`).
 
 ## Time
 

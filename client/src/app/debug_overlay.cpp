@@ -43,9 +43,9 @@ void DebugOverlay::draw(engine::Renderer& renderer, const game::FieldDebugInfo& 
     // 한 줄씩 보여 줄 글자들:
     const std::array lines{
         std::format("FPS {:.1f}  frame {:.2f} ms  dropped {}", fps_, frame_ms_, dropped_frames),
-        std::format("map {}  pos ({:.1f}, {:.1f})  tile ({}, {})", field.map_id,
+        std::format("map {}  pos ({:.1f}, {:.1f})  tile ({}, {})  hp {}/{}", field.map_id,
                     field.player_feet.x, field.player_feet.y, field.player_tile.x,
-                    field.player_tile.y),
+                    field.player_tile.y, field.hp, field.hp_max),
         std::format("{}{}  facing {}  speed {:.0f} px/s  stamina {:.0f}/{:.0f}{}", field.state,
                     field.combo_hit > 0 ? std::format(" {}", field.combo_hit) : std::string(),
                     world::to_string(field.facing), field.speed, field.stamina, field.stamina_max,

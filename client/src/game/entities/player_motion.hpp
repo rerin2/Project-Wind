@@ -8,6 +8,7 @@
 // - AttackRunner(칼 휘두르기): 준비 -> 판정 -> 후딜, 콤보
 // - SpellCaster(마술 시전): 시전 시간을 모았다가 마술을 내보냄
 // - InputBuffer(버튼 메모장): 구르기·공격·마술 버튼을 0.15초 기억
+// - Health(HP)와 HitReaction(경직·무적·넉백): 맞으면 HP가 줄고, 잠깐 굳고, 밀려나고, 잠깐 무적이에요 (11c)
 // 한 박자 순서:
 //   1) 구르기 메모가 있고, 구를 수 있으면 -> 구르기 (스태미나 25 씀)
 //      공격 중이면 취소 구간에서만 굴러요 (공격은 취소돼요). 시전 중에는 못 굴러요 (명세 8.5)
@@ -20,6 +21,7 @@
 //   5) Shift를 누르고 움직이며 지침이 아니면 -> 달리기 (달리는 동안 1초에 25 씀)
 //   6) 스태미나는 쓰지 않았으면 0.6초 뒤부터 다시 참, MP는 박자마다 조금씩 참
 //   7) 시전이 끝난 박자에는 spell_released()가 true예요 (FieldCombat이 빛 탄을 만들어요)
+//   8) 경직 중에는 상태가 hit이라 표가 모든 행동을 막고, 다리도 멈추고, 넉백만큼 밀려나요 (벽 미끄러짐, 11c)
 // 어떤 상태에서 무엇을 시작할 수 있는지는 상태 전이 표(character_state)를 따라요.
 // SDL을 몰라서 창 없이 테스트할 수 있어요.
 
@@ -27,6 +29,8 @@
 #include "game/combat/attack_runner.hpp"
 #include "game/combat/spell_caster.hpp"
 #include "game/entities/character_state.hpp"
+#include "game/entities/health.hpp"
+#include "game/entities/hit_reaction.hpp"
 #include "game/entities/mana.hpp"
 #include "game/entities/mover.hpp"
 #include "game/entities/stamina.hpp"
@@ -44,10 +48,10 @@ class PlayerMotion {
 public:
     // buffer_seconds: 구르기·공격 버튼을 몇 초 동안 기억할지
     // weapon: 든 무기 (콤보가 비어 있으면 공격을 못 해요)
-    // mana: MP 숫자 (9단계는 최대 50 고정)
+    // mana: MP 숫자 (9단계는 최대 50 고정), health: HP 숫자, hit: 경직·무적·맞는 상자 (11c)
     PlayerMotion(engine::Vec2 feet, world::Direction facing, MovementTuning movement,
                  StaminaTuning stamina, double buffer_seconds, combat::Weapon weapon = {},
-                 ManaTuning mana = {});
+                 ManaTuning mana = {}, HealthTuning health = {}, HitTuning hit = {});
 
     // 구르기 버튼을 눌렀어요 (화면 한 장마다, 박자 계산 전에). 메모장에 적어 둬요.
     void press_dodge();
@@ -66,7 +70,17 @@ public:
     // 이번 휘두르기에서 이 대상을 처음 맞혔으면 true (판정 구간에서만)
     bool register_hit(TargetId target) { return attack_.register_hit(target); }
 
-    // 지금 상태 (idle, moving, running, attacking, casting, dodging)
+    // 지금 맞을 수 있나요? 피격 무적(맞은 뒤 0.6초)이나 구르기 무적(구르기 처음 0.16초)이면 안 맞아요 (11c)
+    [[nodiscard]] bool can_be_hit() const;
+    // 맞았어요 (FieldCombat이 불러요): HP를 깎고, 하던 공격·시전·구르기를 끊고, 경직·무적·넉백을 시작해요.
+    // direction: 밀려날 쪽 (길이 1), knockback: 밀어내는 힘 (픽셀/초). 실제로 깎인 HP를 돌려줘요.
+    int take_hit(int amount, engine::Vec2 direction, float knockback);
+    // 맵 위의 맞는 상자 (픽셀)
+    [[nodiscard]] engine::RectF hurtbox() const;
+    // 밖에서 밀어요 (11c: 몸끼리 밀어내기). 벽에 닿으면 벽을 따라 미끄러져요.
+    void shove(engine::Vec2 delta, const world::MapData& map) { mover_.shove(delta, map); }
+
+    // 지금 상태 (idle, moving, running, attacking, casting, dodging, hit)
     [[nodiscard]] CharacterState state() const;
     // 이번 박자에 공격(또는 다음 콤보)을 시작했나 (연출용)
     [[nodiscard]] bool attack_started() const { return attack_started_; }
@@ -82,6 +96,8 @@ public:
     [[nodiscard]] const Mana& mana() const { return mana_; }
     [[nodiscard]] const AttackRunner& attack() const { return attack_; }
     [[nodiscard]] const SpellCaster& caster() const { return caster_; }
+    [[nodiscard]] const Health& health() const { return health_; }
+    [[nodiscard]] const HitReaction& hit_reaction() const { return hit_; }
 
 private:
     bool try_dodge();
@@ -94,6 +110,8 @@ private:
     AttackRunner attack_;
     SpellCaster caster_;
     InputBuffer buffer_;
+    Health health_;
+    HitReaction hit_;
     bool attack_started_ = false;
     bool spell_released_ = false;
     world::Direction cast_facing_ = world::Direction::Down;

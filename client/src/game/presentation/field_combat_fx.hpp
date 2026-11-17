@@ -6,6 +6,7 @@
 // - 몬스터 그림: 숨쉬기·통통 뛰기, 느낌표, 공격 예고 바닥 표시 (MonsterView, 11a·11b)
 // - 칼자국 (SlashArc), 손끝 빛·빛 탄·꼬리 (SpellView)
 // - 타격감 (10b): 화면 흔들림(ScreenShake), 피해 숫자(DamageNumbers), 타격 불꽃(hit_spark 파티클)
+// - 주인공이 맞을 때 (11c): 화면 흔들림과 화면 가장자리 붉은 비네트(HurtVignette). 깜빡임은 PlayerSprite가 그려요
 // 박자마다 생긴 "맞은 일"과 "사라진 빛 탄"을 모아 두었다가(collect), 화면 한 장마다 한꺼번에 연출해요.
 // (한 화면에 박자가 0번이나 여러 번이어도 빠지는 일이 없어요)
 // field_state.cpp가 300줄을 넘지 않게 싸움 연출을 여기로 옮겼어요.
@@ -19,6 +20,7 @@
 #include "game/presentation/combat_view.hpp"
 #include "game/presentation/damage_numbers.hpp"
 #include "game/presentation/feel_settings.hpp"
+#include "game/presentation/hurt_vignette.hpp"
 #include "game/presentation/monster_view.hpp"
 #include "game/presentation/screen_shake.hpp"
 #include "game/presentation/slash_arc.hpp"
@@ -43,6 +45,7 @@ struct CombatFxSetup {
     const engine::ParticleEffect* star_burst = nullptr;  // 빛 탄이 사라질 때
     const engine::ParticleEffect* hit_spark = nullptr;   // 맞을 때 불꽃
     std::optional<combat::SpellLight> spell_light;       // 마술이 내는 빛
+    engine::TextureHandle vignette;                     // 가장자리가 진한 비네트 그림 (11c)
 };
 
 class FieldCombatFx {
@@ -77,10 +80,13 @@ private:
     SlashArc slash_;
     SpellView spell_;
     ScreenShake shake_;
+    HurtVignette vignette_;                       // 주인공 피격 붉은 가장자리 (11c)
+    engine::TextureHandle vignette_texture_;      // 비네트 그림
     DamageNumbers numbers_;
     const engine::ParticleEffect* hit_spark_;
     std::vector<HitEvent> pending_hits_;          // 지난 화면 뒤에 생긴 맞은 일
     std::vector<ProjectileEndEvent> pending_ends_;  // 지난 화면 뒤에 사라진 빛 탄
+    std::vector<HeroHitEvent> pending_hero_hits_;   // 지난 화면 뒤에 주인공이 맞은 일 (11c)
 };
 
 }  // namespace wind::game

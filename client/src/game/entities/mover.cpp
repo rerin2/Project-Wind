@@ -87,6 +87,17 @@ void Mover::teleport(Vec2 feet) {
     state_ = State::Idle;
 }
 
+void Mover::shove(Vec2 delta, const world::MapData& map) {
+    if (!(engine::length(delta) > 0.0f)) return;  // 0이나 이상한 값이면 그대로
+    // 모서리 보정 없이 그대로 밀어요: 밀리는 몸이 옆으로 비켜 가면 이상해 보여요
+    feet_ = move_and_slide(map, tuning_.body, feet_, delta, 0.0f).feet;
+}
+
+void Mover::halt() {
+    velocity_ = {};          // 빠르기 0
+    state_ = State::Idle;    // 구르는 중이었어도 끊겨요 (쉬는 시간은 그대로 남아요)
+}
+
 Vec2 Mover::interpolated_feet(float alpha) const {
     return engine::lerp(previous_feet_, feet_, std::clamp(alpha, 0.0f, 1.0f));
 }

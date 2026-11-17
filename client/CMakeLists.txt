@@ -66,10 +66,13 @@ add_library(wind_game_core STATIC
     src/game/input/movement_intent.cpp
     src/game/input/input_buffer.cpp
     src/game/physics/tile_collision.cpp
+    src/game/physics/body_separation.cpp
     src/game/entities/facing.cpp
     src/game/entities/mover.cpp
     src/game/entities/stamina.cpp
     src/game/entities/mana.cpp
+    src/game/entities/health.cpp
+    src/game/entities/hit_reaction.cpp
     src/game/entities/character_state.cpp
     src/game/entities/player_motion.cpp
     src/game/combat/hitbox_placement.cpp
@@ -89,6 +92,8 @@ add_library(wind_game_core STATIC
     src/game/presentation/combat_view.cpp
     src/game/presentation/monster_pose.cpp
     src/game/presentation/monster_marks.cpp
+    src/game/presentation/hurt_vignette.cpp
+    src/game/presentation/hero_blink.cpp
     src/game/presentation/monster_view.cpp
     src/game/presentation/slash_arc.cpp
     src/game/presentation/ambient_particles.cpp
@@ -153,10 +158,13 @@ if(WIND_BUILD_TESTS)
         tests/tilemap_renderer_tests.cpp
         tests/tile_animation_tests.cpp
         tests/tile_collision_tests.cpp
+        tests/body_separation_tests.cpp
         tests/facing_tests.cpp
         tests/mover_tests.cpp
         tests/stamina_tests.cpp
         tests/mana_tests.cpp
+        tests/health_tests.cpp
+        tests/hit_reaction_tests.cpp
         tests/player_motion_tests.cpp
         tests/character_state_tests.cpp
         tests/hitbox_placement_tests.cpp
@@ -175,6 +183,8 @@ if(WIND_BUILD_TESTS)
         tests/monster_tests.cpp
         tests/monster_pose_tests.cpp
         tests/monster_view_tests.cpp
+        tests/hurt_vignette_tests.cpp
+        tests/hero_blink_tests.cpp
         tests/slash_arc_tests.cpp
         tests/combat_view_tests.cpp
         tests/particle_pool_tests.cpp

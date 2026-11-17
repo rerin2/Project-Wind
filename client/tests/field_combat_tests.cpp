@@ -4,15 +4,18 @@
 // - 칼이 안 닿는 곳에서 휘두르면 HP가 그대로예요
 // - 별빛 조각은 첫 허수아비에 12를 주고 사라지고, 벽이나 240픽셀 끝에서도 사라져요 (9e)
 // - 맞은 일에 타격감(넉백·멈칫·흔들림)이 실리고, 허수아비가 밀려요. 치명타는 × 1.5 (10a)
+// - 진짜 슬라임이 덮치면 주인공이 4 맞고 경직돼요. 한 덮치기에 한 번, 무적이면 안 맞아요. 겹친 몸은 떼어 놓아요 (11c)
 // 피해를 정확히 보려는 테스트는 치명타 확률을 0으로 만들어요 (FieldCombat(..., 1, 0.0f)).
 #include "game/states/field_combat.hpp"
 
+#include "wind/content/monster_loader.hpp"
 #include "wind/content/spell_loader.hpp"
 #include "wind/content/weapon_loader.hpp"
 
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <optional>
 #include <vector>
 
@@ -249,6 +252,72 @@ TEST(FieldCombat, SameSeedSameCrits) {
     }
     EXPECT_EQ(first, second);
     EXPECT_FALSE(first.empty());
+}
+
+
+// ---------------------------------------------------------------- 11c: 슬라임이 주인공을 맞혀요 ----
+
+// 저장소의 진짜 슬라임 (공격력 4, 덮치기 40픽셀)
+wind::game::Monster make_slime(float feet_x) {
+    auto data = wind::content::load_monster_file(WIND_TEST_CONTENT_DIR, "monsters/slime_green.json");
+    EXPECT_TRUE(data.ok());
+    return wind::game::Monster("slime", std::move(*data.value), {feet_x, 300.0f});
+}
+
+// 주인공은 가만히 서 있고, 슬라임만 움직여요. 맞은 일을 모아 돌려줘요.
+std::vector<wind::game::HeroHitEvent> stand_for(PlayerMotion& player, FieldCombat& combat, int steps) {
+    const auto map = open_map();
+    std::vector<wind::game::HeroHitEvent> hits;
+    for (int i = 0; i < steps; ++i) {
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        hits.insert(hits.end(), combat.hero_hits().begin(), combat.hero_hits().end());
+    }
+    return hits;
+}
+
+TEST(FieldCombat, SlimeLungeHitsHeroOncePerLunge) {
+    auto player = make_player();  // 발 (100, 300)
+    FieldCombat combat({}, 1, 0.0f, {make_slime(140.0f)});  // 오른쪽 40픽셀: 알아채자마자 예고
+    const auto map = open_map();
+    std::vector<wind::game::HeroHitEvent> hits;
+    for (int i = 0; i < 120 && hits.empty(); ++i) {  // 첫 번째로 맞을 때까지 (알아채기 0.4 + 예고 0.6 + α)
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        hits = combat.hero_hits();
+        if (!hits.empty()) EXPECT_FLOAT_EQ(combat.strongest_hitstop(), 0.06f);  // 슬라임 공격의 멈칫
+    }
+    ASSERT_EQ(hits.size(), 1u);
+    EXPECT_EQ(hits[0].amount, 4);                    // 공격력 4 × 위력 1 - 방어 0
+    EXPECT_EQ(player.health().current(), 96);
+    EXPECT_LT(hits[0].direction.x, 0.0f);            // 왼쪽으로 덮쳤으니 왼쪽으로 밀려요
+    EXPECT_EQ(player.state(), wind::game::CharacterState::Hit);
+    // 같은 덮치기에서는 다시 맞지 않아요 (덮치기 0.25초 + 여유)
+    EXPECT_TRUE(stand_for(player, combat, 20).empty());
+}
+
+TEST(FieldCombat, InvulnerableHeroIsNotHit) {
+    auto player = make_player();
+    FieldCombat combat({}, 1, 0.0f, {make_slime(140.0f)});
+    const auto map = open_map();
+    for (int i = 0; i < 120 && combat.monsters()[0].state() != wind::game::MonsterState::Attack; ++i) {
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+    }
+    ASSERT_EQ(combat.monsters()[0].state(), wind::game::MonsterState::Attack);
+    (void)player.take_hit(0, {0.0f, 1.0f}, 0.0f);  // 덮치기 직전에 무적 0.6초를 켜 둬요
+    EXPECT_TRUE(stand_for(player, combat, 20).empty());  // 덮치기(0.25초) 내내 무적이라 안 맞아요
+    EXPECT_EQ(player.health().current(), 100);
+}
+
+TEST(FieldCombat, BodiesPushApart) {
+    auto player = make_player();
+    FieldCombat combat({}, 1, 0.0f, {make_slime(100.0f)});  // 주인공과 같은 자리
+    (void)stand_for(player, combat, 10);  // 알아채기 중(움직이지 않음)에 떼어 놓아요
+    const float gap = wind::engine::length(combat.monsters()[0].feet() - player.mover().feet());
+    EXPECT_GE(gap, 13.0f - 0.01f);  // 반지름 7 + 6
+    // 슬라임(가벼움)이 더 많이 밀려요: 주인공 1 : 슬라임 3
+    EXPECT_LT(std::abs(player.mover().feet().x - 100.0f), std::abs(combat.monsters()[0].feet().x - 100.0f));
 }
 
 }  // namespace

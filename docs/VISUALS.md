@@ -282,6 +282,19 @@ Code: `monster_pose.cpp` (`slime_action_pose`), `monster_marks.cpp`, `monster_vi
 | Landing | splats 18 % wider / lower at the start of recovery, back to normal by 30 % | Weight on landing and a visible "opening" |
 | Chase / return | same distance-locked hops as wandering, at chase speed | Consistent movement language |
 
+## Hero getting hit (phase 11c)
+
+Code: `client/src/game/presentation/hurt_vignette.cpp`, `hero_blink.cpp`, `field_combat_fx.cpp`; vignette texture painted by `paint_vignette` (engine render layer). Spec 6.7: a hit on the player uses a red screen-edge vignette and a short invulnerability blink. Everything only reads `HeroHitEvent` and the hit reaction.
+
+| Element | Look | Why |
+|---|---|---|
+| Red vignette | a 160×90 white texture, transparent inside elliptical distance 0.55, rising with smoothstep to full at 1.25 (corners ~1.41), scaled with linear filtering to 640×360 and tinted `#d61c24`; alpha 0.85 × level², level 1 → 0 over 0.6 s; Foreground layer below the HP bars and "!" marks (after lighting, so it shows at night) | Reads instantly as "you got hurt" without covering the hero in the centre; the squared fade gives a sharp pop that leaves quickly. 160×90 + linear filtering keeps the gradient smooth with no stair steps |
+| Blink | while hit-invulnerable (0.6 s) the hero sprite alternates every 0.05 s between alpha 25 % and 100 %; dodge invulnerability does not blink | Classic "can't be hit now" signal; never fully invisible, so the player never loses the hero |
+| Shake | the attack's `shake` (slime 0.25) adds trauma like a sword hit | Weight on impact; follows the `--shake` setting |
+| Hitstop | the attack's `hitstop` (slime 0.06 s) | Same freeze as hits on enemies, so both sides of the fight feel alike |
+| Accessibility | the vignette follows `--flash` (0 hides it); shake follows `--shake` | A full-screen red pulse counts as a flash for photosensitive players |
+| No number | no damage number over the hero (agreed with the developer) | Numbers are for enemies; the HUD HP bar (phase 12) will show the hero's HP |
+
 ## Dodge afterimages
 
 Code: `client/src/game/presentation/afterimage_trail.cpp`.

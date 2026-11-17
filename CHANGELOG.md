@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Phase 11c — the hero gets hit
+- `Health` (max 100; temporary floor 1 until death in phase 12) and `HitReaction` (0.3 s stagger, 0.6 s
+  invulnerability, knockback slowing to 0 over the stagger: 160 px/s → 24 px). `PlayerMotion::take_hit` cancels
+  attack, cast and dodge momentum; state `hit` blocks every action; knockback moves the feet with wall sliding
+  (`Mover::shove`, `Mover::halt`).
+- `FieldCombat` resolves monster lunges against the hero hurtbox (once per lunge via `Monster::claim_hit`, skipped
+  while invulnerable) and records `HeroHitEvent`s; `strongest_hitstop` feeds hitstop for both sides.
+- Dodge invulnerability (first 0.16 s) now protects from hits (pulled in from phase 12).
+- Bodies push apart (spec 7.3): `separate_bodies` on feet circles, hero 1 : monster 3, 120 px/s per pair.
+  Fixes the 11b slime-on-top-of-hero issue.
+- Presentation: red screen-edge vignette (`HurtVignette`, new `Renderer::create_vignette_texture`), invulnerability
+  blink (`hero_blink_alpha`, `PlayerSprite::queue` alpha), shake and hitstop from the attack data. No damage number
+  over the hero (agreed). F3 shows `hp 96/100`.
+- 452 CTest tests.
+
 ### Phase 11b — slimes notice, chase, telegraph and lunge
 - `Monster` state machine: idle / wander → notice ("!", `notice_seconds`) → chase → windup (direction locked) →
   attack (lunge) → recover → chase or return. Gives up when the monster is over `leash_range` from home or the hero

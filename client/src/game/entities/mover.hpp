@@ -38,6 +38,11 @@ public:
     [[nodiscard]] bool can_dodge() const;
     // 순간이동: 미끄러지는 중간 모습 없이 바로 그 자리에 서요.
     void teleport(engine::Vec2 feet);
+    // 밖에서 밀어요 (11c: 피격 넉백, 몸끼리 밀어내기). 벽에 닿으면 벽을 따라 미끄러져요.
+    // 걷기 빠르기(velocity)는 바꾸지 않아요. 전 박자 위치도 그대로라 화면에서는 부드럽게 이어져요.
+    void shove(engine::Vec2 delta, const world::MapData& map);
+    // 그 자리에 멈춰요: 걷기·구르기 빠르기를 0으로 하고 서 있기로 (11c: 맞으면 하던 움직임이 끊겨요)
+    void halt();
     // 바라보는 방향을 바로 바꿔요 (공격을 시작할 때 누른 방향으로 돌아서요).
     void face(world::Direction facing) { facing_ = facing; }
 

@@ -73,6 +73,8 @@ struct FieldDebugInfo {
     bool exhausted = false;                            // 지침 상태인가
     float mana = 0.0f;                                 // 지금 MP (9e)
     float mana_max = 0.0f;                             // 최대 MP
+    int hp = 0;                                        // 지금 HP (11c)
+    int hp_max = 0;                                    // 최대 HP
     int combo_hit = 0;                                 // 콤보 몇 타째 휘두르는 중 (0 = 공격 안 함)
     std::string combat;                                // 허수아비 수와 마지막으로 맞힌 피해 (9c)
 };

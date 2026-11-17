@@ -20,12 +20,14 @@ constexpr float kCastWalkScale = 0.4f;
 
 PlayerMotion::PlayerMotion(engine::Vec2 feet, world::Direction facing, MovementTuning movement,
                            StaminaTuning stamina, double buffer_seconds, combat::Weapon weapon,
-                           ManaTuning mana)
+                           ManaTuning mana, HealthTuning health, HitTuning hit)
     : mover_(feet, facing, movement),
       stamina_(stamina),
       mana_(mana),
       attack_(std::move(weapon)),
-      buffer_(buffer_seconds) {}
+      buffer_(buffer_seconds),
+      health_(health),
+      hit_(hit) {}
 
 void PlayerMotion::press_dodge() {
     buffer_.press(Action::Dodge);
@@ -40,6 +42,9 @@ void PlayerMotion::press_cast() {
 }
 
 CharacterState PlayerMotion::state() const {
+    if (hit_.staggered()) {
+        return CharacterState::Hit;  // 경직이 가장 먼저: 표가 모든 행동을 막아요 (11c)
+    }
     if (attack_.busy()) {
         return CharacterState::Attacking;
     }
@@ -122,12 +127,16 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     // 4) 공격 중에는 다리가 멈추고(서서히), 시전 중에는 천천히 걸어요. 둘 다 달리지 않아요.
     const bool attacking = attack_.busy();
     const bool casting = caster_.busy();
-    const engine::Vec2 legs = attacking ? engine::Vec2{} : (casting ? move * kCastWalkScale : move);
+    const bool staggered = hit_.staggered();  // 경직 중이면 다리도 멈춰요 (11c)
+    const engine::Vec2 legs =
+        (attacking || staggered) ? engine::Vec2{} : (casting ? move * kCastWalkScale : move);
     // 5) 달리기: Shift + 방향키 + 지침 아님
-    const bool run = !attacking && !casting && run_held && engine::length(move) > 0.0f &&
+    const bool run = !attacking && !casting && !staggered && run_held && engine::length(move) > 0.0f &&
                      stamina_.can_run();
 
     const bool started = mover_.step(dt_seconds, legs, dodge, map, run);
+    // 넉백: 경직 동안 맞은 쪽으로 밀려나요. 벽에 닿으면 벽을 따라 미끄러져요 (11c). 무적 시간도 여기서 줄어요
+    mover_.shove(hit_.step(dt), map);
     if (started) {
         stamina_.spend(stamina_.tuning().dodge_cost);
     }
@@ -146,6 +155,25 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     spell_released_ = caster_.step(dt);
     buffer_.tick(dt_seconds);
     return started;
+}
+
+bool PlayerMotion::can_be_hit() const {
+    return !hit_.invulnerable() && !mover_.invulnerable();  // 피격 무적도, 구르기 무적도 아니면 (11c)
+}
+
+int PlayerMotion::take_hit(int amount, engine::Vec2 direction, float knockback) {
+    attack_.cancel();   // 휘두르던 칼은 끊겨요 (상태 표: attacking -> hit)
+    caster_.cancel();   // 모으던 마술도 끊겨요. 먼저 낸 MP는 돌아오지 않아요 (casting -> hit)
+    mover_.halt();      // 걷던 힘·구르던 힘도 끊겨요
+    const int taken = health_.take(amount);  // HP 깎기 (11c 임시: 1 아래로는 안 내려가요)
+    hit_.start(direction, knockback);         // 경직·무적·넉백 시작
+    return taken;
+}
+
+engine::RectF PlayerMotion::hurtbox() const {
+    const engine::RectF& shape = hit_.tuning().hurtbox;  // 발 기준 상자
+    const engine::Vec2 feet = mover_.feet();
+    return {feet.x + shape.x, feet.y + shape.y, shape.w, shape.h};
 }
 
 std::optional<engine::RectF> PlayerMotion::attack_hitbox() const {

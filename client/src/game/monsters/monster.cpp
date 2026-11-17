@@ -118,6 +118,17 @@ std::optional<engine::RectF> Monster::attack_hitbox() const {
     return place_hitbox(move->hitbox, feet_, facing);
 }
 
+bool Monster::claim_hit() {
+    if (state_ != MonsterState::Attack || hit_landed_) return false;  // 덮치는 중이 아니거나 이미 맞혔으면
+    hit_landed_ = true;
+    return true;
+}
+
+void Monster::shove(engine::Vec2 delta, const world::MapData& map) {
+    if (!(engine::length(delta) > 0.0f)) return;  // 0이나 이상한 값이면 그대로
+    feet_ = move_and_slide(map, body(), feet_, delta, 0.0f).feet;  // 벽을 따라 미끄러지며 밀려요
+}
+
 void Monster::enter(MonsterState state) {
     state_ = state;
     state_seconds_ = 0.0f;
@@ -151,6 +162,7 @@ void Monster::start_wander(const world::MapData& map, CombatRandom& random) {
 void Monster::start_windup(engine::Vec2 hero) {
     const engine::Vec2 toward = engine::normalized(hero - feet_);  // 주인공 쪽
     if (engine::length(toward) > 0.0f) attack_direction_ = toward;  // 겹쳐 있으면 지난 방향 그대로
+    hit_landed_ = false;                                            // 새 공격: 아직 아무도 안 맞혔어요
     enter(MonsterState::Windup);
 }
 

@@ -25,8 +25,9 @@ public:
     // feet: 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     void update(double dt_seconds, const Mover& mover, engine::Vec2 feet);
     // 잔상과 주인공을 그리기 목록에 넣어요. 둘 다 발 위치(y)로 줄을 서요.
+    // alpha: 주인공 그림 투명도 0~1 (11c: 맞은 뒤 무적이면 깜빡여요). 잔상에는 쓰지 않아요.
     void queue(const engine::Camera2D& camera, engine::Vec2 feet, world::Direction facing,
-               engine::RenderQueue& queue) const;
+               engine::RenderQueue& queue, float alpha = 1.0f) const;
 
 private:
     engine::SpriteSheet sheet_;

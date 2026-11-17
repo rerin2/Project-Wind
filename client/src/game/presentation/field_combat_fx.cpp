@@ -23,11 +23,13 @@ FieldCombatFx::FieldCombatFx(CombatFxSetup setup)
       monster_view_(setup.shadow, setup.glow, std::move(setup.monsters)),
       slash_(setup.slash),
       spell_(setup.star_trail, setup.star_burst, setup.glow, setup.spell_light),
+      vignette_texture_(setup.vignette),
       hit_spark_(setup.hit_spark) {}
 
 void FieldCombatFx::set_settings(const FeelSettings& settings) {
     shake_.set_strength(settings.shake);
     view_.set_flash_strength(settings.flash);
+    vignette_.set_strength(settings.flash);  // 붉은 비네트도 번쩍임 설정을 따라요 (11c)
 }
 
 void FieldCombatFx::collect(const FieldCombat& combat) {
@@ -35,6 +37,8 @@ void FieldCombatFx::collect(const FieldCombat& combat) {
     pending_hits_.insert(pending_hits_.end(), hits.begin(), hits.end());
     const auto& ends = combat.projectile_ends();
     pending_ends_.insert(pending_ends_.end(), ends.begin(), ends.end());
+    const auto& hero_hits = combat.hero_hits();
+    pending_hero_hits_.insert(pending_hero_hits_.end(), hero_hits.begin(), hero_hits.end());
 }
 
 void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& combat,
@@ -44,6 +48,11 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
         play_hit(hit, combat, random, air_fx);
     }
     pending_hits_.clear();
+    for (const auto& hit : pending_hero_hits_) {  // 주인공이 맞았으면: 흔들림 + 붉은 비네트 (11c)
+        shake_.add(hit.shake);
+        vignette_.trigger();
+    }
+    pending_hero_hits_.clear();
     // 2) 마술: 시전 중이면 손끝 빛, 빛 탄 꼬리, 사라진 자리 반짝
     std::optional<CastGlow> cast;
     if (player.caster().busy()) {
@@ -56,6 +65,7 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
     monster_view_.update(dt_seconds, combat.monsters());  // 숨쉬기·뜀 세기 (11a)
     slash_.update(dt_seconds, player.attack(), player.attack_hitbox(), player.mover().facing());
     shake_.update(dt_seconds);
+    vignette_.update(dt_seconds);
     numbers_.update(dt_seconds);
 }
 
@@ -83,6 +93,7 @@ void FieldCombatFx::queue(const engine::Camera2D& camera, const FieldCombat& com
     monster_view_.queue(camera, combat.monsters(), alpha, show_boxes, queue);  // 몬스터 (11a)
     slash_.queue(camera, queue);                                        // 칼자국
     spell_.queue(camera, combat.projectiles(), alpha, show_boxes, queue);  // 손끝 빛과 빛 탄
+    vignette_.queue(vignette_texture_, camera.viewport(), queue);         // 피격 붉은 가장자리 (11c)
 }
 
 std::vector<engine::Light> FieldCombatFx::lights(const FieldCombat& combat, float alpha) const {

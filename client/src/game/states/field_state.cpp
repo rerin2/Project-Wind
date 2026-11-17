@@ -10,6 +10,7 @@
 #include "engine/map/tilemap_renderer.hpp"
 #include "engine/render/renderer.hpp"
 #include "game/physics/tile_collision.hpp"
+#include "game/presentation/hero_blink.hpp"
 #include "game/presentation/shadow_drawing.hpp"
 
 #include "wind/log.hpp"
@@ -108,7 +109,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                                std::move(combat_textures.dummies), std::move(combat_textures.monsters),
                                effect_ptr(effects_.star_trail),
                                effect_ptr(effects_.star_burst), effect_ptr(effects_.hit_spark),
-                               assets.spell ? assets.spell->light : std::nullopt}),
+                               assets.spell ? assets.spell->light : std::nullopt, textures_.vignette()}),
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -160,9 +161,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     }
     combat_.step(sim_dt, player_, map_.map);  // 칼 판정, 빛 탄 만들기·날리기, 피해·넉백 주기
     hit_stop_.update(static_cast<float>(dt_seconds));  // 멈춤은 진짜 시간으로 줄어요
-    for (const auto& hit : combat_.hits()) {
-        hit_stop_.trigger(hit.hitstop);  // 이번에 맞았으면 다음 박자부터 멈칫
-    }
+    hit_stop_.trigger(combat_.strongest_hitstop());  // 이번에 누가 맞았으면(주인공도, 11c) 다음 박자부터 멈칫
     combat_fx_.collect(combat_);  // 맞은 일·사라진 빛 탄은 다음 frame_update에서 연출해요 (안 빠지게 모아 둬요)
 
     // 출구 확인: 발이 출구 칸에 들어가면 "다른 맵으로 가 주세요" 요청을 남겨요.
@@ -227,7 +226,8 @@ void FieldState::render(engine::RenderQueue& queue) {
     queue_shadow(camera_rig_.camera(), textures_.shadow(), feet, textures_.shadow_size(), queue);
 
     // 3) 잔상, 플레이어, 먼지: 모두 발 위치(y)로 줄을 서요.
-    sprite_.queue(camera_rig_.camera(), feet, player_.mover().facing(), queue);
+    const float blink = hero_blink_alpha(player_.hit_reaction());  // 맞은 뒤 무적이면 깜빡여요 (11c)
+    sprite_.queue(camera_rig_.camera(), feet, player_.mover().facing(), queue, blink);
     // 허수아비·HP 바·번쩍임, 칼자국, 손끝 빛·빛 탄 (F4면 판정 상자)
     combat_fx_.queue(camera_rig_.camera(), combat_, player_, static_cast<float>(alpha_), show_collision_, queue);
     engine::queue_particles(ground_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::YSorted, queue);
@@ -288,6 +288,8 @@ FieldDebugInfo FieldState::debug_info() const {
             player_.stamina().exhausted(),
             player_.mana().current(),
             player_.mana().max(),
+            player_.health().current(),
+            player_.health().max(),
             player_.attack().combo_index() + 1,
             combat_.debug_text()};
 }

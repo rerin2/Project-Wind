@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <string_view>
 #include <utility>
 
@@ -54,7 +55,7 @@ void PlayerSprite::update(double dt_seconds, const Mover& mover, engine::Vec2 fe
 }
 
 void PlayerSprite::queue(const engine::Camera2D& camera, engine::Vec2 feet, world::Direction facing,
-                         engine::RenderQueue& queue) const {
+                         engine::RenderQueue& queue, float alpha) const {
     trail_.queue(camera, texture_, sheet_.origin, {sheet_.frame_width, sheet_.frame_height}, queue);
 
     // 그림 속 "발 위치"(origin)가 맵 위의 진짜 발 위치에 딱 오도록 그려요.
@@ -67,6 +68,8 @@ void PlayerSprite::queue(const engine::Camera2D& camera, engine::Vec2 feet, worl
     sprite.dest = {std::round(screen.x - static_cast<float>(sheet_.origin.x)),
                    std::round(screen.y - static_cast<float>(sheet_.origin.y)),
                    static_cast<float>(sheet_.frame_width), static_cast<float>(sheet_.frame_height)};
+    // 투명도: 맞은 뒤 무적이면 깜빡여요 (11c, hero_blink). 1이면 그대로
+    sprite.tint.a = static_cast<std::uint8_t>(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f));
     // 발 위치(y)로 줄을 세워서, 나무 밑동보다 아래(앞)에 서면 나무보다 앞에 그려져요.
     queue.push_sprite(engine::DrawLayer::YSorted, feet.y, sprite);
 }

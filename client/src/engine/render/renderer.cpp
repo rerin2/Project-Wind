@@ -306,6 +306,15 @@ TextureHandle Renderer::create_light_texture(std::int32_t size) {
     return handle;
 }
 
+TextureHandle Renderer::create_vignette_texture(std::int32_t width, std::int32_t height) {
+    const TextureHandle handle = texture_from_surface(paint_vignette(width, height), "vignette");
+    // 작은 그림을 화면 전체로 크게 늘려 그려서, 계단 무늬 없이 부드럽게 키워요 (빛 그림과 같아요).
+    if (const auto it = textures_.find(handle.id); it != textures_.end()) {
+        SDL_SetTextureScaleMode(it->second, SDL_SCALEMODE_LINEAR);
+    }
+    return handle;
+}
+
 TextureHandle Renderer::create_solid_texture(std::int32_t width, std::int32_t height, Color color) {
     return texture_from_surface(paint_solid(width, height, color), "solid");
 }

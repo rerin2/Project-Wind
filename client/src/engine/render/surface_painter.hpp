@@ -23,6 +23,10 @@ namespace wind::engine {
 // 둥근 빛: 흰색, 가운데 진하기 255에서 가장자리 0으로 (1 - 거리²)² 모양으로 사라져요.
 [[nodiscard]] SDL_Surface* paint_radial_light(std::int32_t size);
 
+// 비네트: 흰색, 가운데는 투명하고 가장자리·모서리로 갈수록 진해져요 (11c 피격 붉은 가장자리).
+// 타원 거리 0.55까지는 0, 1.25(모서리 근처)에서 255가 되도록 부드럽게(smoothstep) 올라가요.
+[[nodiscard]] SDL_Surface* paint_vignette(std::int32_t width, std::int32_t height);
+
 // 한 가지 색으로 꽉 찬 네모
 [[nodiscard]] SDL_Surface* paint_solid(std::int32_t width, std::int32_t height, Color color);
 
