@@ -213,9 +213,17 @@ int ClientApp::run() {
             }
         }
         travel.update(static_cast<float>(frame_seconds), enter_map);
-        field_ui.update(static_cast<float>(frame_seconds),
-                        {field->stamina().fraction(), field->stamina().exhausted(),
-                         field->mana().fraction(), field->mana().max(), field->mana_denied_count()});
+        // HUD 바에 지금 값(0~1)과 최대값(바 길이용)을 알려 줘요. 위에서부터 HP·MP·스태미나.
+        HudInfo hud;
+        hud.hp = field->health().fraction();
+        hud.hp_max = static_cast<float>(field->health().max());
+        hud.stamina = field->stamina().fraction();
+        hud.stamina_max = field->stamina().max();
+        hud.exhausted = field->stamina().exhausted();
+        hud.mana = field->mana().fraction();
+        hud.mana_max = field->mana().max();
+        hud.mana_denied = field->mana_denied_count();
+        field_ui.update(static_cast<float>(frame_seconds), hud);
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();

@@ -1,30 +1,28 @@
 // 이 파일은 무엇을 하나요?
-// HUD 스태미나 바와 MP 바, 지역 이름 배너, UI 시험판을 갱신하고 그리는 곳이에요.
+// HUD HP·MP·스태미나 바, 지역 이름 배너, UI 시험판을 갱신하고 그리는 곳이에요.
 // 색과 크기 값의 이유는 docs/VISUALS.md "HUD and text" 절에 있어요.
 
 #include "app/field_ui.hpp"
 
+#include "game/ui/hud_bar_layout.hpp"
+
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <numbers>
+#include <optional>
 
 namespace wind::client {
 namespace {
 
-// 스태미나 바: 화면 왼쪽 위, 테두리 포함 82x7 (안쪽 80x5)
-constexpr engine::RectF kStaminaRect{12.0f, 12.0f, 82.0f, 7.0f};
+// 바 세 줄의 자리와 길이는 game/ui/hud_bar_layout.hpp가 계산해요 (위에서부터 HP·MP·스태미나).
 constexpr engine::Color kBarOutline{16, 19, 28, 255};
 constexpr engine::Color kBarEmpty{40, 44, 60, 255};
+constexpr engine::Color kBarTrail{250, 238, 196, 255};  // 방금 줄어든 만큼 (밝은 크림색, 세 바 공통)
+constexpr engine::Color kHealthColor{214, 72, 64, 255};  // 빨강 (허수아비·슬라임 HP 바와 같은 #d64840)
 constexpr engine::Color kStaminaColor{126, 206, 92, 255};   // 연두
-constexpr engine::Color kStaminaTrail{250, 238, 196, 255};  // 방금 쓴 만큼 (밝은 크림색)
 constexpr engine::Color kExhaustedColor{222, 92, 72, 255};  // 지침 (빨강)
 constexpr float kExhaustedBlinkHz = 4.0f;                   // 지침일 때 1초에 4번 깜빡
-
-// MP 바: 스태미나 바 2픽셀 아래, 같은 높이. 길이는 최대 MP 1당 0.8픽셀 (스태미나 100 = 80픽셀과 같은 비율)
-constexpr float kManaBarY = kStaminaRect.y + kStaminaRect.h + 2.0f;
-constexpr float kHudPixelsPerPoint = 0.8f;
-constexpr float kManaInnerMin = 8.0f;    // 최대 MP가 아주 작아도 보이게
-constexpr float kManaInnerMax = 200.0f;  // 이상한 값이 와도 화면을 넘지 않게
 constexpr engine::Color kManaColor{95, 163, 208, 255};  // 하늘색 (팔레트 sky #5fa3d0)
 constexpr float kManaBlinkSeconds = 0.6f;  // MP가 모자라 마술이 안 나가면 이만큼 깜빡여요
 constexpr float kManaBlinkHz = 8.0f;       // 1초에 8번 (지침 4번보다 빠르게: 순간 알림이라서)
@@ -40,6 +38,37 @@ game::DelayedBarTuning stamina_tuning() {
     game::DelayedBarTuning tuning;
     tuning.auto_hide = true;  // 가득 차 있으면 흐려져요 (명세 13.2)
     return tuning;
+}
+
+// 바 한 줄의 색 (warn이 있으면 테두리 위에 덧칠해 깜빡임을 보여 줘요)
+struct BarLook {
+    engine::Color fill;                 // 진짜 바 색
+    std::optional<engine::Color> warn;  // 경고 테두리 (지침, MP 모자람). 없으면 보통 테두리
+    float alpha = 1.0f;                 // 바 전체 투명도 (스태미나 자동 숨김)
+};
+
+// 바 한 줄을 그려요: 테두리 → 경고 테두리 → 빈칸 → 꼬리 → 진짜 바. 세 바가 모두 이걸 써요.
+// row: 몇 번째 줄인지, max_points: 최대값 (바 길이가 여기에 비례해요)
+void draw_bar(engine::Renderer& renderer, game::HudBarRow row, float max_points, const game::DelayedBar& bar,
+              const BarLook& look) {
+    const float inner_w = game::hud_bar_inner_width(max_points);  // 최대 100이면 80픽셀
+    const engine::RectF outer{game::kHudBarLeft, game::hud_bar_y(row), inner_w + 2.0f, game::kHudBarHeight};
+    const engine::RectF inner{outer.x + 1.0f, outer.y + 1.0f, inner_w, outer.h - 2.0f};
+    renderer.fill_rect(outer, engine::with_alpha(kBarOutline, look.alpha));  // 테두리
+    if (look.warn) {
+        renderer.fill_rect(outer, engine::with_alpha(*look.warn, look.alpha));  // 깜빡이는 경고 테두리
+    }
+    renderer.fill_rect(inner, engine::with_alpha(kBarEmpty, look.alpha));  // 빈칸
+    // 꼬리(방금 줄어든 만큼) 먼저, 그 위에 진짜 바. 반 픽셀이 생기지 않게 반올림해요.
+    const float trail_w = std::round(inner.w * bar.trail());
+    const float value_w = std::round(inner.w * bar.value());
+    renderer.fill_rect({inner.x, inner.y, trail_w, inner.h}, engine::with_alpha(kBarTrail, look.alpha));
+    renderer.fill_rect({inner.x, inner.y, value_w, inner.h}, engine::with_alpha(look.fill, look.alpha));
+}
+
+// 0~1을 오가는 사인 물결 (깜빡임용). hz: 1초에 몇 번
+float blink_wave(float clock, float hz) {
+    return 0.5f + 0.5f * std::sin(clock * hz * 2.0f * std::numbers::pi_v<float>);
 }
 
 }  // namespace
@@ -62,8 +91,12 @@ UiCommand FieldUi::handle_input(const engine::InputState& input, const game::Inp
 
 void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     clock_ += dt_seconds;
+    health_.set(hud.hp);
+    health_.update(dt_seconds);
+    hp_max_ = hud.hp_max;
     stamina_.set(hud.stamina);
     stamina_.update(dt_seconds);
+    stamina_max_ = hud.stamina_max;
     exhausted_ = hud.exhausted;
     mana_.set(hud.mana);
     mana_.update(dt_seconds);
@@ -79,6 +112,7 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
 }
 
 void FieldUi::draw_hud(engine::UiPainter& painter, engine::Vec2 screen) {
+    draw_health(painter);
     draw_stamina(painter);
     draw_mana(painter);
     draw_banner(painter, screen);
@@ -88,51 +122,34 @@ void FieldUi::draw_panels(engine::UiPainter& painter, engine::Vec2 screen) {
     panel_.draw(painter, screen);
 }
 
-void FieldUi::draw_stamina(engine::UiPainter& painter) {
-    auto& renderer = painter.renderer();
-    const float alpha = stamina_.alpha();
-    const engine::RectF inner{kStaminaRect.x + 1.0f, kStaminaRect.y + 1.0f, kStaminaRect.w - 2.0f,
-                              kStaminaRect.h - 2.0f};
-    // 지침: 바와 테두리가 빨갛게 깜빡여요 (바가 0이어도 지침인 게 보이게). 보여 주기만 해요.
-    const float wave = 0.5f + 0.5f * std::sin(clock_ * kExhaustedBlinkHz * 2.0f * std::numbers::pi_v<float>);
-    engine::Color outline = kBarOutline;
-    engine::Color fill = kStaminaColor;
-    if (exhausted_) {
-        outline = kExhaustedColor;
-        outline.a = static_cast<std::uint8_t>(110.0f + 145.0f * wave);
-        fill = kExhaustedColor;
-        fill.a = static_cast<std::uint8_t>(150.0f + 105.0f * wave);
-    }
-    renderer.fill_rect(kStaminaRect, engine::with_alpha(kBarOutline, alpha));
-    renderer.fill_rect(kStaminaRect, engine::with_alpha(outline, alpha));
-    renderer.fill_rect(inner, engine::with_alpha(kBarEmpty, alpha));
-    // 꼬리(방금 쓴 만큼) 먼저, 그 위에 진짜 바
-    const float trail_w = std::round(inner.w * stamina_.trail());
-    const float value_w = std::round(inner.w * stamina_.value());
-    renderer.fill_rect({inner.x, inner.y, trail_w, inner.h}, engine::with_alpha(kStaminaTrail, alpha));
-    renderer.fill_rect({inner.x, inner.y, value_w, inner.h}, engine::with_alpha(fill, alpha));
+// HP 바: 맨 위 줄, 빨강. 흐려지지 않고 늘 보여요 (12a).
+void FieldUi::draw_health(engine::UiPainter& painter) {
+    draw_bar(painter.renderer(), game::HudBarRow::Health, hp_max_, health_, {kHealthColor, std::nullopt});
 }
 
-// MP 바: 스태미나 바와 같은 모양(테두리, 빈칸, 꼬리, 진짜 바). 흐려지지 않고 늘 보여요.
-void FieldUi::draw_mana(engine::UiPainter& painter) {
-    auto& renderer = painter.renderer();
-    // 안쪽 길이 = 최대 MP × 0.8 (최대 50이면 40픽셀). 능력치가 오르면 바가 길어져요 (명세 13.2)
-    const float inner_w = std::round(std::clamp(mana_max_ * kHudPixelsPerPoint, kManaInnerMin, kManaInnerMax));
-    const engine::RectF outer{kStaminaRect.x, kManaBarY, inner_w + 2.0f, kStaminaRect.h};
-    const engine::RectF inner{outer.x + 1.0f, outer.y + 1.0f, inner_w, outer.h - 2.0f};
-    renderer.fill_rect(outer, kBarOutline);  // 테두리
-    if (mana_blink_ > 0.0f) {                // MP 모자람: 테두리가 빨갛게 빠르게 깜빡여요
-        const float wave = 0.5f + 0.5f * std::sin(clock_ * kManaBlinkHz * 2.0f * std::numbers::pi_v<float>);
-        engine::Color warn = kExhaustedColor;
-        warn.a = static_cast<std::uint8_t>(80.0f + 175.0f * wave);
-        renderer.fill_rect(outer, warn);
+// 스태미나 바: 맨 아래 줄. 가득 차면 흐려지고, 지치면 바와 테두리가 빨갛게 깜빡여요.
+void FieldUi::draw_stamina(engine::UiPainter& painter) {
+    BarLook look{kStaminaColor, std::nullopt, stamina_.alpha()};
+    if (exhausted_) {  // 바가 0이어도 지침인 게 보이게 테두리까지 깜빡여요. 보여 주기만 해요.
+        const float wave = blink_wave(clock_, kExhaustedBlinkHz);
+        engine::Color outline = kExhaustedColor;
+        outline.a = static_cast<std::uint8_t>(110.0f + 145.0f * wave);
+        look.warn = outline;
+        look.fill = kExhaustedColor;
+        look.fill.a = static_cast<std::uint8_t>(150.0f + 105.0f * wave);
     }
-    renderer.fill_rect(inner, kBarEmpty);    // 빈칸
-    // 꼬리(방금 쓴 만큼) 먼저, 그 위에 진짜 바
-    const float trail_w = std::round(inner.w * mana_.trail());
-    const float value_w = std::round(inner.w * mana_.value());
-    renderer.fill_rect({inner.x, inner.y, trail_w, inner.h}, kStaminaTrail);
-    renderer.fill_rect({inner.x, inner.y, value_w, inner.h}, kManaColor);
+    draw_bar(painter.renderer(), game::HudBarRow::Stamina, stamina_max_, stamina_, look);
+}
+
+// MP 바: 가운데 줄. 흐려지지 않고 늘 보여요. MP가 모자라 마술이 안 나가면 테두리가 빨갛게 빠르게 깜빡여요.
+void FieldUi::draw_mana(engine::UiPainter& painter) {
+    BarLook look{kManaColor, std::nullopt};
+    if (mana_blink_ > 0.0f) {
+        engine::Color warn = kExhaustedColor;
+        warn.a = static_cast<std::uint8_t>(80.0f + 175.0f * blink_wave(clock_, kManaBlinkHz));
+        look.warn = warn;
+    }
+    draw_bar(painter.renderer(), game::HudBarRow::Mana, mana_max_, mana_, look);
 }
 
 void FieldUi::draw_banner(engine::UiPainter& painter, engine::Vec2 screen) {

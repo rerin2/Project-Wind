@@ -113,6 +113,7 @@ add_library(wind_game_core STATIC
     src/game/world/map_travel.cpp
     src/game/ui/area_banner.cpp
     src/game/ui/delayed_bar.cpp
+    src/game/ui/hud_bar_layout.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
@@ -201,6 +202,7 @@ if(WIND_BUILD_TESTS)
         tests/ui_theme_loader_tests.cpp
         tests/area_banner_tests.cpp
         tests/delayed_bar_tests.cpp
+        tests/hud_bar_layout_tests.cpp
         tests/screenshot_name_tests.cpp
         tests/particle_effect_loader_tests.cpp
         tests/particle_spawn_tests.cpp

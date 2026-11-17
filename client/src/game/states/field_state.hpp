@@ -132,6 +132,8 @@ public:
 
     // 맵의 보여 줄 이름 (지역 이름 배너용, 예: "시험 초원")
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }
+    // 주인공 HP (HUD 바용, 12a)
+    [[nodiscard]] const Health& health() const { return player_.health(); }
     // 주인공 스태미나 (HUD 바용)
     [[nodiscard]] const Stamina& stamina() const { return player_.stamina(); }
     // 주인공 MP (HUD 바용)

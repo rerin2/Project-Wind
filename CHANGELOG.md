@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Phase 12a — HUD HP bar
+- HUD HP bar (delayed bar, red `#d64840`, cream trail, never fades) on the top row; the bars now go HP · MP ·
+  stamina from the top (spec 13.2). The stamina bar moved from y = 12 to y = 30.
+- `game/ui/hud_bar_layout` (`hud_bar_y`, `hud_bar_inner_width`): one place for row positions and the
+  max × 0.8 px length rule (clamped 8–200, whole pixels, safe for NaN). Stamina length now also follows its max.
+- `FieldUi` draws all three bars with one `draw_bar` helper; `HudInfo` gains `hp`, `hp_max`, `stamina_max`;
+  `FieldState::health()` exposes the hero HP to the HUD.
+- 471 CTest tests.
+
 ### Phase 11d — hitting and defeating slimes
 - `resolve_swing` is now one template shared by dummies and monsters; the sword and star shards hit monsters
   (shards: first target, dummies first). Monster target ids follow the dummies'.
