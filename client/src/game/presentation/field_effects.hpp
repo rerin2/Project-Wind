@@ -31,6 +31,7 @@ struct FieldEffects {
     std::map<std::string, engine::ParticleEffect> light_fx;  // 빛 자리 효과 (파일 위치 -> 효과)
     std::vector<engine::ParticleEffect> night;    // 밤에만 나오는 효과 (반딧불 등)
     std::map<std::string, engine::ParticleEffect> weather_fx;  // 날씨 효과 (파일 위치 -> 효과)
+    std::map<std::string, engine::ParticleEffect> monster_fx;  // 몬스터가 사라질 때 효과 (파일 위치 -> 효과, 11d)
 };
 
 // weather: 맵의 날씨 표 (없으면 nullptr). 날씨마다 쓰는 효과 파일도 같이 읽어요.
@@ -39,5 +40,10 @@ struct FieldEffects {
                                               const world::Ambience& ambience,
                                               const world::WeatherTable* weather,
                                               std::uint32_t stress_particles);
+
+// 몬스터 효과 파일들(사라질 때 death_fx)을 읽어 effects.monster_fx에 넣어요 (11d). 같은 파일은 한 번만 읽고,
+// 잘못된 파일은 기록하고 건너뛰어요 (그 몬스터는 효과 없이 사라져요).
+void load_monster_effects(const std::filesystem::path& content_root, const std::vector<std::string>& paths,
+                          FieldEffects& effects);
 
 }  // namespace wind::game

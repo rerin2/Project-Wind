@@ -43,6 +43,8 @@ public:
     [[nodiscard]] int max_hp() const { return data_.max_hp; }
     [[nodiscard]] float defense() const { return data_.defense; }
     [[nodiscard]] bool down() const { return down_left_ > 0.0f; }
+    // 쓰러졌나요? (판정 규칙이 몬스터와 같은 이름으로 물어봐요, 11d)
+    [[nodiscard]] bool defeated() const { return down(); }
     [[nodiscard]] engine::Vec2 feet() const { return feet_; }
     [[nodiscard]] const combat::TrainingDummyData& data() const { return data_; }
 

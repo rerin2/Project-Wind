@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Phase 11d — hitting and defeating slimes
+- `resolve_swing` is now one template shared by dummies and monsters; the sword and star shards hit monsters
+  (shards: first target, dummies first). Monster target ids follow the dummies'.
+- `Monster`: HP, `take_damage`, `push`, states `hurt` and `dead`, `gone` after 0.5 s. Real knockback with wall
+  sliding over `stagger_seconds`. A hit cancels a windup, does not stop a lunge, and otherwise staggers; afterwards
+  the monster chases (aggro on hit) or returns. Dead monsters skip AI, hits and body pushing.
+- Data: monster `stagger_seconds` (0–2) and optional `death_fx`; `content/fx/slime_burst.json` (pale mint → green).
+  `FieldEffects::monster_fx` and `load_monster_effects`. `FieldCombat::vanished()` events burst the effect.
+- Presentation: monster hit flash, HP bar (enemy bar drawing moved to shared `queue_enemy_bar`), hurt recoil,
+  death melt with white blink, vanish burst. F3 last hit shows a monster's HP and "(dead)".
+- Respawn on map re-entry (fresh field) and the per-step input replay test (spec 17.2).
+- The slime-hits-hero test now derives its expected damage from the data (the developer set `attack_power` 40).
+- 467 CTest tests. Phase 11 complete.
+
 ### Phase 11c — the hero gets hit
 - `Health` (max 100; temporary floor 1 until death in phase 12) and `HitReaction` (0.3 s stagger, 0.6 s
   invulnerability, knockback slowing to 0 over the stagger: 160 px/s → 24 px). `PlayerMotion::take_hit` cancels

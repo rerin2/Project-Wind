@@ -10,9 +10,13 @@
 // - 걷기는 벽에 닿으면 벽을 따라 미끄러져요 (monster_moves).
 // - 주사위는 FieldCombat의 시드 있는 주사위를 빌려 써요. 같은 씨앗·같은 주인공 움직임이면 늘 같은 결과예요.
 // 게임 규칙이라 고정 박자로 계산하고, SDL을 몰라서 창 없이 테스트할 수 있어요.
-// 덮치기 판정은 FieldCombat이 주인공 맞는 상자와 비교해요 (11c). 몬스터가 맞고 쓰러지는 것은 11d예요.
+// 덮치기 판정은 FieldCombat이 주인공 맞는 상자와 비교해요 (11c).
+// 맞기 (11d): HP가 줄고 맞은 쪽으로 밀려나요(벽 미끄러짐). 덮치는 중이 아니면 움찔(경직)하고, 예고 중이었으면 공격이 취소돼요.
+//   움찔이 끝나면 주인공을 쫓아요(맞으면 알아채요). HP가 0이면 쓰러지고 0.5초 뒤 사라져요(gone).
 
 #include "engine/core/math.hpp"
+#include "game/combat/attack_runner.hpp"
+#include "game/entities/hit_reaction.hpp"
 #include "game/monsters/monster_state.hpp"
 #include "game/physics/tile_collision.hpp"
 
@@ -36,10 +40,29 @@ public:
     void step(float dt_seconds, const world::MapData& map, CombatRandom& random,
               std::optional<engine::Vec2> hero = std::nullopt);
 
+    // 맞는 대상 번호 (같은 휘두르기에 두 번 맞지 않게 구별해요). FieldCombat이 허수아비 다음 번호로 정해요.
+    [[nodiscard]] TargetId id() const { return id_; }
+    void set_id(TargetId id) { id_ = id; }
+
+    // ---- 맞기 (11d) ----
+    // 지금 맞을 수 있나요? (쓰러지면 안 맞아요)
+    [[nodiscard]] bool can_be_hit() const { return state_ != MonsterState::Dead; }
+    // 피해를 받아요. 실제로 깎인 양을 돌려줘요. HP가 0이 되면 쓰러져요.
+    int take_damage(int amount);
+    // 맞은 쪽(direction, 길이 1)으로 knockback(픽셀/초)만큼 밀기 시작해요. 덮치는 중이 아니면 움찔해요.
+    void push(engine::Vec2 direction, float knockback);
+    // 쓰러졌나요? (HP 0)
+    [[nodiscard]] bool defeated() const { return state_ == MonsterState::Dead; }
+    // 쓰러진 뒤 다 사라졌나요? (그림도 안 그려요)
+    [[nodiscard]] bool gone() const;
+    [[nodiscard]] int hp() const { return hp_; }
+    [[nodiscard]] int max_hp() const { return data_.max_hp; }
+    [[nodiscard]] float defense() const { return data_.defense; }
+
     [[nodiscard]] MonsterState state() const { return state_; }
     // 지금 상태가 된 뒤 흐른 시간 (초)
     [[nodiscard]] float state_seconds() const { return state_seconds_; }
-    // 시간이 정해진 상태(알아채기·예고·공격·후딜)의 진행 0~1. 다른 상태는 0이에요.
+    // 시간이 정해진 상태(알아채기·예고·공격·후딜·움찔·쓰러짐)의 진행 0~1. 다른 상태는 0이에요.
     [[nodiscard]] float state_progress() const;
     [[nodiscard]] engine::Vec2 feet() const { return feet_; }
     // 화면에 그릴 위치: 전 박자 위치와 지금 위치 사이 (alpha = 0이면 전, 1이면 지금)
@@ -112,6 +135,9 @@ private:
     float stuck_seconds_ = 0.0f;    // 거의 못 가고 있는 시간 (초, 배회·복귀)
     float distance_moved_ = 0.0f;   // 걸은 거리의 합 (픽셀)
     bool hit_landed_ = false;       // 이번 덮치기에서 이미 맞혔나 (예고를 시작할 때 지워요)
+    TargetId id_ = 0;               // 맞는 대상 번호 (11d)
+    int hp_;                        // 지금 HP (11d)
+    HitReaction hit_;               // 맞으면 움찔·넉백 (무적은 없어요: 휘두르기마다 한 번만 맞으니까요)
 };
 
 }  // namespace wind::game

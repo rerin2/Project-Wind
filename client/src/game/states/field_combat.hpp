@@ -4,10 +4,10 @@
 // 필드 화면의 싸움 담당이에요. (9단계 9c, 9e, 11a)
 // - 맵에 놓인 훈련용 허수아비들, 몬스터들, 날아가는 빛 탄들을 가지고 있어요.
 // - 정해진 박자마다:
-//   1) 주인공 칼이 판정 중이면 맞았는지 보고(hit_resolution) 피해를 주고 밀어내요.
+//   1) 주인공 칼이 판정 중이면 허수아비·몬스터(11d)에 맞았는지 보고(hit_resolution) 피해를 주고 밀어내요.
 //      치명타는 시드가 있는 싸움 주사위로 굴려요 (기본 5%, 10a).
 //   2) 주인공 시전이 이번 박자에 끝났으면 빛 탄을 하나 만들어요.
-//   3) 빛 탄을 날려요. 허수아비에 맞으면 피해를 주고 사라지고, 벽·거리 끝에서도 사라져요.
+//   3) 빛 탄을 날려요. 허수아비·몬스터에 맞으면 피해를 주고 사라지고, 벽·거리 끝에서도 사라져요.
 //   4) 허수아비 시간을 흘려요 (쓰러졌다 다시 서기).
 //   5) 몬스터를 움직여요 (11a·11b). 몬스터 주사위는 치명타 주사위와 따로 굴려요.
 //   6) 덮치는 몬스터의 판정이 주인공 맞는 상자에 닿으면 주인공이 맞아요 (덮치기 한 번에 한 번, 무적이면 안 맞음, 11c).
@@ -20,6 +20,7 @@
 #include "game/combat/projectile.hpp"
 #include "game/combat/training_dummy.hpp"
 #include "game/monsters/monster.hpp"
+#include "game/monsters/monster_vanish_event.hpp"
 #include "game/entities/player_motion.hpp"
 
 #include "wind/world/map.hpp"
@@ -55,6 +56,8 @@ public:
     [[nodiscard]] const std::vector<ProjectileEndEvent>& projectile_ends() const { return ended_; }
     // 이번 박자에 주인공이 맞은 일 (다음 박자에 지워져요, 11c)
     [[nodiscard]] const std::vector<HeroHitEvent>& hero_hits() const { return hero_hits_; }
+    // 이번 박자에 다 사라진(쓰러진 뒤 0.5초) 몬스터들 (다음 박자에 지워져요, 11d)
+    [[nodiscard]] const std::vector<MonsterVanishEvent>& vanished() const { return vanished_; }
     // 이번 박자에 맞은 일(허수아비·주인공) 중 가장 긴 멈칫 시간 (아무도 안 맞았으면 0). 히트스톱에 넘겨요.
     [[nodiscard]] float strongest_hitstop() const;
     // 마지막으로 맞은 일 (F3 정보판용)
@@ -82,6 +85,7 @@ private:
     std::vector<HitEvent> hits_;              // 이번 박자에 맞은 일
     std::vector<ProjectileEndEvent> ended_;   // 이번 박자에 사라진 빛 탄
     std::vector<HeroHitEvent> hero_hits_;     // 이번 박자에 주인공이 맞은 일 (11c)
+    std::vector<MonsterVanishEvent> vanished_;  // 이번 박자에 다 사라진 몬스터 (11d)
     std::optional<HitEvent> last_hit_;        // 마지막으로 맞은 일
     CombatRandom random_;                     // 치명타 주사위 (시드가 있어 재현 가능)
     CombatRandom monster_random_;             // 몬스터 행동 주사위 (치명타와 따로: 칼질이 걷는 길을 바꾸지 않게)

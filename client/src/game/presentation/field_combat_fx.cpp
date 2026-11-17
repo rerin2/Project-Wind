@@ -15,6 +15,8 @@ namespace {
 // 10·24로 해 보니 허수아비 머리 위 HP 바와 숫자가 겹쳐서 읽기 힘들었어요 (10b 화면 확인).
 constexpr float kNumberLift = 32.0f;
 constexpr int kCritSparkBursts = 2;   // 치명타는 불꽃을 두 번 터뜨려요
+// 몬스터 사라짐 파티클은 발에서 이만큼 위(슬라임 몸 가운데쯤)에서 터져요 (11d)
+constexpr float kVanishLift = 6.0f;
 
 }  // namespace
 
@@ -24,12 +26,14 @@ FieldCombatFx::FieldCombatFx(CombatFxSetup setup)
       slash_(setup.slash),
       spell_(setup.star_trail, setup.star_burst, setup.glow, setup.spell_light),
       vignette_texture_(setup.vignette),
-      hit_spark_(setup.hit_spark) {}
+      hit_spark_(setup.hit_spark),
+      monster_fx_(setup.monster_fx) {}
 
 void FieldCombatFx::set_settings(const FeelSettings& settings) {
     shake_.set_strength(settings.shake);
     view_.set_flash_strength(settings.flash);
     vignette_.set_strength(settings.flash);  // 붉은 비네트도 번쩍임 설정을 따라요 (11c)
+    monster_view_.set_flash_strength(settings.flash);  // 몬스터 번쩍임·쓰러짐 깜빡임 (11d)
 }
 
 void FieldCombatFx::collect(const FieldCombat& combat) {
@@ -39,6 +43,8 @@ void FieldCombatFx::collect(const FieldCombat& combat) {
     pending_ends_.insert(pending_ends_.end(), ends.begin(), ends.end());
     const auto& hero_hits = combat.hero_hits();
     pending_hero_hits_.insert(pending_hero_hits_.end(), hero_hits.begin(), hero_hits.end());
+    const auto& vanished = combat.vanished();
+    pending_vanished_.insert(pending_vanished_.end(), vanished.begin(), vanished.end());
 }
 
 void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& combat,
@@ -53,6 +59,10 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
         vignette_.trigger();
     }
     pending_hero_hits_.clear();
+    for (const auto& vanish : pending_vanished_) {  // 다 사라진 몬스터: 그 자리에서 파티클 (11d)
+        play_vanish(vanish, combat, random, air_fx);
+    }
+    pending_vanished_.clear();
     // 2) 마술: 시전 중이면 손끝 빛, 빛 탄 꼬리, 사라진 자리 반짝
     std::optional<CastGlow> cast;
     if (player.caster().busy()) {
@@ -69,9 +79,21 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
     numbers_.update(dt_seconds);
 }
 
+void FieldCombatFx::play_vanish(const MonsterVanishEvent& vanish, const FieldCombat& combat,
+                                engine::ParticleRandom& random, engine::ParticlePool& air_fx) const {
+    if (monster_fx_ == nullptr || vanish.index >= combat.monsters().size()) return;
+    const auto& path = combat.monsters()[vanish.index].data().death_fx;  // 이 몬스터의 사라짐 효과 파일
+    if (!path) return;                                                  // 효과가 없는 몬스터
+    const auto it = monster_fx_->find(*path);
+    if (it == monster_fx_->end()) return;                               // 파일을 못 읽었으면 효과만 빠져요
+    // 몸 가운데 높이(발에서 조금 위)에서 사방으로 튀어요
+    (void)engine::emit_burst(it->second, {vanish.at.x, vanish.at.y - kVanishLift}, 0.0f, random, air_fx);
+}
+
 void FieldCombatFx::play_hit(const HitEvent& hit, const FieldCombat& combat,
                              engine::ParticleRandom& random, engine::ParticlePool& air_fx) {
-    view_.flash(combat.dummies(), hit.target);      // 하얀 번쩍임
+    view_.flash(combat.dummies(), hit.target);      // 하얀 번쩍임 (허수아비)
+    monster_view_.flash(combat.monsters(), hit.target);  // 하얀 번쩍임 (몬스터, 11d)
     shake_.add(hit.shake);                          // 화면 흔들림 (트라우마)
     numbers_.spawn({hit.at.x, hit.at.y - kNumberLift}, hit.amount, hit.critical);  // 피해 숫자
     if (hit_spark_ == nullptr) {

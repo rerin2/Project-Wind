@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "slime_burst",
+  "shape": "soft",
+  "blend": "normal",
+  "lifetime": [0.35, 0.65],
+  "speed": [40, 110],
+  "direction": 270,
+  "spread": 360,
+  "gravity": 220,
+  "drag": 2,
+  "spawn_radius": 4,
+  "start_size": [2, 4],
+  "end_size": 1,
+  "start_color": "#e4ffd8ff",
+  "end_color": "#4f9e4a00",
+  "fade_out": 0.4,
+  "burst": 16
+}

@@ -4,6 +4,7 @@
 
 #include "game/presentation/combat_view.hpp"
 
+#include "game/presentation/enemy_bar_drawing.hpp"
 #include "game/presentation/shadow_drawing.hpp"
 
 #include <algorithm>
@@ -16,35 +17,11 @@ namespace {
 // 발밑 그림자 크기 (주인공 22x8보다 살짝 작게)
 constexpr float kShadowWidth = 20.0f;
 constexpr float kShadowHeight = 7.0f;
-// HP 바: 머리 위 3픽셀, 테두리 포함 26x5 (안쪽 24x3)
-constexpr float kBarWidth = 26.0f;
-constexpr float kBarHeight = 5.0f;
-constexpr float kBarGap = 3.0f;
-constexpr engine::Color kBarOutline{16, 19, 28, 255};
-constexpr engine::Color kBarEmpty{40, 44, 60, 255};
-constexpr engine::Color kBarFill{214, 72, 64, 255};    // 빨강 (적 HP)
-constexpr engine::Color kBarTrail{250, 238, 196, 255};  // 방금 깎인 만큼 (크림색)
 // 맞을 때 하얀 번쩍임 (명세 6.7 기본값 0.08초)
 constexpr float kFlashSeconds = 0.08f;
 // F4 판정 상자 색 (반투명)
 constexpr engine::Color kHitboxColor{240, 60, 60, 110};    // 칼: 빨강
 constexpr engine::Color kHurtboxColor{240, 210, 60, 100};  // 허수아비: 노랑
-
-// 허수아비 HP 바: 가득 찬 채 2.5초면 완전히 사라져요 (서 있는 허수아비마다 바가 떠 있으면 어지러워서)
-DelayedBarTuning bar_tuning() {
-    DelayedBarTuning tuning;
-    tuning.auto_hide = true;           // 가득 차면 숨기기
-    tuning.hide_after_seconds = 2.5f;  // 마지막으로 맞고 다시 찬 뒤 2.5초
-    tuning.hidden_alpha = 0.0f;        // 완전히 안 보이게
-    tuning.start_hidden = true;        // 맵에 들어왔을 때 가득 찬 바는 처음부터 안 보여요
-    return tuning;
-}
-
-// 투명도(0~1)를 곱한 색
-engine::Color faded(engine::Color color, float alpha) {
-    color.a = static_cast<std::uint8_t>(std::lround(static_cast<float>(color.a) * std::clamp(alpha, 0.0f, 1.0f)));
-    return color;
-}
 
 // 맵 위 네모 -> 화면 위 네모
 engine::RectF to_screen(const engine::Camera2D& camera, const engine::RectF& world) {
@@ -57,7 +34,7 @@ engine::RectF to_screen(const engine::Camera2D& camera, const engine::RectF& wor
 CombatView::CombatView(engine::TextureHandle shadow, std::vector<engine::TextureHandle> dummy_textures)
     : shadow_(shadow), textures_(std::move(dummy_textures)) {
     for (std::size_t i = 0; i < textures_.size(); ++i) {
-        bars_.emplace_back(bar_tuning(), 1.0f);  // 허수아비마다 바 하나 (가득 찬 채 시작)
+        bars_.emplace_back(enemy_bar_tuning(), 1.0f);  // 허수아비마다 바 하나 (가득 찬 채 시작)
     }
     flash_left_.assign(textures_.size(), 0.0f);  // 처음에는 아무도 안 번쩍여요
 }
@@ -101,7 +78,8 @@ void CombatView::queue(const engine::Camera2D& camera, std::span<const TrainingD
     const std::size_t count = std::min(dummies.size(), bars_.size());
     for (std::size_t i = 0; i < count; ++i) {
         queue_dummy(camera, dummies[i], i, queue);         // 그림자 + 허수아비
-        queue_bar(camera, dummies[i], bars_[i], queue);    // 머리 위 HP 바
+        queue_enemy_bar(camera, dummies[i].feet(), static_cast<float>(dummies[i].data().sprite.origin_y), bars_[i],
+                        queue);                            // 머리 위 HP 바
     }
     if (!show_boxes) return;                               // F4가 꺼져 있으면 여기까지
     for (const auto& dummy : dummies) {
@@ -135,25 +113,6 @@ void CombatView::queue_dummy(const engine::Camera2D& camera, const TrainingDummy
         draw.tint = {255, 255, 255, static_cast<std::uint8_t>(std::lround(255.0f * flash))};
         queue.push_sprite(engine::DrawLayer::YSorted, dummy.feet().y, draw);
     }
-}
-
-void CombatView::queue_bar(const engine::Camera2D& camera, const TrainingDummy& dummy,
-                           const DelayedBar& bar, engine::RenderQueue& queue) const {
-    const float alpha = bar.alpha();
-    if (alpha <= 0.0f) return;                                  // 숨겨진 바는 그리지 않아요
-    const auto& sprite = dummy.data().sprite;
-    const engine::Vec2 screen = camera.world_to_screen(dummy.feet());
-    const engine::RectF outer{std::round(screen.x - kBarWidth * 0.5f),        // 머리 위 가운데
-                              std::round(screen.y - static_cast<float>(sprite.origin_y) - kBarGap - kBarHeight),
-                              kBarWidth, kBarHeight};
-    const engine::RectF inner{outer.x + 1.0f, outer.y + 1.0f, outer.w - 2.0f, outer.h - 2.0f};
-    // 조명 뒤(Foreground)에 그려서 밤·동굴에서도 잘 보여요. 그리는 순서는 같은 단계 안에서 키 순서예요.
-    queue.push_fill(engine::DrawLayer::Foreground, 0.0f, outer, faded(kBarOutline, alpha));
-    queue.push_fill(engine::DrawLayer::Foreground, 0.1f, inner, faded(kBarEmpty, alpha));
-    queue.push_fill(engine::DrawLayer::Foreground, 0.2f,
-                    {inner.x, inner.y, std::round(inner.w * bar.trail()), inner.h}, faded(kBarTrail, alpha));
-    queue.push_fill(engine::DrawLayer::Foreground, 0.3f,
-                    {inner.x, inner.y, std::round(inner.w * bar.value()), inner.h}, faded(kBarFill, alpha));
 }
 
 }  // namespace wind::game

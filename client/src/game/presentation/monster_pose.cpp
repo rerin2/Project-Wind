@@ -28,6 +28,10 @@ constexpr float kShiverHz = 15.0f;         // 떨림 빠르기 (1초에 15번 �
 constexpr float kLungeHeight = 7.0f;       // 덮칠 때 가장 높이 (픽셀)
 constexpr float kSplatPart = 0.3f;         // 후딜 앞 30% 동안 납작
 constexpr float kSplat = 0.18f;            // 땅에 떨어질 때 납작한 정도 (18%)
+// 맞기·쓰러짐 (11d)
+constexpr float kHurtSqueeze = 0.16f;      // 맞은 순간 16% 홀쭉·길쭉
+constexpr float kMeltSpread = 0.35f;       // 쓰러질 때 옆으로 35% 퍼져요
+constexpr float kMeltFlatten = 0.65f;      // 쓰러질 때 65% 낮아져요
 
 }  // namespace
 
@@ -82,6 +86,20 @@ std::optional<MonsterPose> slime_action_pose(MonsterState state, float progress,
             const float splat = 1.0f - std::min(p / kSplatPart, 1.0f);
             pose.scale_x = 1.0f + splat * kSplat;
             pose.scale_y = 1.0f - splat * kSplat;
+            return pose;
+        }
+        case MonsterState::Hurt: {
+            // 맞아서 움찔 (11d): 홀쭉하고 키가 커졌다가 원래대로 (출렁)
+            const float recoil = 1.0f - p;
+            pose.scale_x = 1.0f - recoil * kHurtSqueeze;
+            pose.scale_y = 1.0f + recoil * kHurtSqueeze;
+            return pose;
+        }
+        case MonsterState::Dead: {
+            // 쓰러짐 (11d): 옆으로 퍼지며 바닥에 녹아내리듯 납작해져요
+            const float melt = p * p;  // 처음엔 천천히, 끝으로 갈수록 빨리
+            pose.scale_x = 1.0f + melt * kMeltSpread;
+            pose.scale_y = 1.0f - melt * kMeltFlatten;
             return pose;
         }
         default:

@@ -9,7 +9,8 @@
 //     "body": [12, 6],
 //     "hurtbox": { "offset": [-9, -13], "size": [18, 13] },
 //     "sprite": { "image": "monsters/slime_green.bmp", "frame": [24, 24], "origin": [12, 21] },
-//     "attacks": ["attacks/slime_hop.json"] }
+//     "attacks": ["attacks/slime_hop.json"], "stagger_seconds": 0.25, "death_fx": "fx/slime_burst.json" }
+// 선택 칸: "death_fx" (11d).
 // 숫자가 범위를 벗어나거나, 거리 순서(공격 <= 감지 <= 추적 한계, 배회 반지름 + 감지 <= 추적 한계)가 틀리거나,
 // 공격 파일(1~6개)을 못 읽거나,
 // 그림 위치가 콘텐츠 폴더 밖이면 오류 목록을 돌려줘요. 범위는 docs/ENGINE.md "Monster" 절에 있어요.

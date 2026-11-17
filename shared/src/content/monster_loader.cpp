@@ -31,6 +31,7 @@ constexpr double kMinBody = 1.0;            // 발 상자 최소 (픽셀)
 constexpr double kMaxBody = 64.0;           // 발 상자 최대 (두 칸)
 constexpr double kMaxNotice = 2.0;          // 알아채기 멈춤 최대 (초)
 constexpr std::size_t kMaxAttacks = 6;      // 공격 목록 최대 (명세 14.4)
+constexpr double kMaxStagger = 2.0;         // 맞았을 때 움찔 최대 (초)
 
 // "wander": { "radius": 40, "speed": 18, "pause": [1.0, 2.5] }
 std::optional<combat::WanderData> read_wander(JsonReader& parent) {
@@ -119,8 +120,11 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     const auto hurtbox = read_hurtbox(reader);                                // 맞는 상자
     auto sprite = read_sprite_strip(reader);                                  // 그림 띠
     auto attacks = read_attacks(reader, load_attack);                         // 공격 목록 (11b)
+    const auto stagger = reader.number("stagger_seconds", 0.0, kMaxStagger);  // 맞으면 움찔 (11d)
+    std::optional<std::string> death_fx;                                      // 사라질 때 효과 (선택, 11d)
+    if (reader.has("death_fx")) death_fx = reader.content_path("death_fx");    // 틀리면 공책에 적혀 거절돼요
     if (!id || !name || !max_hp || !attack || !defense || !move_speed || !detect || !attack_range ||
-        !leash || !notice || !wander || !body || !hurtbox || !sprite || attacks.empty()) {
+        !leash || !notice || !wander || !body || !hurtbox || !sprite || attacks.empty() || !stagger) {
         if (errors.empty()) errors.add(file, "", "monster is incomplete");
         return {std::nullopt, errors.take()};
     }
@@ -141,6 +145,8 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     data.hurtbox = *hurtbox;
     data.sprite = std::move(*sprite);
     data.attacks = std::move(attacks);
+    data.stagger_seconds = static_cast<float>(*stagger);
+    data.death_fx = std::move(death_fx);
     check_ranges(data, reader);  // 거리 순서
     if (!errors.empty()) {
         return {std::nullopt, errors.take()};

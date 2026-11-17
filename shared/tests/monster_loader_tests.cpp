@@ -31,7 +31,8 @@ json make_monster() {
                 {"body", {12, 6}},
                 {"hurtbox", {{"offset", {-9, -13}}, {"size", {18, 13}}}},
                 {"sprite", {{"image", "monsters/s.bmp"}, {"frame", {24, 24}}, {"origin", {12, 21}}}},
-                {"attacks", {"attacks/hop.json"}}};
+                {"attacks", {"attacks/hop.json"}},
+                {"stagger_seconds", 0.25}};
 }
 
 // 오류 목록에 이 칸 주소의 오류가 있나요?
@@ -127,6 +128,28 @@ TEST(MonsterLoader, RejectsBadAttackList) {
     auto escape = make_monster();
     escape["attacks"] = {"../evil.json"};  // 콘텐츠 폴더 밖
     EXPECT_FALSE(parse(escape).ok());
+}
+
+// 11d: 움찔 시간은 0~2초, 사라질 때 효과(death_fx)는 없어도 되고 있으면 콘텐츠 폴더 안이어야 해요
+TEST(MonsterLoader, ReadsStaggerAndOptionalDeathFx) {
+    const auto plain = parse(make_monster());
+    ASSERT_TRUE(plain.ok());
+    EXPECT_FLOAT_EQ(plain.value->stagger_seconds, 0.25f);
+    EXPECT_FALSE(plain.value->death_fx.has_value());  // 없으면 효과 없이 사라져요
+
+    auto with_fx = make_monster();
+    with_fx["death_fx"] = "fx\\slime_burst.json";
+    const auto fx = parse(with_fx);
+    ASSERT_TRUE(fx.ok());
+    EXPECT_EQ(*fx.value->death_fx, "fx/slime_burst.json");  // "\"는 "/"로 정리돼요
+
+    auto bad = make_monster();
+    bad["death_fx"] = "../evil.json";  // 콘텐츠 폴더 밖
+    bad["stagger_seconds"] = 5;        // 너무 길어요
+    const auto result = parse(bad);
+    EXPECT_FALSE(result.ok());
+    EXPECT_TRUE(has_error_at(result.errors, "death_fx"));
+    EXPECT_TRUE(has_error_at(result.errors, "stagger_seconds"));
 }
 
 TEST(MonsterLoader, RejectsReversedPause) {

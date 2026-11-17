@@ -4,6 +4,7 @@
 // - 쉬는 몬스터의 그림 속 발 위치가 맵의 발 위치와 같은 화면 점에 와요
 // - F4가 켜져 있을 때만 상자(DebugOverlay) 두 개(맞는 상자, 발 상자)를 넣어요
 // - 11b: 알아채면 느낌표, 예고 중에는 바닥에 붉은 경고와 웅크린 그림, 덮치는 동안 F4 빨간 판정 상자
+// - 11d: 맞으면 하얗게 번쩍이고 HP 바가 보여요. 다 사라진 몬스터는 그리지 않아요
 #include "game/presentation/monster_view.hpp"
 
 #include "game/combat/combat_random.hpp"
@@ -149,6 +150,36 @@ TEST(MonsterView, AttackHitboxOnlyWithF4WhileLunging) {
     RenderQueue queue;
     view.queue(make_camera(), monsters, 1.0f, true, queue);
     EXPECT_EQ(count_layer(queue, DrawLayer::DebugOverlay), 3u);  // 맞는 상자 + 발 상자 + 공격 판정(빨강)
+}
+
+// ---------------------------------------------------------------- 11d ----
+
+TEST(MonsterView, HitFlashesAndShowsHpBar) {
+    std::vector<Monster> monsters{make_fighter()};
+    monsters[0].set_id(7);
+    MonsterView view({1}, {3}, {{2}});
+    view.update(1.0f / 60.0f, monsters);
+    RenderQueue before;
+    view.queue(make_camera(), monsters, 1.0f, false, before);
+    EXPECT_EQ(count_layer(before, DrawLayer::Foreground), 0u);  // 가득 찬 HP 바는 숨어 있어요
+    (void)monsters[0].take_damage(10);
+    view.flash(monsters, 7);
+    view.update(1.0f / 60.0f, monsters);
+    RenderQueue after;
+    view.queue(make_camera(), monsters, 1.0f, false, after);
+    EXPECT_EQ(count_layer(after, DrawLayer::YSorted), 2u);     // 몸 + 하얀 번쩍임
+    EXPECT_EQ(count_layer(after, DrawLayer::Foreground), 4u);  // HP 바 4겹 (테두리·빈 곳·꼬리·채움)
+}
+
+TEST(MonsterView, GoneMonsterIsNotDrawn) {
+    std::vector<Monster> monsters{make_fighter()};
+    (void)monsters[0].take_damage(999);
+    drive_to(monsters[0], wind::game::MonsterState::Idle, 500.0f);  // 쓰러진 채로 0.6초 흘려요 (Idle은 안 돼요)
+    ASSERT_TRUE(monsters[0].gone());
+    MonsterView view({1}, {3}, {{2}});
+    RenderQueue queue;
+    view.queue(make_camera(), monsters, 1.0f, true, queue);
+    EXPECT_TRUE(queue.commands().empty());
 }
 
 }  // namespace

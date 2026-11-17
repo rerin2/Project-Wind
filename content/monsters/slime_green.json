@@ -14,5 +14,7 @@
   "body": [12, 6],
   "hurtbox": { "offset": [-9, -13], "size": [18, 13] },
   "sprite": { "image": "monsters/slime_green.bmp", "frame": [24, 24], "origin": [12, 21] },
-  "attacks": ["attacks/slime_hop.json"]
+  "attacks": ["attacks/slime_hop.json"],
+  "stagger_seconds": 0.25,
+  "death_fx": "fx/slime_burst.json"
 }

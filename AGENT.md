@@ -25,6 +25,9 @@ CLAUDE.md 9번 규칙("같은 실수 반복 금지")에 따라, 작업 중 실�
   여러 줄을 넣을 때는 Edit 도구를 써요.
 - **입력 없는 `cat`:** `cat >> /dev/null`처럼 입력이 없는 cat은 끝나지 않고 멈춰요. 쓰지 않아요.
 - **백슬래시가 사라짐:** bash/perl 치환에서 `%APPDATA%\ProjectWIND` 같은 Windows 경로의 `\`가 사라져요. Edit 도구를 써요.
+  - **heredoc 테스트 코드에서도 (11d에서 반복):** `"fx\\slime_burst.json"`이 `"fx\slime..."`로 바뀌어 경고 C4129가 났어요.
+    `\`가 든 코드를 쓸 때는 Write/Edit 도구를 쓰거나, 쓴 뒤 그 줄을 grep으로 확인해요.
+- **PowerShell 인자 안 계산:** `New-Object Bitmap(960, 8*30)`은 `8*30`을 계산하지 않아 실패해요. `(8*30)`처럼 괄호로 감싸요 (11d).
 - **python 없음:** 이 PC에는 python이 없어요. 텍스트 처리는 sed/awk 또는 Edit 도구로 해요. (9d에서 잊고 또 시도함)
 - **스크린샷 폴더 지우기 막힘:** 임시 폴더 안을 `Remove-Item`으로 지우는 명령은 막혀요. 실행마다 새 폴더 이름(`shots9e_a`, `_b` ...)을 써요.
 - **BMP 스크린샷 보기:** Read 도구는 BMP를 못 읽어요. PowerShell `System.Drawing`으로 PNG로 바꿔서(필요하면 2배 확대) 봐요.

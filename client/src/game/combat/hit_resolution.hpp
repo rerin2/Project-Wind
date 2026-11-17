@@ -1,7 +1,7 @@
 #pragma once
 
 // 이 파일은 무엇을 하나요?
-// "휘두른 칼이 허수아비에 맞았나?"를 정하는 도우미 함수예요. (명세 9.1, 9.3)
+// "휘두른 칼이 허수아비·몬스터에 맞았나?"를 정하는 도우미 함수예요. (명세 9.1, 9.3, 몬스터는 11d)
 // 한 박자에 한 번 불러요. 순서:
 //   1) 칼의 히트박스와 허수아비의 허트박스가 겹치나? (서 있는 허수아비만)
 //   2) 이번 휘두르기에서 처음 맞는 대상인가? (register_hit가 기억해 줘요)
@@ -20,6 +20,8 @@
 #include <vector>
 
 namespace wind::game {
+
+class Monster;
 
 // 이번 박자에 판정 중인 공격 한 번 (칼 휘두르기, 또는 빛 탄의 한 걸음)
 struct Swing {
@@ -53,6 +55,11 @@ struct HitEvent {
 // random: 치명타 주사위 (없으면 치명타 없음). 맞은 대상마다 한 번씩 굴려요.
 [[nodiscard]] std::vector<HitEvent> resolve_swing(const Swing& swing,
                                                   std::span<TrainingDummy> dummies,
+                                                  CombatRandom* random = nullptr,
+                                                  const combat::DamageRules& rules = {});
+
+// 같은 규칙으로 몬스터들에게 (11d). 몬스터는 맞으면 움찔하고 밀려나며, HP 0이면 쓰러져요.
+[[nodiscard]] std::vector<HitEvent> resolve_swing(const Swing& swing, std::span<Monster> monsters,
                                                   CombatRandom* random = nullptr,
                                                   const combat::DamageRules& rules = {});
 

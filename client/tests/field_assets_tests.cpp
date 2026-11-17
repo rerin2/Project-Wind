@@ -3,7 +3,7 @@
 // - 없는 맵 파일이나 없는 등장 자리로 가는 출구는 "못 열어요"(없음)가 나와야 해요.
 //   그래야 게임이 지금 맵에 그대로 머물 수 있어요. (명세 7단계 완료 조건)
 // - 진짜 맵들(초원, 동굴, 숲)의 출구는 모두 열 수 있는 맵과 등장 자리를 가리켜야 해요.
-// - 초원 맵에는 슬라임 두 마리가 있어요 (11a).
+// - 초원 맵에는 슬라임 두 마리가 있어요 (11a). 맵에 다시 들어오면 쓰러뜨린 슬라임도 다시 나타나요 (11d).
 #include "game/states/field_assets.hpp"
 
 #include <gtest/gtest.h>
@@ -63,6 +63,22 @@ TEST(FieldAssets, MeadowHasSlimesAtHome) {
         EXPECT_EQ(monster.data().id, "slime_green");
         EXPECT_EQ(monster.feet(), monster.home());  // 처음에는 제자리
     }
+}
+
+// 맵에 다시 들어오면 슬라임이 다시 나타나요 (11d, 명세 9.5: 13단계 캣닢 쿠션 전까지의 규칙).
+// 맵에 들어갈 때마다 준비물을 새로 읽어서, 지난번에 쓰러뜨린 슬라임도 가득 찬 HP로 제자리에 있어요.
+TEST(FieldAssets, ReenteringMapBringsSlimesBack) {
+    auto first = load("maps/test_meadow.json", "default");
+    ASSERT_TRUE(first.has_value());
+    ASSERT_FALSE(first->monsters.empty());
+    (void)first->monsters[0].take_damage(999);  // 첫 번째 방문에서 쓰러뜨려요
+    ASSERT_TRUE(first->monsters[0].defeated());
+    const auto again = load("maps/test_meadow.json", "default");  // 맵 이동은 준비물을 새로 읽어요
+    ASSERT_TRUE(again.has_value());
+    EXPECT_FALSE(again->monsters[0].defeated());
+    EXPECT_EQ(again->monsters[0].hp(), again->monsters[0].max_hp());
+    EXPECT_EQ(again->monsters[0].feet(), again->monsters[0].home());
+    EXPECT_TRUE(again->effects.monster_fx.contains("fx/slime_burst.json"));  // 사라짐 효과도 읽어요
 }
 
 }  // namespace

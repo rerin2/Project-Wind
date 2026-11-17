@@ -4,7 +4,8 @@
 // - 칼이 안 닿는 곳에서 휘두르면 HP가 그대로예요
 // - 별빛 조각은 첫 허수아비에 12를 주고 사라지고, 벽이나 240픽셀 끝에서도 사라져요 (9e)
 // - 맞은 일에 타격감(넉백·멈칫·흔들림)이 실리고, 허수아비가 밀려요. 치명타는 × 1.5 (10a)
-// - 진짜 슬라임이 덮치면 주인공이 4 맞고 경직돼요. 한 덮치기에 한 번, 무적이면 안 맞아요. 겹친 몸은 떼어 놓아요 (11c)
+// - 진짜 슬라임이 덮치면 주인공이 (공격력 × 위력)만큼 맞고 경직돼요. 한 덮치기에 한 번, 무적이면 안 맞아요. 겹친 몸은 떼어 놓아요 (11c)
+// - 칼 콤보로 슬라임을 쓰러뜨리면 사라지고, 별빛 조각도 슬라임에 맞아요. 같은 씨앗·같은 입력 기록이면 같은 싸움 (11d)
 // 피해를 정확히 보려는 테스트는 치명타 확률을 0으로 만들어요 (FieldCombat(..., 1, 0.0f)).
 #include "game/states/field_combat.hpp"
 
@@ -285,11 +286,17 @@ TEST(FieldCombat, SlimeLungeHitsHeroOncePerLunge) {
         player.step(kDt, {}, false, map);
         combat.step(kDt, player, map);
         hits = combat.hero_hits();
-        if (!hits.empty()) EXPECT_FLOAT_EQ(combat.strongest_hitstop(), 0.06f);  // 슬라임 공격의 멈칫
+        if (!hits.empty()) {  // 슬라임 공격 데이터의 멈칫
+            EXPECT_FLOAT_EQ(combat.strongest_hitstop(), combat.monsters()[0].attack()->hitstop);
+        }
     }
     ASSERT_EQ(hits.size(), 1u);
-    EXPECT_EQ(hits[0].amount, 4);                    // 공격력 4 × 위력 1 - 방어 0
-    EXPECT_EQ(player.health().current(), 96);
+    // 피해 = 공격력 × 위력 - 방어 0 (최소 1). 숫자는 데이터 파일에서 와서, 슬라임을 고쳐도 규칙만 검사해요
+    const auto& slime = combat.monsters()[0];
+    const int expected = std::max(1, static_cast<int>(slime.data().attack_power * slime.attack()->power));
+    const int expected_hp = std::max(1, 100 - expected);  // HP는 1 아래로 안 내려가요 (11c 임시 규칙)
+    EXPECT_EQ(hits[0].amount, 100 - expected_hp);
+    EXPECT_EQ(player.health().current(), expected_hp);
     EXPECT_LT(hits[0].direction.x, 0.0f);            // 왼쪽으로 덮쳤으니 왼쪽으로 밀려요
     EXPECT_EQ(player.state(), wind::game::CharacterState::Hit);
     // 같은 덮치기에서는 다시 맞지 않아요 (덮치기 0.25초 + 여유)
@@ -318,6 +325,107 @@ TEST(FieldCombat, BodiesPushApart) {
     EXPECT_GE(gap, 13.0f - 0.01f);  // 반지름 7 + 6
     // 슬라임(가벼움)이 더 많이 밀려요: 주인공 1 : 슬라임 3
     EXPECT_LT(std::abs(player.mover().feet().x - 100.0f), std::abs(combat.monsters()[0].feet().x - 100.0f));
+}
+
+
+// ---------------------------------------------------------------- 11d: 슬라임 때리기·쓰러뜨리기·재현 ----
+
+TEST(FieldCombat, SwordComboKillsSlimeAndItVanishes) {
+    auto player = make_player();  // 발 (100, 300), 오른쪽을 봐요
+    FieldCombat combat({}, 1, 0.0f, {make_slime(125.0f)});  // 칼이 닿는 곳
+    const auto map = open_map();
+    std::vector<int> amounts;
+    bool vanished = false;
+    for (int i = 0; i < 240 && !vanished; ++i) {  // 공격 버튼을 계속 눌러요 (4초)
+        player.press_attack();
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        for (const auto& hit : combat.hits()) amounts.push_back(hit.amount);
+        vanished = !combat.vanished().empty();
+    }
+    const auto& slime = combat.monsters()[0];
+    EXPECT_TRUE(slime.defeated());
+    EXPECT_EQ(slime.hp(), 0);
+    ASSERT_GE(amounts.size(), 3u);
+    EXPECT_EQ(amounts[0], 14);  // 롱소드 14 -> 15 -> 남은 1 (HP 30)
+    EXPECT_EQ(amounts[1], 15);
+    EXPECT_EQ(amounts[2], 1);
+    EXPECT_TRUE(vanished);      // 쓰러지고 0.5초 뒤 사라짐 (연출이 파티클을 터뜨려요)
+    EXPECT_TRUE(slime.gone());
+}
+
+TEST(FieldCombat, StarShardHitsSlime) {
+    auto spell = wind::content::load_spell_file(WIND_TEST_CONTENT_DIR, "spells/star_shard.json");
+    ASSERT_TRUE(spell.ok());
+    auto player = make_player();
+    player.set_spell(std::move(*spell.value));
+    FieldCombat combat({}, 1, 0.0f, {make_slime(200.0f)});  // 100픽셀 앞 (칼은 안 닿아요)
+    const auto map = open_map();
+    player.press_cast();
+    int total = 0;
+    for (int i = 0; i < 90; ++i) {
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        for (const auto& hit : combat.hits()) total += hit.amount;
+    }
+    EXPECT_EQ(total, 12);                       // 별빛 조각 12
+    EXPECT_EQ(combat.monsters()[0].hp(), 18);
+}
+
+TEST(FieldCombat, MonsterTargetIdsFollowDummies) {
+    TrainingDummy dummy(1, "d", wind::combat::TrainingDummyData{}, {500.0f, 300.0f});
+    FieldCombat combat({dummy}, 1, 0.0f, {make_slime(125.0f), make_slime(400.0f)});
+    EXPECT_EQ(combat.monsters()[0].id(), 2u);  // 허수아비 1 다음부터
+    EXPECT_EQ(combat.monsters()[1].id(), 3u);
+}
+
+// 같은 씨앗 + 같은 박자별 주인공 입력 기록이면 같은 결과 (명세 17.2). 치명타(5%)도 켜 둬요.
+TEST(FieldCombat, SameSeedSameInputsSameFight) {
+    struct Result {
+        wind::engine::Vec2 hero;
+        int hero_hp = 0;
+        std::vector<wind::engine::Vec2> slimes;
+        std::vector<int> slime_hp;
+        std::vector<wind::game::MonsterState> states;
+        int hits = 0;
+        int hero_hits = 0;
+    };
+    const auto replay = [](std::uint64_t seed) {
+        const auto map = open_map();
+        auto player = make_player();
+        FieldCombat combat({}, seed, wind::game::kBaseCritChance, {make_slime(220.0f), make_slime(260.0f)});
+        Result result;
+        for (int i = 0; i < 60 * 12; ++i) {  // 12초 입력 기록
+            // 입력 기록: 앞으로 걷다 서기를 되풀이하고, 0.5초마다 공격, 3초마다 구르기
+            const int beat = i % 120;
+            const wind::engine::Vec2 move = beat < 50 ? wind::engine::Vec2{1.0f, 0.0f}
+                                                      : (beat < 70 ? wind::engine::Vec2{-1.0f, 0.0f} : wind::engine::Vec2{});
+            if (i % 30 == 0) player.press_attack();
+            if (i % 180 == 90) player.press_dodge();
+            player.step(kDt, move, false, map);
+            combat.step(kDt, player, map);
+            result.hits += static_cast<int>(combat.hits().size());
+            result.hero_hits += static_cast<int>(combat.hero_hits().size());
+            for (const auto& m : combat.monsters()) result.states.push_back(m.state());
+        }
+        result.hero = player.mover().feet();
+        result.hero_hp = player.health().current();
+        for (const auto& m : combat.monsters()) {
+            result.slimes.push_back(m.feet());
+            result.slime_hp.push_back(m.hp());
+        }
+        return result;
+    };
+    const auto a = replay(2026);
+    const auto b = replay(2026);
+    EXPECT_EQ(a.hero, b.hero);
+    EXPECT_EQ(a.hero_hp, b.hero_hp);
+    EXPECT_EQ(a.slimes, b.slimes);
+    EXPECT_EQ(a.slime_hp, b.slime_hp);
+    EXPECT_EQ(a.states, b.states);
+    // 이 기록에서는 양쪽이 실제로 맞아요 (재현 테스트가 싸움을 다루는지 확인)
+    EXPECT_GT(a.hits, 0);
+    EXPECT_GT(a.hero_hits, 0);
 }
 
 }  // namespace

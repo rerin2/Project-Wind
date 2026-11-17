@@ -92,4 +92,16 @@ TEST(MonsterPose, NoticeHopsOnceAndRestingUsesBreathing) {
     EXPECT_FALSE(wind::game::hops_while(MonsterState::Windup));
 }
 
+TEST(MonsterPose, HurtRecoilsAndDeathMelts) {
+    const auto hurt = slime_action_pose(MonsterState::Hurt, 0.0f, 0.0f);
+    ASSERT_TRUE(hurt.has_value());
+    EXPECT_LT(hurt->scale_x, 1.0f);  // 맞은 순간 홀쭉·길쭉
+    EXPECT_GT(hurt->scale_y, 1.0f);
+    EXPECT_FLOAT_EQ(slime_action_pose(MonsterState::Hurt, 1.0f, 0.0f)->scale_x, 1.0f);  // 끝나면 원래대로
+    const auto melted = slime_action_pose(MonsterState::Dead, 1.0f, 0.0f);
+    ASSERT_TRUE(melted.has_value());
+    EXPECT_GT(melted->scale_x, 1.3f);  // 옆으로 퍼지고
+    EXPECT_LT(melted->scale_y, 0.4f);  // 아주 납작해요
+}
+
 }  // namespace

@@ -41,12 +41,18 @@ FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed,
       monsters_(std::move(monsters)),
       random_(seed),
       monster_random_(seed ^ kMonsterStream),
-      base_crit_chance_(base_crit_chance) {}
+      base_crit_chance_(base_crit_chance) {
+    // 몬스터의 맞는 대상 번호는 허수아비 다음부터 (같은 휘두르기에 두 번 맞지 않게 서로 달라야 해요, 11d)
+    for (std::size_t i = 0; i < monsters_.size(); ++i) {
+        monsters_[i].set_id(static_cast<TargetId>(dummies_.size() + i + 1));
+    }
+}
 
 void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::MapData& map) {
     hits_.clear();   // 지난 박자 기록 지우기
     ended_.clear();
     hero_hits_.clear();
+    vanished_.clear();
     const auto dt = static_cast<float>(dt_seconds);
     resolve_sword(player);         // 1) 칼
     spawn_spell(player);           // 2) 시전이 끝났으면 빛 탄 하나
@@ -54,8 +60,11 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
     for (auto& dummy : dummies_) { // 4) 쓰러진 허수아비가 다시 서기까지 시간 세기
         dummy.step(dt);
     }
-    for (auto& monster : monsters_) {  // 5) 몬스터: 쉬기·돌아다니기·쫓기·덮치기 (11a·11b)
+    for (std::size_t i = 0; i < monsters_.size(); ++i) {  // 5) 몬스터: 쉬기·돌아다니기·쫓기·덮치기·쓰러지기
+        auto& monster = monsters_[i];
+        const bool was_gone = monster.gone();  // 이번 박자에 다 사라졌는지 보려고 (11d)
         monster.step(dt, map, monster_random_, player.mover().feet());  // 주인공 발 위치를 보고 알아채요 (11b)
+        if (!was_gone && monster.gone()) vanished_.push_back({i, monster.feet()});  // 사라짐 연출용 (11d)
     }
     resolve_monster_attacks(player);  // 6) 덮치기가 주인공에게 닿았나 (11c)
     separate(player, map, dt);         // 7) 겹친 몸 떼어 놓기 (11c)
@@ -65,7 +74,7 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
 void FieldCombat::resolve_sword(PlayerMotion& player) {
     const auto hitbox = player.attack_hitbox();                 // 판정 중이 아니면 비어 있어요
     const auto* attack = player.attack().current();             // 지금 휘두르는 공격
-    if (!hitbox || attack == nullptr || dummies_.empty()) {
+    if (!hitbox || attack == nullptr || (dummies_.empty() && monsters_.empty())) {
         return;
     }
     const auto& weapon = player.attack().weapon();              // 든 무기
@@ -81,6 +90,7 @@ void FieldCombat::resolve_sword(PlayerMotion& player) {
     swing.shake = attack->shake;
     swing.register_hit = [&player](TargetId id) { return player.register_hit(id); };  // 한 번만 맞게
     record_hits(resolve_swing(swing, dummies_, &random_));      // 맞았는지 보고 피해 주기
+    record_hits(resolve_swing(swing, monsters_, &random_));     // 몬스터도 같은 규칙으로 (11d)
 }
 
 // 주인공 시전이 이번 박자에 끝났으면, 시전 방향으로 빛 탄을 하나 만들어요.
@@ -119,7 +129,8 @@ void FieldCombat::step_projectiles(float dt_seconds, const world::MapData& map) 
             swing.hitstop = projectile.shot().hitstop;
             swing.shake = projectile.shot().shake;
             swing.register_hit = [&used](TargetId) { return !std::exchange(used, true); };  // 첫 대상만
-            const auto hits = resolve_swing(swing, dummies_, &random_);
+            auto hits = resolve_swing(swing, dummies_, &random_);       // 허수아비 먼저
+            if (hits.empty()) hits = resolve_swing(swing, monsters_, &random_);  // 아무도 안 맞았으면 몬스터 (11d)
             record_hits(hits);
             return !hits.empty();
         };
@@ -135,7 +146,7 @@ void FieldCombat::record_hits(const std::vector<HitEvent>& hits) {
     for (const auto& hit : hits) {
         hits_.push_back(hit);
         last_hit_ = hit;
-        log::debug("Hit dummy {} for {}{}{}", hit.target, hit.amount, hit.critical ? " (critical)" : "",
+        log::debug("Hit target {} for {}{}{}", hit.target, hit.amount, hit.critical ? " (critical)" : "",
                    hit.knocked_down ? " (knocked down)" : "");
     }
 }
@@ -178,6 +189,7 @@ void FieldCombat::separate(PlayerMotion& player, const world::MapData& map, floa
     if (!(max_step > 0.0f)) return;
     const float hero_radius = player.mover().tuning().body.width * 0.5f;  // 몸 반지름 = 발 상자 가로의 절반
     for (auto& monster : monsters_) {                                     // 주인공 ↔ 몬스터
+        if (monster.defeated()) continue;                                 // 쓰러진 몸은 밀지 않아요 (11d)
         const SeparationPush push = separate_bodies(
             {player.mover().feet(), hero_radius, kHeroPushWeight},
             {monster.feet(), monster.body().width * 0.5f, kMonsterPushWeight}, max_step);
@@ -188,6 +200,7 @@ void FieldCombat::separate(PlayerMotion& player, const world::MapData& map, floa
         for (std::size_t j = i + 1; j < monsters_.size(); ++j) {
             auto& a = monsters_[i];
             auto& b = monsters_[j];
+            if (a.defeated() || b.defeated()) continue;                   // 쓰러진 몸은 밀지 않아요 (11d)
             const SeparationPush push = separate_bodies({a.feet(), a.body().width * 0.5f, kMonsterPushWeight},
                                                         {b.feet(), b.body().width * 0.5f, kMonsterPushWeight},
                                                         max_step);
@@ -212,9 +225,10 @@ float FieldCombat::strongest_hitstop() const {
 std::string FieldCombat::debug_text() const {
     std::string text = "dummies " + std::to_string(dummies_.size());          // 허수아비 수
     if (!monsters_.empty()) {  // 몬스터 수와 "가장 바쁜" 상태 (11b: 싸우는 몬스터가 있으면 그 상태가 보여요)
-        // 이름표 순서: 쉬기 < 배회 < 알아채기 < 쫓기 < 예고 < 공격 < 후딜 < 복귀. 싸움 쪽(알아채기~후딜)을 먼저 보여 줘요.
+        // 이름표 순서: 쉬기 < 배회 < 알아채기 < 쫓기 < 예고 < 공격 < 후딜 < 움찔 < 복귀 < 쓰러짐.
+        // 싸움 쪽(알아채기~움찔)을 먼저 보여 줘요.
         const auto busy = [](MonsterState s) {
-            const bool fighting = s >= MonsterState::Notice && s <= MonsterState::Recover;
+            const bool fighting = s >= MonsterState::Notice && s <= MonsterState::Hurt;
             return (fighting ? 100 : 0) + static_cast<int>(s);  // 싸우는 중이면 크게
         };
         const auto top = std::ranges::max_element(
@@ -230,6 +244,10 @@ std::string FieldCombat::debug_text() const {
         const auto& dummy = dummies_[index - 1];
         text += " " + std::to_string(dummy.hp()) + "/" + std::to_string(dummy.max_hp());
         if (dummy.down()) text += " (down)";                                  // 쓰러져 있으면 표시
+    } else if (index > dummies_.size() && index <= dummies_.size() + monsters_.size()) {  // 몬스터 (11d)
+        const auto& monster = monsters_[index - dummies_.size() - 1];
+        text += " " + std::to_string(monster.hp()) + "/" + std::to_string(monster.max_hp());
+        if (monster.defeated()) text += " (dead)";
     }
     return text;
 }

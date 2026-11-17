@@ -282,6 +282,19 @@ Code: `monster_pose.cpp` (`slime_action_pose`), `monster_marks.cpp`, `monster_vi
 | Landing | splats 18 % wider / lower at the start of recovery, back to normal by 30 % | Weight on landing and a visible "opening" |
 | Chase / return | same distance-locked hops as wandering, at chase speed | Consistent movement language |
 
+### Monsters getting hit and dying (phase 11d)
+
+Code: `monster_view.cpp`, `monster_pose.cpp`, `enemy_bar_drawing.cpp` (shared with dummies), `field_combat_fx.cpp`; effect `content/fx/slime_burst.json`.
+
+| Element | Look | Why |
+|---|---|---|
+| Hit flash | same as dummies: the body drawn again additive white, 0.08 s, times `--flash` | One language for "this hit landed" |
+| Damage numbers, sparks, shake | same as dummies (`DamageNumbers`, `hit_spark`) | Shared hit feel |
+| HP bar | the dummies' bar (26×5, red fill `#d64840`, cream trail), drawn 3 px above the head and following the hop/lunge lift; hidden while full, shown on the first hit | Shows progress toward the kill; moved to `queue_enemy_bar` so both enemies use one drawing |
+| Hurt recoil | 16 % thinner and taller at the hit, easing back over the stagger | A jelly wobble that says "that hurt" without a new frame |
+| Death | flattens with a quadratic ease (35 % wider, 65 % lower by the end) over 0.5 s while blinking white (70 % additive every 0.1 s, times `--flash`) | Spec 9.5 "blink and vanish"; melting suits a slime |
+| Vanish burst | `slime_burst`: 16 soft dots, pale mint `#e4ffd8` → green `#4f9e4a` fading out, 40–110 px/s in all directions with gravity 220, 0.35–0.65 s, 6 px above the feet | The light start colour was chosen because the first green (`#8ee07a`) blended into the meadow grass (11d screen check) |
+
 ## Hero getting hit (phase 11c)
 
 Code: `client/src/game/presentation/hurt_vignette.cpp`, `hero_blink.cpp`, `field_combat_fx.cpp`; vignette texture painted by `paint_vignette` (engine render layer). Spec 6.7: a hit on the player uses a red screen-edge vignette and a short invulnerability blink. Everything only reads `HeroHitEvent` and the hit reaction.

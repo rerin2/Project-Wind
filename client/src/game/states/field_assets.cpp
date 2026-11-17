@@ -161,6 +161,11 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
 
     // 10) 맵의 몬스터들 (11a). 아래에서 맵을 넘겨주기(move) 전에 읽어야 해요.
     auto monsters = load_monsters(content_root, map.value->map);
+    std::vector<std::string> monster_fx;  // 몬스터가 사라질 때 효과 파일들 (11d)
+    for (const auto& monster : monsters) {
+        if (monster.data().death_fx) monster_fx.push_back(*monster.data().death_fx);
+    }
+    load_monster_effects(content_root, monster_fx, effects);
 
     return FieldAssets{std::move(*map.value), std::move(*sheet.value), spawn_tile, std::move(effects),
                        std::move(day_cycle), std::move(weather), std::move(weapon),

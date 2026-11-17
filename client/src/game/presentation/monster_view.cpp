@@ -4,12 +4,14 @@
 
 #include "game/presentation/monster_view.hpp"
 
+#include "game/presentation/enemy_bar_drawing.hpp"
 #include "game/presentation/monster_marks.hpp"
 #include "game/presentation/monster_pose.hpp"
 #include "game/presentation/shadow_drawing.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <utility>
 
 namespace wind::game {
@@ -23,6 +25,11 @@ constexpr float kShadowAirShrink = 0.08f;  // 1픽셀 뜰 때마다 그림자가
 constexpr float kPhaseStep = 0.618f;
 // 느낌표는 알아챈 뒤 쫓기 시작하고도 이만큼 더 보이며 흐려져요 (초). 알아채기 0.4초만으로는 짧아서요.
 constexpr float kMarkLingerSeconds = 0.35f;
+// 맞을 때 하얀 번쩍임 (명세 6.7 기본값 0.08초, 허수아비와 같아요, 11d)
+constexpr float kFlashSeconds = 0.08f;
+// 쓰러지는 동안 깜빡임: 0.1초마다 한 번, 밝기 70% (명세 9.5 사라짐 연출, 11d)
+constexpr float kDeathBlinkPeriod = 0.1f;
+constexpr float kDeathBlinkAlpha = 0.7f;
 // F4 상자 색 (반투명)
 constexpr engine::Color kHurtboxColor{240, 210, 60, 100};  // 맞는 상자: 노랑 (허수아비와 같아요)
 constexpr engine::Color kBodyColor{80, 200, 255, 140};     // 발 상자: 하늘색 (주인공과 같아요)
@@ -48,13 +55,43 @@ float notice_alpha(const Monster& monster) {
 MonsterView::MonsterView(engine::TextureHandle shadow, engine::TextureHandle glow,
                          std::vector<engine::TextureHandle> textures)
     : shadow_(shadow), glow_(glow), textures_(std::move(textures)), hop_blend_(textures_.size(), 0.0f),
-      notice_age_(textures_.size(), 0.0f) {}
+      notice_age_(textures_.size(), 0.0f), flash_left_(textures_.size(), 0.0f) {
+    for (std::size_t i = 0; i < textures_.size(); ++i) {
+        bars_.emplace_back(enemy_bar_tuning(), 1.0f);  // 몬스터마다 HP 바 하나 (가득 찬 채 숨어 있어요, 11d)
+    }
+}
+
+void MonsterView::flash(std::span<const Monster> monsters, TargetId target) {
+    const std::size_t count = std::min(monsters.size(), flash_left_.size());
+    for (std::size_t i = 0; i < count; ++i) {
+        if (monsters[i].id() == target) flash_left_[i] = kFlashSeconds;  // 맞은 몬스터를 처음부터 다시 번쩍
+    }
+}
+
+void MonsterView::set_flash_strength(float strength) {
+    flash_strength_ = std::isfinite(strength) ? std::clamp(strength, 0.0f, 1.0f) : 1.0f;
+}
+
+float MonsterView::flash_amount(const Monster& monster, std::size_t index) const {
+    float amount = std::clamp(flash_left_[index] / kFlashSeconds, 0.0f, 1.0f);  // 맞은 순간 번쩍 (끝으로 흐려짐)
+    if (monster.defeated()) {  // 쓰러지는 동안 하얗게 깜빡깜빡 (명세 9.5 사라짐 연출)
+        const bool on = std::fmod(monster.state_seconds(), kDeathBlinkPeriod) < kDeathBlinkPeriod * 0.5f;
+        amount = std::max(amount, on ? kDeathBlinkAlpha : 0.0f);
+    }
+    return amount * flash_strength_;  // 접근성 세기 (--flash)
+}
 
 void MonsterView::update(float dt_seconds, std::span<const Monster> monsters) {
     const float dt = std::max(0.0f, dt_seconds);
     clock_ += dt;  // 숨쉬기·떨림 시계
     const std::size_t count = std::min(monsters.size(), hop_blend_.size());
     for (std::size_t i = 0; i < count; ++i) {
+        // HP 바: 줄면 바로 줄고 꼬리를 남겨요. 번쩍임 시간 줄이기 (11d)
+        const auto& monster = monsters[i];
+        bars_[i].set(monster.max_hp() > 0 ? static_cast<float>(monster.hp()) / static_cast<float>(monster.max_hp())
+                                          : 0.0f);
+        bars_[i].update(dt);
+        flash_left_[i] = std::max(0.0f, flash_left_[i] - dt);
         // 배회·쫓기·복귀 중이면 통통 뛰어요
         hop_blend_[i] = approach_hop_blend(hop_blend_[i], hops_while(monsters[i].state()), dt);
         // 느낌표 나이: 알아채는 동안 늘고, 아니면 0으로 (다음에 알아채면 처음부터 톡)
@@ -67,6 +104,7 @@ void MonsterView::queue(const engine::Camera2D& camera, std::span<const Monster>
                         bool show_boxes, engine::RenderQueue& queue) const {
     const std::size_t count = std::min(monsters.size(), textures_.size());  // 개수가 다르면 적은 쪽까지만
     for (std::size_t i = 0; i < count; ++i) {
+        if (monsters[i].gone()) continue;                    // 다 사라진 몬스터는 그리지 않아요 (11d)
         queue_telegraph_mark(camera, monsters[i], queue);   // 바닥 경고 (몸·그림자 아래)
         queue_monster(camera, monsters[i], i, alpha, queue);
         if (show_boxes) queue_boxes(camera, monsters[i], queue);
@@ -96,6 +134,14 @@ void MonsterView::queue_monster(const engine::Camera2D& camera, const Monster& m
     draw.dest = {std::round(screen.x - origin_x + pose.offset_x), std::round(screen.y - pose.lift - origin_y),
                  width, height};
     queue.push_sprite(engine::DrawLayer::YSorted, feet.y, draw);  // 주인공·허수아비와 발 위치로 줄 서기
+    const float flash = flash_amount(monster, index);
+    if (flash > 0.0f) {  // 번쩍임 (11d): 같은 그림을 하얗게 더해요. 줄 서기 값이 같으면 나중 것이 위에 그려져요
+        draw.blend = engine::BlendMode::Add;
+        draw.tint = {255, 255, 255, static_cast<std::uint8_t>(std::lround(255.0f * flash))};
+        queue.push_sprite(engine::DrawLayer::YSorted, feet.y, draw);
+    }
+    // 머리 위 HP 바 (11d): 맞으면 보이고, 가득 찬 채 2.5초면 숨어요
+    queue_enemy_bar(camera, feet, pose.lift + origin_y, bars_[index], queue);
     // 느낌표: 머리 꼭대기(그림 칸 위쪽 끝) 위에
     const float mark = notice_alpha(monster);
     if (mark > 0.0f) {

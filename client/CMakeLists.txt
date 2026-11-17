@@ -90,6 +90,7 @@ add_library(wind_game_core STATIC
     src/game/presentation/afterimage_trail.cpp
     src/game/presentation/player_sprite.cpp
     src/game/presentation/combat_view.cpp
+    src/game/presentation/enemy_bar_drawing.cpp
     src/game/presentation/monster_pose.cpp
     src/game/presentation/monster_marks.cpp
     src/game/presentation/hurt_vignette.cpp
@@ -185,6 +186,7 @@ if(WIND_BUILD_TESTS)
         tests/monster_view_tests.cpp
         tests/hurt_vignette_tests.cpp
         tests/hero_blink_tests.cpp
+        tests/field_combat_fx_tests.cpp
         tests/slash_arc_tests.cpp
         tests/combat_view_tests.cpp
         tests/particle_pool_tests.cpp

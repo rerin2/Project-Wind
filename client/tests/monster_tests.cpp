@@ -8,6 +8,7 @@
 // - 11b: 감지 거리 안에서 알아채고(멈춤) → 쫓고 → 공격 거리에서 예고(방향 고정) → 40픽셀 덮치기 → 후딜
 // - 11b: 주인공이 멀리 도망가거나 제자리에서 너무 멀어지면 집으로 가고, 영역 안이면 다시 알아채요
 // - 11b: 같은 씨앗 + 같은 주인공 움직임이면 같은 결과 (재현)
+// - 11d: 맞으면 HP가 줄고 움찔(예고는 취소, 덮치기는 계속)·넉백(벽 미끄러짐), HP 0이면 쓰러져 0.5초 뒤 사라져요
 #include "game/monsters/monster.hpp"
 
 #include "game/combat/combat_random.hpp"
@@ -316,6 +317,85 @@ TEST(MonsterAi, SameSeedSameHeroSameResult) {
     EXPECT_EQ(a.second, b.second);
     // 이 기록에서는 예고와 덮치기가 실제로 일어나요 (재현 테스트가 싸움을 다루는지 확인)
     EXPECT_NE(std::ranges::find(a.second, MonsterState::Attack), a.second.end());
+}
+
+
+// ---------------------------------------------------------------- 11d: 맞기·쓰러지기 ----
+
+TEST(MonsterHit, DamageStaggersThenChasesAndDeathRemovesIt) {
+    const auto map = wide_map();
+    CombatRandom random(1);
+    auto data = fighter_data();
+    data.max_hp = 30;
+    data.stagger_seconds = 0.25f;
+    Monster slime("s", data, wide_center());
+    const auto hero = wide_center() + wind::engine::Vec2{200.0f, 0.0f};  // 감지 120 밖이지만 추적 한계 260 안
+    EXPECT_EQ(slime.take_damage(14), 14);
+    EXPECT_EQ(slime.hp(), 16);
+    slime.push({1.0f, 0.0f}, 90.0f);
+    EXPECT_EQ(slime.state(), MonsterState::Hurt);  // 쉬다가 맞으면 움찔
+    for (int i = 0; i < 14; ++i) slime.step(kDt, map, random, hero);
+    EXPECT_EQ(slime.state(), MonsterState::Hurt);
+    EXPECT_GT(slime.feet().x, wide_center().x);     // 맞은 쪽으로 밀렸어요
+    for (int i = 0; i < 2; ++i) slime.step(kDt, map, random, hero);
+    EXPECT_EQ(slime.state(), MonsterState::Chase);  // 움찔이 끝나면 쫓아와요 (멀리서 맞아도 알아채요)
+
+    EXPECT_EQ(slime.take_damage(100), 16);          // 남은 HP만큼만 깎여요
+    EXPECT_TRUE(slime.defeated());
+    EXPECT_FALSE(slime.can_be_hit());
+    EXPECT_EQ(slime.take_damage(10), 0);            // 쓰러진 뒤에는 안 맞아요
+    slime.push({1.0f, 0.0f}, 90.0f);
+    EXPECT_EQ(slime.state(), MonsterState::Dead);   // 밀어도 쓰러진 채
+    for (int i = 0; i < 29; ++i) slime.step(kDt, map, random, hero);
+    EXPECT_FALSE(slime.gone());                     // 0.5초 동안 쓰러지는 연출
+    for (int i = 0; i < 2; ++i) slime.step(kDt, map, random, hero);
+    EXPECT_TRUE(slime.gone());
+    EXPECT_EQ(slime.state(), MonsterState::Dead);   // 사라져도 다시 일어나지 않아요
+}
+
+TEST(MonsterHit, HitDuringWindupCancelsTheAttack) {
+    const auto map = wide_map();
+    CombatRandom random(2);
+    Monster slime("s", fighter_data(), wide_center());
+    const auto hero = wide_center() + wind::engine::Vec2{30.0f, 0.0f};
+    ASSERT_TRUE(run_until(slime, MonsterState::Windup, map, random, hero));
+    slime.push({1.0f, 0.0f}, 60.0f);  // 예고 중에 맞음
+    EXPECT_EQ(slime.state(), MonsterState::Hurt);
+    bool attacked = false;            // 남은 예고 시간 동안 덮치지 않아요 (공격 취소)
+    for (int i = 0; i < 20; ++i) {
+        slime.step(kDt, map, random, hero);
+        attacked = attacked || slime.state() == MonsterState::Attack;
+    }
+    EXPECT_FALSE(attacked);
+}
+
+TEST(MonsterHit, HitDuringLungeKeepsLunging) {
+    const auto map = wide_map();
+    CombatRandom random(3);
+    Monster slime("s", fighter_data(), wide_center());
+    const auto hero = wide_center() + wind::engine::Vec2{30.0f, 0.0f};
+    ASSERT_TRUE(run_until(slime, MonsterState::Attack, map, random, hero));
+    const float before_y = slime.feet().y;
+    slime.push({0.0f, 1.0f}, 160.0f);  // 덮치는 중에 아래쪽으로 맞음
+    EXPECT_EQ(slime.state(), MonsterState::Attack);  // 덮치기는 계속 (개발자와 정함)
+    for (int i = 0; i < 5; ++i) slime.step(kDt, map, random, hero);
+    EXPECT_EQ(slime.state(), MonsterState::Attack);
+    EXPECT_GT(slime.feet().y, before_y);             // 그래도 밀리기는 해요
+}
+
+TEST(MonsterHit, KnockbackSlidesAlongWall) {
+    // 오른쪽 21번째 칸 줄이 벽: 오른쪽 아래로 밀리면 벽에 막히고 아래로만 미끄러져요
+    auto map = wide_map();
+    for (int y = 0; y < map.height; ++y) map.walkable[static_cast<std::size_t>(map.index_of({21, y}))] = 0;
+    CombatRandom random(4);
+    auto data = fighter_data();
+    data.stagger_seconds = 0.25f;
+    const wind::engine::Vec2 start{21.0f * kTile - 8.0f, 20.5f * kTile};  // 벽 왼쪽 8픽셀 (발 상자 반폭 6)
+    Monster slime("s", data, start);
+    slime.push({0.70710678f, 0.70710678f}, 160.0f);
+    for (int i = 0; i < 15; ++i) slime.step(kDt, map, random, std::nullopt);  // 움찔 0.25초 (끝나면 집으로 걸어가요)
+    EXPECT_LE(slime.feet().x + 6.0f, 21.0f * kTile);                  // 벽 속으로 안 들어가요
+    EXPECT_NEAR(slime.feet().y - start.y, 20.0f * 0.70710678f, 0.5f);  // 160 × 0.25 ÷ 2 = 20픽셀 중 아래쪽 몫
 }
 
 }  // namespace

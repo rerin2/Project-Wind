@@ -23,6 +23,8 @@ constexpr float kArriveDistance = 1.0f;
 constexpr float kWanderGiveUpSeconds = 0.5f;
 // 돌아가는 중 막힌 채로 이만큼 지나면 그 자리에서 쉬어요 (초). 나무 뒤에 영원히 걸리지 않게.
 constexpr float kReturnGiveUpSeconds = 1.0f;
+// 쓰러진 뒤 사라지기까지 (초, 11d). 이 동안 깜빡이며 납작해지는 연출이 나와요.
+constexpr float kDeathSeconds = 0.5f;
 
 // 두 점 사이 거리
 float distance(engine::Vec2 a, engine::Vec2 b) { return engine::length(a - b); }
@@ -36,7 +38,9 @@ Monster::Monster(std::string name, combat::MonsterData data, engine::Vec2 home)
       feet_(home),
       previous_feet_(home),
       target_(home),
-      idle_left_(data_.wander.pause_min) {}  // 처음 쉬는 시간은 최소값 (주사위는 박자 안에서만 굴려요)
+      idle_left_(data_.wander.pause_min),  // 처음 쉬는 시간은 최소값 (주사위는 박자 안에서만 굴려요)
+      hp_(data_.max_hp),                   // 가득 찬 HP로 나타나요
+      hit_(HitTuning{data_.stagger_seconds, 0.0f, {}}) {}  // 움찔 시간은 데이터, 무적은 없음
 
 void Monster::step(float dt_seconds, const world::MapData& map, CombatRandom& random,
                    std::optional<engine::Vec2> hero) {
@@ -44,6 +48,7 @@ void Monster::step(float dt_seconds, const world::MapData& map, CombatRandom& ra
     velocity_ = {};                        // 걷지 않으면 빠르기 0
     if (!(dt_seconds > 0.0f)) return;      // 히트스톱(0)이나 이상한 값이면 그대로
     state_seconds_ += dt_seconds;          // 상태 시계
+    shove(hit_.step(dt_seconds), map);     // 맞았으면 밀려나요 (11d, 벽 미끄러짐). 덮치는 중·쓰러진 뒤에도요
     const combat::AttackData* move = attack();
     switch (state_) {
         case MonsterState::Idle:
@@ -73,6 +78,11 @@ void Monster::step(float dt_seconds, const world::MapData& map, CombatRandom& ra
         case MonsterState::Recover:        // 빈틈이 끝나면 계속 쫓을지 돌아갈지 정해요
             if (move == nullptr || state_seconds_ >= move->recovery) after_recover(hero);
             break;
+        case MonsterState::Hurt:           // 움찔이 끝나면 쫓거나(맞으면 알아채요) 돌아가요
+            if (!hit_.staggered()) after_recover(hero);
+            break;
+        case MonsterState::Dead:           // 쓰러졌으면 아무것도 안 해요 (사라지는 건 gone())
+            break;
         case MonsterState::Return:
             step_return(dt_seconds, map, random, hero);
             break;
@@ -87,6 +97,8 @@ float Monster::state_progress() const {
         case MonsterState::Windup: total = move != nullptr ? move->windup : 0.0f; break;
         case MonsterState::Attack: total = move != nullptr ? move->active : 0.0f; break;
         case MonsterState::Recover: total = move != nullptr ? move->recovery : 0.0f; break;
+        case MonsterState::Hurt: total = data_.stagger_seconds; break;
+        case MonsterState::Dead: total = kDeathSeconds; break;
         default: return 0.0f;  // 시간이 정해지지 않은 상태
     }
     return total > 0.0f ? std::clamp(state_seconds_ / total, 0.0f, 1.0f) : 1.0f;
@@ -116,6 +128,25 @@ std::optional<engine::RectF> Monster::attack_hitbox() const {
     // 히트박스는 4방향 기준이라, 덮칠 방향에 가장 가까운 방향으로 놓아요
     const world::Direction facing = facing_from_vector(attack_direction_, world::Direction::Down);
     return place_hitbox(move->hitbox, feet_, facing);
+}
+
+int Monster::take_damage(int amount) {
+    if (!can_be_hit() || amount <= 0) return 0;     // 쓰러졌거나 0·음수 피해면 그대로
+    const int applied = std::min(hp_, amount);       // HP보다 많이는 못 깎아요
+    hp_ -= applied;
+    if (hp_ <= 0) enter(MonsterState::Dead);         // HP 0: 쓰러져요 (공격도 예고도 끝)
+    return applied;
+}
+
+void Monster::push(engine::Vec2 direction, float knockback) {
+    hit_.start(direction, knockback);                // 밀리기 시작 (다음 박자부터, 벽 미끄러짐)
+    // 덮치는 중이면 덮치기를 계속해요 (개발자와 정함). 쓰러졌으면 그대로 쓰러져 있어요.
+    if (state_ == MonsterState::Attack || state_ == MonsterState::Dead) return;
+    enter(MonsterState::Hurt);                       // 그 밖에는 움찔: 예고 중이었으면 공격이 취소돼요
+}
+
+bool Monster::gone() const {
+    return state_ == MonsterState::Dead && state_seconds_ >= kDeathSeconds;
 }
 
 bool Monster::claim_hit() {

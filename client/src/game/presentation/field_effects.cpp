@@ -102,4 +102,14 @@ FieldEffects load_field_effects(const std::filesystem::path& content_root,
     return effects;
 }
 
+void load_monster_effects(const std::filesystem::path& content_root, const std::vector<std::string>& paths,
+                          FieldEffects& effects) {
+    for (const auto& path : paths) {
+        if (effects.monster_fx.contains(path)) continue;          // 이미 읽은 파일
+        if (auto effect = load_effect(content_root, path)) {      // 잘못된 파일은 기록하고 건너뛰어요
+            effects.monster_fx.emplace(path, std::move(*effect));
+        }
+    }
+}
+
 }  // namespace wind::game

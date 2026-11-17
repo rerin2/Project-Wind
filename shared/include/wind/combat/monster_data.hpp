@@ -3,12 +3,13 @@
 // 이 파일은 무엇을 하나요?
 // 몬스터 설명(데이터)이에요. (명세 9.6, 14.2) 숫자는 content/monsters/*.json에서 읽어요.
 // 11a: 대기·배회 칸. 11b: 알아채기 시간과 공격 목록 (감지·공격·추적 한계 거리를 쓰기 시작해요).
-// 주는 룬(13단계), 드롭 표(14단계), 사망 효과(11d)는 그 단계에서 칸을 더해요.
+// 11d: 맞으면 움찔하는 시간과 사라질 때 효과(선택). 주는 룬(13단계), 드롭 표(14단계)는 그 단계에서 칸을 더해요.
 
 #include "wind/combat/attack.hpp"
 #include "wind/combat/hurtbox_shape.hpp"
 #include "wind/combat/sprite_strip.hpp"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -39,6 +40,8 @@ struct MonsterData {
     HurtboxShape hurtbox;         // 맞는 상자 (11d)
     SpriteStrip sprite;           // 그림: 0 = 보통, 1 = 공격 예고(웅크림, 11b)
     std::vector<AttackData> attacks;  // 공격 목록 (1~6개, 11b는 첫 번째만 써요)
+    float stagger_seconds = 0.25f;    // 칼·마술에 맞으면 움찔하는 시간 (초, 11d). 넉백도 이 시간 동안 줄어들어요
+    std::optional<std::string> death_fx;  // 쓰러져 사라질 때 터지는 파티클 효과 (선택, 11d)
 };
 
 }  // namespace wind::combat

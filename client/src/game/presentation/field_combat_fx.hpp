@@ -7,6 +7,7 @@
 // - 칼자국 (SlashArc), 손끝 빛·빛 탄·꼬리 (SpellView)
 // - 타격감 (10b): 화면 흔들림(ScreenShake), 피해 숫자(DamageNumbers), 타격 불꽃(hit_spark 파티클)
 // - 주인공이 맞을 때 (11c): 화면 흔들림과 화면 가장자리 붉은 비네트(HurtVignette). 깜빡임은 PlayerSprite가 그려요
+// - 몬스터가 맞을 때·사라질 때 (11d): 번쩍임·숫자·불꽃은 허수아비와 같고, 사라지는 순간 death_fx 파티클이 터져요
 // 박자마다 생긴 "맞은 일"과 "사라진 빛 탄"을 모아 두었다가(collect), 화면 한 장마다 한꺼번에 연출해요.
 // (한 화면에 박자가 0번이나 여러 번이어도 빠지는 일이 없어요)
 // field_state.cpp가 300줄을 넘지 않게 싸움 연출을 여기로 옮겼어요.
@@ -29,7 +30,9 @@
 
 #include "wind/combat/spell.hpp"
 
+#include <map>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace wind::game {
@@ -46,6 +49,7 @@ struct CombatFxSetup {
     const engine::ParticleEffect* hit_spark = nullptr;   // 맞을 때 불꽃
     std::optional<combat::SpellLight> spell_light;       // 마술이 내는 빛
     engine::TextureHandle vignette;                     // 가장자리가 진한 비네트 그림 (11c)
+    const std::map<std::string, engine::ParticleEffect>* monster_fx = nullptr;  // 몬스터가 사라질 때 효과 (11d)
 };
 
 class FieldCombatFx {
@@ -71,6 +75,9 @@ public:
     [[nodiscard]] const DamageNumbers& damage_numbers() const { return numbers_; }
 
 private:
+    // 다 사라진 몬스터 자리에서 사라짐 파티클을 터뜨려요 (11d)
+    void play_vanish(const MonsterVanishEvent& vanish, const FieldCombat& combat, engine::ParticleRandom& random,
+                     engine::ParticlePool& air_fx) const;
     // 모아 둔 맞은 일 하나를 번쩍임·흔들림·숫자·불꽃으로 바꿔요
     void play_hit(const HitEvent& hit, const FieldCombat& combat, engine::ParticleRandom& random,
                   engine::ParticlePool& air_fx);
@@ -87,6 +94,8 @@ private:
     std::vector<HitEvent> pending_hits_;          // 지난 화면 뒤에 생긴 맞은 일
     std::vector<ProjectileEndEvent> pending_ends_;  // 지난 화면 뒤에 사라진 빛 탄
     std::vector<HeroHitEvent> pending_hero_hits_;   // 지난 화면 뒤에 주인공이 맞은 일 (11c)
+    std::vector<MonsterVanishEvent> pending_vanished_;  // 지난 화면 뒤에 다 사라진 몬스터 (11d)
+    const std::map<std::string, engine::ParticleEffect>* monster_fx_;  // 몬스터 사라짐 효과 (없으면 nullptr)
 };
 
 }  // namespace wind::game

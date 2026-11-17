@@ -221,7 +221,7 @@ Code: `client/src/game/monsters/monster.*`, `client/src/game/states/field_combat
 - Points are picked inside a square and rejected outside the circle, so no `sin`/`cos` is needed and the same seed gives the same walk on every machine.
 - **Dice:** all monsters share one seeded `CombatRandom` owned by `FieldCombat`, seeded with the field seed XOR a constant, so sword crits never change where monsters walk. Same seed → same walk (test `Monster.SameSeedSameWalk`). The field seed still changes every launch.
 - Hitstop (`time_scale` 0) freezes monsters too: a 0 s step changes nothing.
-- Monsters cannot be hit yet (11d). Since 11c their lunge hurts the hero (see "Hero getting hit").
+- Since 11c their lunge hurts the hero (see "Hero getting hit"); since 11d they can be hit and killed (see "Monsters getting hit and dying").
 
 | Green slime | Value | Why |
 |---|---|---|
@@ -229,7 +229,7 @@ Code: `client/src/game/monsters/monster.*`, `client/src/game/states/field_combat
 | `wander.speed` | 18 px/s | Clearly slower than its chase speed (40) and the hero walk; reads as idle |
 | `wander.pause` | 1.0–2.5 s | Rests long enough to look calm, short enough to look alive |
 | `body` | 12 × 6 px | Narrower than the hero (14 × 8) so it slides through the same gaps |
-| `max_hp`, `attack_power`, `detect_range`, `leash_range` | 30, 4, 120, 260 | Spec 14.2 example values |
+| `max_hp`, `attack_power`, `detect_range`, `leash_range` | 30, 40, 120, 260 | Spec 14.2 example values, except `attack_power` (developer set 40 in 11c; spec example 4) |
 
 ### Fighting (phase 11b)
 
@@ -262,12 +262,24 @@ Code: `client/src/game/monsters/monster.*`, `monster_moves.*`; data `content/att
 | `attack_range` | 40 px (spec example 28) | The lunge reaches 46 px ahead (40 + 6), so it starts when the hero is inside that reach |
 | `notice_seconds` | 0.4 s | Long enough to see the "!" hop; short enough not to feel slow |
 
+## Monsters getting hit and dying (phase 11d)
+
+Code: `client/src/game/monsters/monster.*`, `client/src/game/combat/hit_resolution.*` (one template for dummies and monsters), `client/src/game/states/field_combat.*`. Tested in `monster_tests.cpp` (`MonsterHit.*`), `field_combat_tests.cpp`, `field_assets_tests.cpp`, `field_combat_fx_tests.cpp`.
+
+- **Same hit rules as dummies:** the sword's active hitbox and star shards hit monsters through the same `resolve_swing` rules (once per swing, `compute_damage` with the monster's `defense`, crits from the seeded dice). A shard hits the first target only, dummies checked first. Monster target ids follow the dummies' (dummies 1..N, monsters N+1..).
+- **HP:** `max_hp` from data (slime 30). The longsword combo 14 → 15 → 21 kills a slime on the third hit (only 1 HP is left for it).
+- **Knockback:** real, along the push direction, slowing to 0 over `stagger_seconds` (slime 0.25 s; longsword hit 1 = 90 px/s → about 11 px), with wall sliding. Same `HitReaction` as the hero, without invulnerability (one hit per swing already limits it).
+- **Stagger (`hurt`), agreed 2026-11-17:** a hit during the windup **cancels the attack**; a hit during the lunge only pushes and the lunge goes on; in every other state the monster is staggered for `stagger_seconds`. After the stagger it chases if both leash checks pass (so a hit from outside the detect range still makes it come), otherwise it returns home.
+- **Death:** at HP 0 the state becomes `dead`: no movement, no attack, cannot be hit, not part of body pushing. After **0.5 s** it is `gone` (not drawn); `FieldCombat::vanished()` reports that step so presentation bursts `death_fx` (and runes/drops can hook in later, phases 13–14).
+- **Respawn (spec 9.5, until the catnip cushion in phase 13):** every map entry rebuilds the field from the data files, so a slime killed earlier is back at home with full HP when you re-enter the map (`FieldAssets.ReenteringMapBringsSlimesBack`).
+- **Replay (spec 17.2):** the same seed and the same per-step hero input record (walk, attack, dodge) give identical hero and slime positions, HP and state sequences, with hits on both sides (`FieldCombat.SameSeedSameInputsSameFight`).
+
 ## Hero getting hit (phase 11c)
 
 Code: `client/src/game/entities/health.*`, `hit_reaction.*`, `player_motion.*`, `client/src/game/states/field_combat.*` (`resolve_monster_attacks`). Tested in `health_tests.cpp`, `hit_reaction_tests.cpp`, `player_motion_tests.cpp`, `field_combat_tests.cpp`.
 
 - **When:** each fixed step after monsters move, a lunging monster's attack hitbox is checked against the hero hurtbox (14 × 30 px above the feet). A hit needs: overlap, the hero not invulnerable, and the first hit of this lunge (`Monster::claim_hit`). If the hero is invulnerable the lunge stays "unused", so it can still land if the invulnerability ends while the lunge is active.
-- **Damage:** `compute_damage(monster attack_power × attack power − hero defense)`; hero defense is 0 until equipment (phase 15). Green slime: 4 × 1.0 − 0 = **4**.
+- **Damage:** `compute_damage(monster attack_power × attack power − hero defense)`; hero defense is 0 until equipment (phase 15). Green slime: `attack_power` × 1.0 − 0. The data now has `attack_power` **40** (changed by the developer in the 11c commit; it was 4), so a lunge deals 40 and three lunges bring the hero to the HP floor of 1. Tests read the value from the data file, so tuning it does not break them.
 - **HP:** max **100** (spec 8.2, vigor 10). Temporary rule until phase 12 (agreed 2026-11-17): HP never drops below **1**; phase 12 changes the floor to 0 and adds death.
 - **Stagger (`hit`):** **0.3 s**. The state table blocks attacking, dodging and casting; the legs stop; a running attack and a cast are cancelled (MP already paid is not refunded); walking or dodge momentum stops. Buttons pressed during the stagger stay in the 0.15 s input buffer.
 - **Knockback:** along the lunge direction, starting at the attack's `knockback` (slime 160 px/s) and slowing evenly to 0 at the end of the stagger, so the distance is knockback × stagger ÷ 2 (**24 px**). It moves the feet box with `move_and_slide`, so a wall stops it on one axis and the hero slides along the wall on the other.

@@ -42,8 +42,6 @@ public:
 private:
     void queue_dummy(const engine::Camera2D& camera, const TrainingDummy& dummy, std::size_t index,
                      engine::RenderQueue& queue) const;
-    void queue_bar(const engine::Camera2D& camera, const TrainingDummy& dummy, const DelayedBar& bar,
-                   engine::RenderQueue& queue) const;
 
     engine::TextureHandle shadow_;                  // 발밑 그림자
     std::vector<engine::TextureHandle> textures_;   // 허수아비 그림 (순서대로)
