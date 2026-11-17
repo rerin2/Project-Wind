@@ -10,6 +10,7 @@
 #include "wind/content/spell_loader.hpp"
 #include "wind/content/weapon_loader.hpp"
 #include "wind/content/error_list.hpp"
+#include "wind/content/monster_loader.hpp"
 #include "wind/content/training_dummy_loader.hpp"
 #include "wind/content/weather_loader.hpp"
 #include "wind/log.hpp"
@@ -51,6 +52,30 @@ std::optional<std::vector<TrainingDummy>> load_dummies(const std::filesystem::pa
                              engine::tile_feet(entity.tile, map.tile_size));  // 칸 위에 세우기
     }
     return dummies;
+}
+
+// 맵의 몬스터 자리마다 설명 파일을 읽어 몬스터를 만들어요. (11a)
+// 몬스터는 칸을 막지 않아서, 설명 파일이 잘못되면 그 몬스터만 빼고(기록은 남겨요) 맵은 그대로 열어요.
+std::vector<Monster> load_monsters(const std::filesystem::path& content_root, const world::MapData& map) {
+    std::vector<Monster> monsters;                                    // 만든 몬스터들
+    std::map<std::string, std::optional<combat::MonsterData>> cache;  // 파일 위치 -> 읽은 설명 (실패도 기억)
+    for (const auto& entity : map.entities) {                         // 맵 물건을 하나씩 보며
+        if (entity.type != world::EntityType::Monster) continue;      // 몬스터만
+        auto it = cache.find(entity.data);                            // 이미 읽은 파일인가
+        if (it == cache.end()) {
+            auto loaded = content::load_monster_file(content_root, entity.data);  // 처음이면 읽기
+            if (!loaded.ok()) {
+                content::log_content_errors("monster " + entity.data, loaded.errors);  // 한 번만 기록
+            }
+            it = cache.emplace(entity.data, std::move(loaded.value)).first;
+        }
+        if (!it->second) {
+            log::warn("Monster '{}' skipped: bad data file '{}'", entity.id, entity.data);
+            continue;  // 잘못된 설명이면 이 몬스터만 빼요
+        }
+        monsters.emplace_back(entity.id, *it->second, engine::tile_feet(entity.tile, map.tile_size));
+    }
+    return monsters;
 }
 
 }  // namespace
@@ -134,9 +159,13 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
         content::log_content_errors("spell " + std::string(kStartSpell), loaded.errors);
     }
 
+    // 10) 맵의 몬스터들 (11a). 아래에서 맵을 넘겨주기(move) 전에 읽어야 해요.
+    auto monsters = load_monsters(content_root, map.value->map);
+
     return FieldAssets{std::move(*map.value), std::move(*sheet.value), spawn_tile, std::move(effects),
                        std::move(day_cycle), std::move(weather), std::move(weapon),
-                       std::move(*dummies), std::move(spell)};
+                       std::move(*dummies), std::move(spell),
+                       std::move(monsters)};
 }
 
 void log_field_entry(const FieldAssets& assets) {
@@ -150,6 +179,9 @@ void log_field_entry(const FieldAssets& assets) {
                              : std::string("off"));
     if (!assets.dummies.empty()) {
         log::info("Training dummies: {}", assets.dummies.size());
+    }
+    if (!assets.monsters.empty()) {
+        log::info("Monsters: {}", assets.monsters.size());
     }
 }
 

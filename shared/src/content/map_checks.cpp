@@ -3,6 +3,9 @@
 
 #include "wind/content/map_checks.hpp"
 
+#include <string>
+#include <vector>
+
 namespace wind::content {
 namespace {
 
@@ -54,14 +57,18 @@ void finish_map_checks(world::MapData& map, const world::Tileset& tileset, const
         }
     }
 
-    // 3) 단단한 물건은 지나갈 수 있는 칸에만 놓을 수 있고, 놓으면 그 칸이 막혀요.
+    // 3) 물건은 모두 지나갈 수 있는 칸에만 놓을 수 있어요 (몬스터가 벽 속에 갇히지 않게, 11a).
+    //    먼저 모두 확인한 뒤에 단단한 물건 칸을 막아요. 그래야 순서와 상관없이 같은 결과가 나와요.
+    std::vector<bool> placed_ok(map.entities.size(), true);  // 물건마다 검사를 통과했나
+    for (std::size_t i = 0; i < map.entities.size(); ++i) {
+        if (!map.is_walkable(map.entities[i].tile)) {  // 벽·물 위에 놓았으면 틀린 것
+            errors.add(file, item_path("entities", i), "entity is on a blocked tile");
+            placed_ok[i] = false;
+        }
+    }
     for (std::size_t i = 0; i < map.entities.size(); ++i) {
         const auto& entity = map.entities[i];
-        if (!world::blocks_movement(entity.type)) continue;  // 막지 않는 물건은 상관없어요
-        if (!map.is_walkable(entity.tile)) {                 // 벽·물 위에 놓았으면 틀린 것
-            errors.add(file, item_path("entities", i), "entity is on a blocked tile");
-            continue;
-        }
+        if (!placed_ok[i] || !world::blocks_movement(entity.type)) continue;  // 막지 않는 물건은 그대로
         map.walkable[map.index_of(entity.tile)] = 0;  // 이제 이 칸은 못 지나가요
     }
 

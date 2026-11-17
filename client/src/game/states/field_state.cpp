@@ -62,10 +62,13 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     //    (무엇이 없는지는 리소스 관리자가 기록해 줘요.)
     const auto tileset_texture = resources.texture(assets->map.tileset.image);
     const auto player_texture = resources.texture(assets->sheet.image);
-    // 3) 싸움 그림: 칼자국과 허수아비마다 그림 (같은 파일은 리소스 관리자가 한 번만 읽어요)
-    CombatTextures combat_textures{resources.texture(kSlashTexture), {}};
+    // 3) 싸움 그림: 칼자국, 허수아비·몬스터마다 그림 (같은 파일은 리소스 관리자가 한 번만 읽어요)
+    CombatTextures combat_textures{resources.texture(kSlashTexture), {}, {}};
     for (const auto& dummy : assets->dummies) {
         combat_textures.dummies.push_back(resources.texture(dummy.data().sprite.image));
+    }
+    for (const auto& monster : assets->monsters) {
+        combat_textures.monsters.push_back(resources.texture(monster.data().sprite.image));
     }
     if (stress.lights > 0) {
         log::info("Light stress test: {} extra lights", stress.lights);
@@ -98,10 +101,12 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       player_(engine::tile_feet(assets.spawn_tile, map_.map.tile_size),
               world::Direction::Down, MovementTuning{}, StaminaTuning{}, kInputBufferSeconds,
               std::move(assets.weapon)),
-      combat_(std::move(assets.dummies), std::random_device{}()),            // 허수아비들, 치명타 주사위 씨앗
+      // 허수아비들, 싸움 주사위 씨앗(치명타·몬스터, 켤 때마다 달라요), 기본 치명타 확률, 몬스터들 (11a)
+      combat_(std::move(assets.dummies), std::random_device{}(), kBaseCritChance, std::move(assets.monsters)),
       // 싸움 연출: 그림자·칼자국·빛 그림, 허수아비 그림, 빛 탄·불꽃 효과, 마술 빛
       combat_fx_(CombatFxSetup{textures_.shadow(), combat_textures.slash, textures_.light(),
-                               std::move(combat_textures.dummies), effect_ptr(effects_.star_trail),
+                               std::move(combat_textures.dummies), std::move(combat_textures.monsters),
+                               effect_ptr(effects_.star_trail),
                                effect_ptr(effects_.star_burst), effect_ptr(effects_.hit_spark),
                                assets.spell ? assets.spell->light : std::nullopt}),
       fx_random_(kFxSeed),

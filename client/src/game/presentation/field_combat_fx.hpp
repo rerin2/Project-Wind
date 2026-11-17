@@ -1,8 +1,9 @@
 #pragma once
 
 // 이 파일은 무엇을 하나요?
-// 필드 싸움 연출을 한데 모은 담당이에요. (9c, 9e, 10b) 보여 주기만 하고 게임 결과는 바꾸지 않아요.
+// 필드 싸움 연출을 한데 모은 담당이에요. (9c, 9e, 10b, 11a) 보여 주기만 하고 게임 결과는 바꾸지 않아요.
 // - 허수아비 그림·HP 바·번쩍임 (CombatView)
+// - 몬스터 그림: 숨쉬기·통통 뛰기 (MonsterView, 11a)
 // - 칼자국 (SlashArc), 손끝 빛·빛 탄·꼬리 (SpellView)
 // - 타격감 (10b): 화면 흔들림(ScreenShake), 피해 숫자(DamageNumbers), 타격 불꽃(hit_spark 파티클)
 // 박자마다 생긴 "맞은 일"과 "사라진 빛 탄"을 모아 두었다가(collect), 화면 한 장마다 한꺼번에 연출해요.
@@ -18,6 +19,7 @@
 #include "game/presentation/combat_view.hpp"
 #include "game/presentation/damage_numbers.hpp"
 #include "game/presentation/feel_settings.hpp"
+#include "game/presentation/monster_view.hpp"
 #include "game/presentation/screen_shake.hpp"
 #include "game/presentation/slash_arc.hpp"
 #include "game/presentation/spell_view.hpp"
@@ -36,6 +38,7 @@ struct CombatFxSetup {
     engine::TextureHandle slash;                        // 칼자국 반달
     engine::TextureHandle glow;                         // 둥근 빛 (빛 탄)
     std::vector<engine::TextureHandle> dummies;         // 허수아비마다 그림
+    std::vector<engine::TextureHandle> monsters;        // 몬스터마다 그림 (11a)
     const engine::ParticleEffect* star_trail = nullptr;  // 빛 탄 꼬리
     const engine::ParticleEffect* star_burst = nullptr;  // 빛 탄이 사라질 때
     const engine::ParticleEffect* hit_spark = nullptr;   // 맞을 때 불꽃
@@ -53,7 +56,7 @@ public:
     // 화면 한 장마다: 모아 둔 일을 연출로 바꾸고, 모든 연출의 시간을 흘려요
     void update(float dt_seconds, float alpha, const FieldCombat& combat, const PlayerMotion& player,
                 engine::Vec2 drawn_feet, engine::ParticleRandom& random, engine::ParticlePool& air_fx);
-    // 허수아비·칼자국·빛 탄을 그리기 목록에 넣어요 (show_boxes면 F4 상자도)
+    // 허수아비·몬스터·칼자국·빛 탄을 그리기 목록에 넣어요 (show_boxes면 F4 상자도)
     void queue(const engine::Camera2D& camera, const FieldCombat& combat, const PlayerMotion& player,
                float alpha, bool show_boxes, engine::RenderQueue& queue) const;
 
@@ -70,6 +73,7 @@ private:
                   engine::ParticlePool& air_fx);
 
     CombatView view_;
+    MonsterView monster_view_;
     SlashArc slash_;
     SpellView spell_;
     ScreenShake shake_;

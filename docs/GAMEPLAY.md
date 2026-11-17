@@ -210,6 +210,27 @@ Code: `client/src/game/combat/training_dummy.*`, `hit_resolution.*`, `client/src
 | `recover_seconds` | 1.5 | Long enough to see it knocked down, short enough to keep training |
 | hurtbox | 20 × 34 px above the feet | Covers the straw body and head of the 48 px sprite |
 
+## Monsters (phase 11a: idle and wander)
+
+Code: `client/src/game/monsters/monster.*`, `client/src/game/states/field_combat.*`; data `content/monsters/slime_green.json` (format in `docs/ENGINE.md` "Monster"). Tested in `monster_tests.cpp`, `monster_loader_tests.cpp`.
+
+- A monster is placed by the map's `entities` (`"type": "monster"`). The tile it stands on is its **home**. Monsters do not block tiles. Two green slimes live in the test meadow at tiles (11,19) and (15,21).
+- **Idle:** rest for a random time in `wander.pause` (the first rest is `pause` min, so no dice are rolled outside the fixed step).
+- **Wander:** pick a random point inside `wander.radius` of home (try up to 8 times; points outside the circle, inside a wall, or less than 1 px away are rerolled; if none fits, rest again). Walk straight to it at `wander.speed`, sliding along walls with the same `move_and_slide` as the hero (corner assist 2 px). On arrival, rest again.
+- **Stuck:** a step that covers less than half its expected distance counts as stuck; after **0.5 s** stuck the monster gives up and rests. It never ends up inside a wall (test).
+- Points are picked inside a square and rejected outside the circle, so no `sin`/`cos` is needed and the same seed gives the same walk on every machine.
+- **Dice:** all monsters share one seeded `CombatRandom` owned by `FieldCombat`, seeded with the field seed XOR a constant, so sword crits never change where monsters walk. Same seed → same walk (test `Monster.SameSeedSameWalk`). The field seed still changes every launch.
+- Hitstop (`time_scale` 0) freezes monsters too: a 0 s step changes nothing.
+- 11a only: monsters cannot be hit and do not notice the hero yet; detect, chase, telegraph, attack, return come in 11b, hits on the hero in 11c, damage and death in 11d.
+
+| Green slime | Value | Why |
+|---|---|---|
+| `wander.radius` | 40 px | A little over a tile: it shuffles around its spot instead of roaming the meadow |
+| `wander.speed` | 18 px/s | Clearly slower than its chase speed (40) and the hero walk; reads as idle |
+| `wander.pause` | 1.0–2.5 s | Rests long enough to look calm, short enough to look alive |
+| `body` | 12 × 6 px | Narrower than the hero (14 × 8) so it slides through the same gaps |
+| `max_hp`, `attack_power`, `detect_range`, `attack_range`, `leash_range` | 30, 4, 120, 28, 260 | Spec 14.2 example values; used from 11b |
+
 ## Character states
 
 Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `character_state_tests.cpp`. The table says which changes are ever allowed; conditions (cancel window, cast timing) are checked by the code that owns that state. Staying in the same state is always allowed. Exhaustion is a stamina flag, not a state, because an exhausted hero can still walk.

@@ -3,6 +3,7 @@
 // - 없는 맵 파일이나 없는 등장 자리로 가는 출구는 "못 열어요"(없음)가 나와야 해요.
 //   그래야 게임이 지금 맵에 그대로 머물 수 있어요. (명세 7단계 완료 조건)
 // - 진짜 맵들(초원, 동굴, 숲)의 출구는 모두 열 수 있는 맵과 등장 자리를 가리켜야 해요.
+// - 초원 맵에는 슬라임 두 마리가 있어요 (11a).
 #include "game/states/field_assets.hpp"
 
 #include <gtest/gtest.h>
@@ -51,6 +52,17 @@ TEST(FieldAssets, EveryContentExitLeadsSomewhereValid) {
     // 초원에서 동굴과 숲까지 갈 수 있어요.
     EXPECT_TRUE(seen.contains("maps/test_cave.json"));
     EXPECT_TRUE(seen.contains("maps/test_forest.json"));
+}
+
+// 진짜 초원 맵: 슬라임 두 마리가 맵에 적힌 칸(제자리)에 서 있어요 (11a).
+TEST(FieldAssets, MeadowHasSlimesAtHome) {
+    const auto assets = load("maps/test_meadow.json", "default");
+    ASSERT_TRUE(assets.has_value());
+    ASSERT_EQ(assets->monsters.size(), 2u);
+    for (const auto& monster : assets->monsters) {
+        EXPECT_EQ(monster.data().id, "slime_green");
+        EXPECT_EQ(monster.feet(), monster.home());  // 처음에는 제자리
+    }
 }
 
 }  // namespace

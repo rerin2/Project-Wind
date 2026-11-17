@@ -17,7 +17,9 @@
   ],
   "entities": [
     { "type": "training_dummy", "id": "meadow_dummy_1", "x": 10, "y": 14, "data": "props/training_dummy.json" },
-    { "type": "training_dummy", "id": "meadow_dummy_2", "x": 13, "y": 14, "data": "props/training_dummy.json" }
+    { "type": "training_dummy", "id": "meadow_dummy_2", "x": 13, "y": 14, "data": "props/training_dummy.json" },
+    { "type": "monster", "id": "meadow_slime_1", "x": 11, "y": 19, "data": "monsters/slime_green.json" },
+    { "type": "monster", "id": "meadow_slime_2", "x": 15, "y": 21, "data": "monsters/slime_green.json" }
   ],
   "ambience": {
     "ambient_fx": ["fx/petals.json"],

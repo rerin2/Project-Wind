@@ -1,5 +1,5 @@
 // 이 파일은 무엇을 하나요?
-// 필드의 칼 판정, 빛 탄 만들기·날리기, 허수아비 시간을 박자마다 진행하는 곳이에요.
+// 필드의 칼 판정, 빛 탄 만들기·날리기, 허수아비 시간, 몬스터 움직임을 박자마다 진행하는 곳이에요.
 
 #include "game/states/field_combat.hpp"
 
@@ -22,11 +22,18 @@ constexpr float kIntelligenceBonus = 0.0f;
 // 이유는 docs/GAMEPLAY.md "Casting" 절에 있어요.
 constexpr float kSpellSpawnForward = 10.0f;
 constexpr float kSpellLift = 14.0f;
+// 몬스터 주사위 씨앗 = 싸움 씨앗 XOR 이 값. 같은 씨앗에서 치명타와 다른 줄의 수가 나와요 (0이 아닌 아무 수나 괜찮아요).
+constexpr std::uint64_t kMonsterStream = 0xD1B54A32D192ED03ULL;
 
 }  // namespace
 
-FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed, float base_crit_chance)
-    : dummies_(std::move(dummies)), random_(seed), base_crit_chance_(base_crit_chance) {}
+FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed, float base_crit_chance,
+                         std::vector<Monster> monsters)
+    : dummies_(std::move(dummies)),
+      monsters_(std::move(monsters)),
+      random_(seed),
+      monster_random_(seed ^ kMonsterStream),
+      base_crit_chance_(base_crit_chance) {}
 
 void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::MapData& map) {
     hits_.clear();   // 지난 박자 기록 지우기
@@ -37,6 +44,9 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
     step_projectiles(dt, map);     // 3) 빛 탄 날리기
     for (auto& dummy : dummies_) { // 4) 쓰러진 허수아비가 다시 서기까지 시간 세기
         dummy.step(dt);
+    }
+    for (auto& monster : monsters_) {  // 5) 몬스터: 쉬기·돌아다니기 (11a)
+        monster.step(dt, map, monster_random_);
     }
 }
 
@@ -126,6 +136,11 @@ engine::Vec2 FieldCombat::spell_hand(engine::Vec2 feet, world::Direction facing)
 
 std::string FieldCombat::debug_text() const {
     std::string text = "dummies " + std::to_string(dummies_.size());          // 허수아비 수
+    if (!monsters_.empty()) {                                                 // 몬스터 수와 걷는 수 (11a)
+        const auto walking = std::ranges::count_if(
+            monsters_, [](const Monster& m) { return m.state() == MonsterState::Wander; });
+        text += "  mobs " + std::to_string(monsters_.size()) + " (" + std::to_string(walking) + " walk)";
+    }
     text += "  shards " + std::to_string(projectiles_.size());                // 날고 있는 빛 탄 수
     if (!last_hit_) return text;                                              // 아직 아무도 안 맞았으면 여기까지
     text += "  last hit " + std::to_string(last_hit_->amount) + (last_hit_->critical ? "!" : "") +  // ! = 치명타

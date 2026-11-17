@@ -20,6 +20,7 @@ constexpr int kCritSparkBursts = 2;   // 치명타는 불꽃을 두 번 터뜨�
 
 FieldCombatFx::FieldCombatFx(CombatFxSetup setup)
     : view_(setup.shadow, std::move(setup.dummies)),
+      monster_view_(setup.shadow, std::move(setup.monsters)),
       slash_(setup.slash),
       spell_(setup.star_trail, setup.star_burst, setup.glow, setup.spell_light),
       hit_spark_(setup.hit_spark) {}
@@ -52,6 +53,7 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
     pending_ends_.clear();
     // 3) 나머지 연출의 시간 흘리기: HP 바·번쩍임, 칼자국, 흔들림, 숫자
     view_.update(dt_seconds, combat.dummies());
+    monster_view_.update(dt_seconds, combat.monsters());  // 숨쉬기·뜀 세기 (11a)
     slash_.update(dt_seconds, player.attack(), player.attack_hitbox(), player.mover().facing());
     shake_.update(dt_seconds);
     numbers_.update(dt_seconds);
@@ -78,6 +80,7 @@ void FieldCombatFx::queue(const engine::Camera2D& camera, const FieldCombat& com
                           engine::RenderQueue& queue) const {
     // 허수아비(주인공과 발 위치로 줄 서기), HP 바, 번쩍임, F4면 판정 상자
     view_.queue(camera, combat.dummies(), player.attack_hitbox(), show_boxes, queue);
+    monster_view_.queue(camera, combat.monsters(), alpha, show_boxes, queue);  // 몬스터 (11a)
     slash_.queue(camera, queue);                                        // 칼자국
     spell_.queue(camera, combat.projectiles(), alpha, show_boxes, queue);  // 손끝 빛과 빛 탄
 }

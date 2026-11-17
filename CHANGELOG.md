@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Phase 11a — monster data, idle and wander
+- Phase 11 split into 11a–11d (spec 19). The hero's hit reaction (stagger, i-frame blink, red vignette, real
+  knockback) moves from phase 12 into 11c.
+- Monster data `content/monsters/slime_green.json` and validated `monster_loader` (ranges; attack ≤ detect ≤ leash;
+  wander radius ≤ leash; pause `[min, max]`). `HurtboxShape` and `SpriteStrip` moved to their own headers and read by
+  shared `body_readers` (dummy and monster).
+- Map entity type `monster` (does not block its tile). Every entity must now stand on a walkable tile.
+- `Monster` (client `game/monsters`): home, idle ↔ wander inside a radius, wall sliding, gives up after 0.5 s stuck,
+  frozen by hitstop. `FieldCombat` owns monsters and a separate seeded monster dice stream. A broken monster file
+  drops only that monster.
+- Presentation: `MonsterView` + `slime_pose` (breathing, distance-locked hops with squash/stretch, shrinking shadow,
+  F4 hurtbox and feet box). Generated slime art (normal + windup frame). Two slimes in the test meadow.
+- F3 combat line shows `mobs N (M walk)`.
+- 415 CTest tests.
+
 ### Phase 10b — hit feel (presentation)
 - `FieldCombatFx` gathers the combat views (dummies, slash, spell) and turns each hit into: white additive flash
   (0.08 s), screen shake (`ScreenShake`, trauma² × 6 px on a drawing copy of the camera), hit sparks

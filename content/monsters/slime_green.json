@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "slime_green",
+  "name": "초록 슬라임",
+  "max_hp": 30,
+  "attack_power": 4,
+  "defense": 0,
+  "move_speed": 40,
+  "detect_range": 120,
+  "attack_range": 28,
+  "leash_range": 260,
+  "wander": { "radius": 40, "speed": 18, "pause": [1.0, 2.5] },
+  "body": [12, 6],
+  "hurtbox": { "offset": [-9, -13], "size": [18, 13] },
+  "sprite": { "image": "monsters/slime_green.bmp", "frame": [24, 24], "origin": [12, 21] }
+}

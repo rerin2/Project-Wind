@@ -8,6 +8,7 @@
 #   content/tilesets/test_tiles.bmp   타일 스티커 판: 32x32 칸, 가로 8개 x 세로 3줄 (1번 = 왼쪽 위)
 #   content/ui/ui_frames.bmp          UI 창·버튼 9조각 테두리 (72x24)
 #   content/props/training_dummy.bmp  훈련용 허수아비 (96x48: 서 있음 / 쓰러짐, 칸 48x48)
+#   content/monsters/slime_green.bmp  초록 슬라임 (48x24: 보통 / 공격 예고, 칸 24x24)
 #   content/fx/slash_arc.bmp          칼자국 반달 (32x32, 흰색)
 #   content/sprites/test_hero.bmp     주인공(고양이 귀 은발 소녀) 그림 판: 32x48 칸, 가로 4개(걸음) x 세로 4줄(아래·왼쪽·오른쪽·위)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
@@ -274,6 +275,42 @@ function Draw-Dummy([int]$ox, [float]$angle) {
 Draw-Dummy 0 0      # 서 있음
 Draw-Dummy 48 22    # 쓰러짐: 22도 기울어짐 (머리가 칸 밖으로 나가지 않을 만큼)
 Save-Bmp $bmp (Join-Path $content 'props\training_dummy.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ------------------------------------------------------------ 초록 슬라임 ----
+# 슬라임 그림 판 (48x24, 칸 24x24): 왼쪽 칸 = 보통, 오른쪽 칸 = 공격 예고(납작 웅크리고 눈을 찡그림, 11b).
+# 발 위치는 칸의 (12, 21). content/monsters/slime_green.json의 "origin"과 같아요.
+# 숨쉬기·통통 뛰기는 게임이 이 그림을 늘이고 줄여서 만들어요 (monster_pose).
+$canvas = New-Canvas 48 24
+$bmp = $canvas[0]; $g = $canvas[1]
+$clear = New-Object System.Drawing.SolidBrush($transparent)
+
+# 슬라임 하나를 그려요. ox: 칸 왼쪽 위치, w/h: 몸 크기, angry: 찡그린 눈썹
+function Draw-Slime([int]$ox, [int]$w, [int]$h, [bool]$angry) {
+    $left = $ox + 12 - [int]($w / 2)         # 몸 왼쪽 끝 (가운데 맞춤)
+    $top = 22 - $h                           # 몸 위쪽 끝 (바닥은 늘 22줄)
+    $g.FillEllipse((Brush 28 66 40), $left, $top, $w, $h + 4)              # 짙은 테두리
+    $g.FillEllipse((Brush 62 140 70), $left + 1, $top + 1, $w - 2, $h + 2)  # 아래쪽 그늘 색
+    $g.FillEllipse((Brush 96 186 88), $left + 2, $top + 1, $w - 5, $h - 2)  # 몸통 (밝은 초록)
+    $g.FillEllipse((Brush 200 244 170), $left + 4, $top + 2, 5, 3)         # 반짝이는 윗부분
+    $g.FillRectangle((Brush 236 255 220), $left + 5, $top + 3, 1, 1)       # 가장 밝은 점
+    $g.FillRectangle($clear, $ox, 22, 24, 2)                                # 바닥 아래는 투명으로 잘라 평평하게
+    $g.FillRectangle((Brush 28 66 40), $left + 2, 21, $w - 4, 1)           # 바닥 테두리
+    $eyeY = 22 - [int]($h / 2)                                             # 눈 높이 (몸 가운데쯤)
+    $g.FillRectangle((Brush 24 40 32), $ox + 8, $eyeY, 2, 3)               # 왼쪽 눈
+    $g.FillRectangle((Brush 24 40 32), $ox + 14, $eyeY, 2, 3)              # 오른쪽 눈
+    $g.FillRectangle((Brush 255 255 255), $ox + 8, $eyeY, 1, 1)            # 눈 반짝
+    $g.FillRectangle((Brush 255 255 255), $ox + 14, $eyeY, 1, 1)
+    if ($angry) {                                                          # 찡그린 눈썹: 안쪽이 아래로
+        $g.FillRectangle((Brush 24 40 32), $ox + 7, $eyeY - 2, 2, 1)
+        $g.FillRectangle((Brush 24 40 32), $ox + 9, $eyeY - 1, 1, 1)
+        $g.FillRectangle((Brush 24 40 32), $ox + 15, $eyeY - 2, 2, 1)
+        $g.FillRectangle((Brush 24 40 32), $ox + 14, $eyeY - 1, 1, 1)
+    }
+}
+Draw-Slime 0 20 15 $false    # 보통: 둥근 물방울
+Draw-Slime 24 24 11 $true    # 공격 예고: 넓고 납작하게 웅크림
+Save-Bmp $bmp (Join-Path $content 'monsters\slime_green.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # --------------------------------------------------------- 칼자국 (반달) ----
@@ -581,7 +618,9 @@ $json = @"
   ],
   "entities": [
     { "type": "training_dummy", "id": "meadow_dummy_1", "x": 10, "y": 14, "data": "props/training_dummy.json" },
-    { "type": "training_dummy", "id": "meadow_dummy_2", "x": 13, "y": 14, "data": "props/training_dummy.json" }
+    { "type": "training_dummy", "id": "meadow_dummy_2", "x": 13, "y": 14, "data": "props/training_dummy.json" },
+    { "type": "monster", "id": "meadow_slime_1", "x": 11, "y": 19, "data": "monsters/slime_green.json" },
+    { "type": "monster", "id": "meadow_slime_2", "x": 15, "y": 21, "data": "monsters/slime_green.json" }
   ],
   "ambience": {
     "ambient_fx": ["fx/petals.json"],

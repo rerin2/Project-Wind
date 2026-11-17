@@ -49,6 +49,19 @@ TEST(EntityLoader, ParsesTrainingDummy) {
     EXPECT_EQ(map.entities[0].data, "props/training_dummy.json");  // "\"는 "/"로 정리돼요
 }
 
+TEST(EntityLoader, ParsesMonster) {
+    auto map = make_map();
+    auto slime = dummy("s1", 4, 2);
+    slime["type"] = "monster";                   // 몬스터 (11a)
+    slime["data"] = "monsters/slime_green.json";
+    ErrorList errors;
+    parse_entities(json::array({slime}), "meadow.json", map, errors);
+    ASSERT_TRUE(errors.empty()) << wind::content::to_string(errors.items().front());
+    ASSERT_EQ(map.entities.size(), 1u);
+    EXPECT_EQ(map.entities[0].type, wind::world::EntityType::Monster);
+    EXPECT_FALSE(wind::world::blocks_movement(map.entities[0].type));  // 몬스터는 칸을 막지 않아요
+}
+
 TEST(EntityLoader, RejectsBadEntities) {
     auto map = make_map();
     auto unknown = dummy("u", 2, 2);

@@ -19,6 +19,7 @@ constexpr std::size_t kMaxIdLength = 64;  // id 글자 수 상한 (바이트)
 // 종류 글자 -> 물건 종류. 모르는 글자면 "없음"
 std::optional<world::EntityType> parse_type(std::string_view text) {
     if (text == "training_dummy") return world::EntityType::TrainingDummy;  // 훈련용 허수아비
+    if (text == "monster") return world::EntityType::Monster;               // 몬스터 (11a)
     return std::nullopt;                                                     // 모르는 종류
 }
 

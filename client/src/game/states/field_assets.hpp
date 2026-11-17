@@ -5,11 +5,13 @@
 // - 맵(+ 타일셋), 주인공 그림 설명서, 등장 자리
 // - 하루 색 곡선, 날씨 표 (바깥 맵)
 // - 파티클 효과들 (먼지, 분위기, 밤, 날씨, 빛 자리)
+// - 맵의 허수아비들과 몬스터들 (11a)
 // 꼭 필요한 것(맵, 그림 설명서, 등장 자리)이 잘못되면 이유를 기록하고 "없음"을 돌려줘요.
 // 있으면 좋은 것(효과, 하루 색, 날씨)이 잘못되면 기록만 하고 빼고 계속해요.
 
 #include "engine/animation/sprite_sheet.hpp"
 #include "game/combat/training_dummy.hpp"
+#include "game/monsters/monster.hpp"
 #include "game/presentation/field_effects.hpp"
 
 #include "wind/combat/spell.hpp"
@@ -37,9 +39,10 @@ struct FieldAssets {
     combat::Weapon weapon;  // 든 무기 (불러오기 실패면 콤보가 빈 맨손)
     std::vector<TrainingDummy> dummies;  // 맵에 놓인 훈련용 허수아비들 (9c)
     std::optional<combat::Spell> spell;  // 고른 마술 (9e: 별빛 조각 고정, 실패면 마술 없음)
+    std::vector<Monster> monsters;       // 맵의 몬스터들 (11a, 설명 파일이 잘못된 몬스터는 빠져요)
 };
 
-// 맵에 들어갈 때 무엇을 읽었는지 기록해요 (맵 크기, 효과·빛 수, 허수아비 수).
+// 맵에 들어갈 때 무엇을 읽었는지 기록해요 (맵 크기, 효과·빛 수, 허수아비·몬스터 수).
 void log_field_entry(const FieldAssets& assets);
 
 // spawn_id: 등장 자리 이름. "default"인데 없으면 첫 번째 자리를 써요.

@@ -252,6 +252,21 @@ Code: `client/src/game/presentation/field_combat_fx.cpp` (gathers hits per fixed
 | Critical number | bold, gold `#f2b544`, "!" suffix, rises 20 px, lives 0.9 s | Only one 12 px font size exists, so colour, weight, height and time carry the emphasis instead of size |
 | Settings | `--shake 0-1`, `--flash 0-1` (default 1) multiply shake distance and flash alpha; 0 turns them off. A settings screen and file come in phase 15 | Spec 6.7 / 13.3 accessibility |
 
+## Monsters (phase 11a)
+
+Code: `client/src/game/presentation/monster_view.cpp`, `monster_pose.cpp`. Art: `content/monsters/slime_green.bmp` from the test-content generator (48×24, two 24×24 frames, feet at 12,21). Everything here only reads the monster's position, state and walked distance.
+
+| Element | Look | Why |
+|---|---|---|
+| Green slime | dome body `#60ba58` over a darker lower band `#3e8c46`, dark outline `#1c4228`, pale top shine `#c8f4aa` with one brightest pixel, two dark eyes with a white glint; flat bottom | Reads as a soft, harmless first enemy at 32 px tiles; the shine sells "jelly" without transparency (BMP has none) |
+| Windup frame (11b) | frame 1: wider (24) and lower (11) with frowning brows | Pose change for the telegraph; drawn now so the art stays in one place |
+| Shadow | same soft shadow as the hero, 18×6; shrinks 8 % per pixel of lift (min 50 %) and stays on the ground | Hops read as leaving the ground |
+| Breathing (idle) | squash/stretch ±6 % over 1.4 s; each slime is phase-shifted by index × 0.618 | Alive while resting; the golden-ratio step keeps neighbours out of sync |
+| Hopping (wander) | one hop per 14 px walked: lift up to 3 px at mid-hop, 16 % taller (8 % thinner) in the air, 10 % flatter on landing | Slimes move in hops; tying the hop to walked distance keeps feet and motion in sync at any speed |
+| Hop blend | hop strength eases 0 ↔ 1 at 6/s (about 0.17 s) when walking starts or stops | Stops never snap the body from the air to the ground |
+| Pixel crispness | scaled size and position are rounded to whole pixels; the feet (origin) stay on the ground point while scaling | Keeps pixel art from smearing and the slime from sliding while it breathes |
+| F4 boxes | hurtbox `#f0d23c` at 100 alpha (same as dummies), feet box `#50c8ff` at 140 alpha (same as the hero) | Debug only; drawn at the current fixed-step position (what collision uses) |
+
 ## Dodge afterimages
 
 Code: `client/src/game/presentation/afterimage_trail.cpp`.

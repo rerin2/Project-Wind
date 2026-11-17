@@ -153,6 +153,7 @@ private:
     struct CombatTextures {
         engine::TextureHandle slash;                   // 칼자국 반달
         std::vector<engine::TextureHandle> dummies;    // 허수아비마다 그림 (assets.dummies와 같은 순서)
+        std::vector<engine::TextureHandle> monsters;   // 몬스터마다 그림 (assets.monsters와 같은 순서, 11a)
     };
 
     // create()를 통해서만 만들어요. (준비물 검사를 빼먹지 않도록)
