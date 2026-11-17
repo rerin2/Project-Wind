@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Phase 11b — slimes notice, chase, telegraph and lunge
+- `Monster` state machine: idle / wander → notice ("!", `notice_seconds`) → chase → windup (direction locked) →
+  attack (lunge) → recover → chase or return. Gives up when the monster is over `leash_range` from home or the hero
+  is over `leash_range` from it; while returning it notices again only inside its territory (leash − attack range).
+  `FieldCombat` passes the hero's feet each step. Walking helpers split into `monster_moves` (`step_toward`,
+  `step_along`).
+- Data: attack field `lunge` (0–256 px over `active`); monster fields `notice_seconds` and `attacks` (1–6 files,
+  loaded through `AttackSource`, now in `attack_loader.hpp`); new rule `wander.radius + detect_range ≤ leash_range`.
+  `content/attacks/slime_hop.json` (0.6 s windup, 40 px lunge in 0.25 s, 0.7 s recovery); slime `attack_range` 40.
+- Presentation: "!" mark, notice hop, crouch frame with growing squash and late shiver, red ground telegraph along
+  the locked lunge path plus a red light so it stays visible at night, lunge arc, landing splat, F4 attack hitbox.
+  No body flash (agreed). F3 shows the busiest monster state (`mobs 2 (chase)`).
+- Replay test: same seed + same hero path → same positions and states, attacks included.
+- 430 CTest tests. The lunge does not hurt the hero yet (11c).
+
 ### Phase 11a — monster data, idle and wander
 - Phase 11 split into 11a–11d (spec 19). The hero's hit reaction (stagger, i-frame blink, red vignette, real
   knockback) moves from phase 12 into 11c.

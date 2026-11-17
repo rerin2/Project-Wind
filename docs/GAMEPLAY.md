@@ -210,7 +210,7 @@ Code: `client/src/game/combat/training_dummy.*`, `hit_resolution.*`, `client/src
 | `recover_seconds` | 1.5 | Long enough to see it knocked down, short enough to keep training |
 | hurtbox | 20 × 34 px above the feet | Covers the straw body and head of the 48 px sprite |
 
-## Monsters (phase 11a: idle and wander)
+## Monsters (phase 11a: idle and wander, 11b: fighting)
 
 Code: `client/src/game/monsters/monster.*`, `client/src/game/states/field_combat.*`; data `content/monsters/slime_green.json` (format in `docs/ENGINE.md` "Monster"). Tested in `monster_tests.cpp`, `monster_loader_tests.cpp`.
 
@@ -221,7 +221,7 @@ Code: `client/src/game/monsters/monster.*`, `client/src/game/states/field_combat
 - Points are picked inside a square and rejected outside the circle, so no `sin`/`cos` is needed and the same seed gives the same walk on every machine.
 - **Dice:** all monsters share one seeded `CombatRandom` owned by `FieldCombat`, seeded with the field seed XOR a constant, so sword crits never change where monsters walk. Same seed → same walk (test `Monster.SameSeedSameWalk`). The field seed still changes every launch.
 - Hitstop (`time_scale` 0) freezes monsters too: a 0 s step changes nothing.
-- 11a only: monsters cannot be hit and do not notice the hero yet; detect, chase, telegraph, attack, return come in 11b, hits on the hero in 11c, damage and death in 11d.
+- Monsters cannot be hit yet and their attack does not hurt the hero yet: hits on the hero come in 11c, damage and death in 11d.
 
 | Green slime | Value | Why |
 |---|---|---|
@@ -229,7 +229,38 @@ Code: `client/src/game/monsters/monster.*`, `client/src/game/states/field_combat
 | `wander.speed` | 18 px/s | Clearly slower than its chase speed (40) and the hero walk; reads as idle |
 | `wander.pause` | 1.0–2.5 s | Rests long enough to look calm, short enough to look alive |
 | `body` | 12 × 6 px | Narrower than the hero (14 × 8) so it slides through the same gaps |
-| `max_hp`, `attack_power`, `detect_range`, `attack_range`, `leash_range` | 30, 4, 120, 28, 260 | Spec 14.2 example values; used from 11b |
+| `max_hp`, `attack_power`, `detect_range`, `leash_range` | 30, 4, 120, 260 | Spec 14.2 example values |
+
+### Fighting (phase 11b)
+
+Code: `client/src/game/monsters/monster.*`, `monster_moves.*`; data `content/attacks/slime_hop.json`. Tested in `monster_tests.cpp` (`MonsterAi.*`). `FieldCombat` passes the hero's feet to every monster each fixed step.
+
+| State | What happens | Leaves when |
+|---|---|---|
+| idle / wander | as above | the hero comes within `detect_range` of the monster → notice |
+| notice | stands still, "!" over its head | `notice_seconds` passed → chase |
+| chase | walks straight at the hero at `move_speed`, sliding along walls (no pathfinding yet, spec 9.6) | the monster is more than `leash_range` from home, **or** the hero is more than `leash_range` from the monster → return; the hero is within `attack_range` → windup |
+| windup | stands still; the lunge direction is **locked** toward the hero at this moment; crouch pose and red ground telegraph | attack `windup` passed → attack |
+| attack | travels `lunge` px along the locked direction during `active` (sliding along walls); the attack hitbox exists only now and moves with the body | `active` passed → recover |
+| recover | stands still (the opening to punish) | `recovery` passed → chase if both leash checks pass, else return |
+| return | walks home at `move_speed` | home reached → idle; stuck for **1 s** → idle on the spot; the hero is within `detect_range` **and** within `leash_range − attack_range` of home → notice |
+
+- **Why the direction is locked:** the telegraph shows exactly where the slime will land, so stepping out of the red area always works.
+- **Territory rule while returning (agreed 2026-11-17):** a returning monster notices the hero again at once, but only inside its territory (leash minus attack range). Without that margin a hero standing on the leash border would make the slime flip between notice and return.
+- **Range rule:** `wander.radius + detect_range ≤ leash_range`, so a monster never notices a hero it would give up on at once.
+- Hitstop freezes every state timer (a 0 s step changes nothing).
+- **Replay (spec 17.2):** the same seed and the same hero path give the same positions and state sequence, attacks included (`MonsterAi.SameSeedSameHeroSameResult`).
+- Known limit: after a lunge the slime can end on top of the hero; the next lunge direction is then almost random. Bodies pushing each other apart (11c) removes this.
+
+| Slime hop | Value | Why |
+|---|---|---|
+| `windup` | 0.6 s | Spec 9.6 "the player must be able to dodge": enough to read the crouch and step out at walking speed (about 70 px) |
+| `active` / `lunge` | 0.25 s / 40 px (160 px/s) | Faster than walking, so standing still gets you hit, but short enough that one step sideways is safe |
+| `recovery` | 0.7 s | A clear opening to counter-attack |
+| hitbox | 18 × 14 px, 6 px ahead, 6 px up | About the slime body; moves with it during the lunge |
+| `knockback`, `hitstop`, `shake` | 160, 0.06, 0.25 | Used when the hit lands on the hero (11c) |
+| `attack_range` | 40 px (spec example 28) | The lunge reaches 46 px ahead (40 + 6), so it starts when the hero is inside that reach |
+| `notice_seconds` | 0.4 s | Long enough to see the "!" hop; short enough not to feel slow |
 
 ## Character states
 

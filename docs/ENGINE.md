@@ -28,8 +28,8 @@ The client engine is our own code on top of SDL3. SDL3 is used only for the wind
 | `client/src/game/physics` | `wind_game_core` | no | feet box vs tiles: `move_and_slide` (wall sliding, corner assist) |
 | `client/src/game/entities` | `wind_game_core` | no | `Mover` (walk, run, dodge), `MovementTuning`, `Stamina` (spend, regen delay, exhaustion), `Mana` (MP, all-or-nothing spend, steady regen), `CharacterState` + `can_transition` (state table), `PlayerMotion` (mover + stamina + MP + attack + cast + dodge/attack/cast buffer in one fixed step), facing helpers |
 | `client/src/game/combat` | `wind_game_core` | no | `AttackRunner` (windup → active → recovery, cancel window, combo order, one hit per target per swing), `place_hitbox` (facing-aware hitbox rect), `TrainingDummy` (HP, knockdown, recovery), `resolve_swing` (hitbox ∩ hurtbox → one hit per swing → `compute_damage`), `SpellCaster` (cast timer, projectile spells only), `CombatRandom` (seeded splitmix64 for crits), `KnockSway` (spring knockback for planted props), `HitStop` (hit freeze → simulation `time_scale`), `Projectile` (flight in sub-steps of half its size; target → wall → range; entity-only tiles are not walls) |
-| `client/src/game/monsters` | `wind_game_core` | no | `Monster` (one monster: home, idle ↔ wander with the seeded `CombatRandom`, wall sliding, give up when stuck), `MonsterState` |
-| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `CombatView` (dummies, HP bars, hit flash, F4 hit/hurt boxes), `MonsterView` + `slime_pose` (monster shadow, breathing and hopping squash/stretch, F4 boxes), `SlashArc` (swing arc), `SpellView` (cast glow, shards, trail/burst, shard lights, F4 shard boxes), `FieldCombatFx` (owns the combat views; gathers hits per step and plays flash, shake, numbers, sparks per frame), `ScreenShake` (trauma), `DamageNumbers` (pop and fade), `FeelSettings`, `FieldCamera` (follow + look-ahead + shake on a drawing copy), `queue_shadow`, `AmbientParticles`, `FieldLighting` (also takes moving lights each frame), `load_field_effects` (effects that only read simulation state) |
+| `client/src/game/monsters` | `wind_game_core` | no | `Monster` (one monster: home, idle ↔ wander with the seeded `CombatRandom`, notice → chase → windup → lunge → recover → return, leash and territory rules), `MonsterState`, `step_toward` / `step_along` (one step of walking or lunging with wall sliding) |
+| `client/src/game/presentation` | `wind_game_core` | no | `DustEmitter`, `AfterimageTrail`, `PlayerSprite` (hero animation, trail, sprite), `CombatView` (dummies, HP bars, hit flash, F4 hit/hurt boxes), `MonsterView` + `slime_pose` / `slime_action_pose` (monster shadow, breathing, hopping, notice hop, windup crouch and shiver, lunge arc, landing splat, F4 boxes incl. attack hitbox) + `monster_marks` ("!" mark, red ground telegraph and its red light), `SlashArc` (swing arc), `SpellView` (cast glow, shards, trail/burst, shard lights, F4 shard boxes), `FieldCombatFx` (owns the combat views; gathers hits per step and plays flash, shake, numbers, sparks per frame), `ScreenShake` (trauma), `DamageNumbers` (pop and fade), `FeelSettings`, `FieldCamera` (follow + look-ahead + shake on a drawing copy), `queue_shadow`, `AmbientParticles`, `FieldLighting` (also takes moving lights each frame), `load_field_effects` (effects that only read simulation state) |
 | `client/src/game/ui` | `wind_game_core` | no | `AreaBanner` (in → hold → out timeline), `DelayedBar` (trail, smooth fill, auto-hide) |
 | `client/src/app` (`field_ui`, `ui_test_panel`, `ui_resources`, `transition_view`, `damage_number_drawing`) | `wind_client` | no (uses `UiPainter`) | HUD stamina and MP bars, damage numbers, area banner, F7 UI test panel, UI resource loading, fade/iris/notice drawing |
 | `client/src/game/world` | `wind_game_core` | no | `GameClock` (time of day), `MapTravel` (cover screen → enter map → uncover, failure notice) |
@@ -193,6 +193,7 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 | `knockback` | yes | 0–1000 px/s |
 | `hitstop`, `shake` | yes | 0–0.5 s, 0–1 (presentation only) |
 | `mp_cost` | no (0) | integer 0–999 |
+| `lunge` | no (0) | 0–256 px the attacker's body travels during `active`, evenly, sliding along walls (phase 11b, monster leaps). The hitbox moves with the body |
 | `projectile` | no | flying attack, same object as a spell's `projectile` (below). The `hitbox` is still required for now |
 | `fx`, `sfx` | no | content paths (checked for safety; the files are loaded by presentation later) |
 | `next_combo` | no | id of the next attack; must match the weapon's list order (below) |
@@ -251,22 +252,25 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 - Parsed by `wind/content/training_dummy_loader`. Feet are placed with `engine::tile_feet` (tile centre, ¾ down), the same rule as hero spawns.
 - `hurtbox` and `sprite` are read by the shared helpers in `wind/content/body_readers` (also used by monsters). Their values are `combat::HurtboxShape` and `combat::SpriteStrip`.
 
-### Monster (`content/monsters/*.json`, phase 11a, spec 9.6 / 14.2)
+### Monster (`content/monsters/*.json`, phases 11a–11b, spec 9.6 / 14.2)
 
 ```json
 { "schema_version": 1, "id": "slime_green", "name": "초록 슬라임",
   "max_hp": 30, "attack_power": 4, "defense": 0, "move_speed": 40,
-  "detect_range": 120, "attack_range": 28, "leash_range": 260,
+  "detect_range": 120, "attack_range": 40, "leash_range": 260, "notice_seconds": 0.4,
   "wander": { "radius": 40, "speed": 18, "pause": [1.0, 2.5] },
   "body": [12, 6],
   "hurtbox": { "offset": [-9, -13], "size": [18, 13] },
-  "sprite": { "image": "monsters/slime_green.bmp", "frame": [24, 24], "origin": [12, 21] } }
+  "sprite": { "image": "monsters/slime_green.bmp", "frame": [24, 24], "origin": [12, 21] },
+  "attacks": ["attacks/slime_hop.json"] }
 ```
 
 - `max_hp` 1–99,999; `attack_power`, `defense` 0–9,999; `move_speed` 1–400 px/s; `detect_range`, `attack_range`, `leash_range` 1–2,000 px with **attack ≤ detect ≤ leash**.
-- `wander.radius` 0–512 px and ≤ `leash_range`; `wander.speed` 1–400 px/s; `wander.pause` `[min, max]` seconds, 0–30, min ≤ max.
+- `notice_seconds` 0–2 (the "!" pause before chasing).
+- `wander.radius` 0–512 px and **`wander.radius + detect_range ≤ leash_range`** (a hero noticed from the edge of the wander area is still inside the leash); `wander.speed` 1–400 px/s; `wander.pause` `[min, max]` seconds, 0–30, min ≤ max.
 - `body` `[w, h]` 1–64 px: the feet box for wall collision. `hurtbox` and `sprite` as for the training dummy. Sprite frame 0 = normal, frame 1 = attack windup (crouch, used from 11b).
-- Parsed by `wind/content/monster_loader`. Fields still to come: `attacks` (11b), `death_fx` (11d), `rune_reward` (13), `drop_table` (14).
+- `attacks`: 1–6 attack file paths (same format as "Attack"; every file must load). 11b uses the first one. Monster attacks use `lunge` and set `cancel_window` to `[0, 0]` (no cancelling).
+- Parsed by `wind/content/monster_loader` (attack files through the shared `AttackSource` in `attack_loader.hpp`, also used by weapons). Fields still to come: `death_fx` (11d), `rune_reward` (13), `drop_table` (14).
 - A broken monster file only removes that monster (logged once per file); the map still opens, because monsters do not block tiles.
 
 ### Images

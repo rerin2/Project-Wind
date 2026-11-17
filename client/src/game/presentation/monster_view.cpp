@@ -1,8 +1,10 @@
 // 이 파일은 무엇을 하나요?
-// 몬스터 그림자·그림·F4 상자를 그리기 목록에 넣는 곳이에요. 값의 이유는 docs/VISUALS.md "Monsters" 절에 있어요.
+// 몬스터 그림자·몸·느낌표·공격 예고 바닥 표시·F4 상자를 그리기 목록에 넣는 곳이에요.
+// 값의 이유는 docs/VISUALS.md "Monsters" 절에 있어요.
 
 #include "game/presentation/monster_view.hpp"
 
+#include "game/presentation/monster_marks.hpp"
 #include "game/presentation/monster_pose.hpp"
 #include "game/presentation/shadow_drawing.hpp"
 
@@ -19,9 +21,12 @@ constexpr float kShadowHeight = 6.0f;
 constexpr float kShadowAirShrink = 0.08f;  // 1픽셀 뜰 때마다 그림자가 8%씩 작아져요
 // 숨쉬기를 마리마다 엇갈리게: 몇 번째인지 × 이 값 (황금비 조각이라 겹치지 않고 고르게 흩어져요)
 constexpr float kPhaseStep = 0.618f;
+// 느낌표는 알아챈 뒤 쫓기 시작하고도 이만큼 더 보이며 흐려져요 (초). 알아채기 0.4초만으로는 짧아서요.
+constexpr float kMarkLingerSeconds = 0.35f;
 // F4 상자 색 (반투명)
 constexpr engine::Color kHurtboxColor{240, 210, 60, 100};  // 맞는 상자: 노랑 (허수아비와 같아요)
 constexpr engine::Color kBodyColor{80, 200, 255, 140};     // 발 상자: 하늘색 (주인공과 같아요)
+constexpr engine::Color kHitboxColor{240, 60, 60, 110};    // 공격 판정: 빨강 (칼과 같아요)
 
 // 맵 위 네모 -> 화면 위 네모
 engine::RectF to_screen(const engine::Camera2D& camera, const engine::RectF& world) {
@@ -29,17 +34,32 @@ engine::RectF to_screen(const engine::Camera2D& camera, const engine::RectF& wor
     return {top_left.x, top_left.y, world.w, world.h};
 }
 
+// 느낌표 진하기 0~1: 알아채는 동안 1, 쫓기 시작하면 잠깐 뒤 흐려져요. 그 밖에는 0
+float notice_alpha(const Monster& monster) {
+    if (monster.state() == MonsterState::Notice) return 1.0f;
+    if (monster.state() == MonsterState::Chase && monster.state_seconds() < kMarkLingerSeconds) {
+        return 1.0f - monster.state_seconds() / kMarkLingerSeconds;
+    }
+    return 0.0f;
+}
+
 }  // namespace
 
-MonsterView::MonsterView(engine::TextureHandle shadow, std::vector<engine::TextureHandle> textures)
-    : shadow_(shadow), textures_(std::move(textures)), hop_blend_(textures_.size(), 0.0f) {}
+MonsterView::MonsterView(engine::TextureHandle shadow, engine::TextureHandle glow,
+                         std::vector<engine::TextureHandle> textures)
+    : shadow_(shadow), glow_(glow), textures_(std::move(textures)), hop_blend_(textures_.size(), 0.0f),
+      notice_age_(textures_.size(), 0.0f) {}
 
 void MonsterView::update(float dt_seconds, std::span<const Monster> monsters) {
-    clock_ += std::max(0.0f, dt_seconds);  // 숨쉬기 시계
+    const float dt = std::max(0.0f, dt_seconds);
+    clock_ += dt;  // 숨쉬기·떨림 시계
     const std::size_t count = std::min(monsters.size(), hop_blend_.size());
     for (std::size_t i = 0; i < count; ++i) {
-        const bool walking = monsters[i].state() == MonsterState::Wander;  // 걸으면 뛰어요
-        hop_blend_[i] = approach_hop_blend(hop_blend_[i], walking, dt_seconds);
+        // 배회·쫓기·복귀 중이면 통통 뛰어요
+        hop_blend_[i] = approach_hop_blend(hop_blend_[i], hops_while(monsters[i].state()), dt);
+        // 느낌표 나이: 알아채는 동안 늘고, 아니면 0으로 (다음에 알아채면 처음부터 톡)
+        const bool marked = notice_alpha(monsters[i]) > 0.0f;
+        notice_age_[i] = marked ? notice_age_[i] + dt : 0.0f;
     }
 }
 
@@ -47,6 +67,7 @@ void MonsterView::queue(const engine::Camera2D& camera, std::span<const Monster>
                         bool show_boxes, engine::RenderQueue& queue) const {
     const std::size_t count = std::min(monsters.size(), textures_.size());  // 개수가 다르면 적은 쪽까지만
     for (std::size_t i = 0; i < count; ++i) {
+        queue_telegraph_mark(camera, monsters[i], queue);   // 바닥 경고 (몸·그림자 아래)
         queue_monster(camera, monsters[i], i, alpha, queue);
         if (show_boxes) queue_boxes(camera, monsters[i], queue);
     }
@@ -56,7 +77,9 @@ void MonsterView::queue_monster(const engine::Camera2D& camera, const Monster& m
                                 float alpha, engine::RenderQueue& queue) const {
     const engine::Vec2 feet = monster.interpolated_feet(alpha);       // 두 박자 사이 위치
     const float phase = std::fmod(static_cast<float>(index) * kPhaseStep, 1.0f);
-    const MonsterPose pose = slime_pose(clock_, phase, monster.distance_moved(), hop_blend_[index]);
+    // 싸움 동작(알아채기·예고·덮치기·후딜)이면 그 모양, 아니면 숨쉬기·통통 뛰기
+    const MonsterPose pose = slime_action_pose(monster.state(), monster.state_progress(), clock_)
+                                 .value_or(slime_pose(clock_, phase, monster.distance_moved(), hop_blend_[index]));
     // 그림자: 땅에 그대로 두고, 몸이 뜨면 작아져요
     const float shrink = std::max(0.5f, 1.0f - pose.lift * kShadowAirShrink);
     queue_shadow(camera, shadow_, feet, {kShadowWidth * shrink, kShadowHeight * shrink}, queue);
@@ -69,9 +92,42 @@ void MonsterView::queue_monster(const engine::Camera2D& camera, const Monster& m
     const float origin_y = static_cast<float>(sprite.origin_y) * height / static_cast<float>(sprite.frame_height);
     engine::SpriteDraw draw;
     draw.texture = textures_[index];
-    draw.source = {0, 0, sprite.frame_width, sprite.frame_height};  // 0번 칸 = 보통 모습 (1번 웅크림은 11b)
-    draw.dest = {std::round(screen.x - origin_x), std::round(screen.y - pose.lift - origin_y), width, height};
+    draw.source = {pose.frame * sprite.frame_width, 0, sprite.frame_width, sprite.frame_height};  // 0 보통, 1 웅크림
+    draw.dest = {std::round(screen.x - origin_x + pose.offset_x), std::round(screen.y - pose.lift - origin_y),
+                 width, height};
     queue.push_sprite(engine::DrawLayer::YSorted, feet.y, draw);  // 주인공·허수아비와 발 위치로 줄 서기
+    // 느낌표: 머리 꼭대기(그림 칸 위쪽 끝) 위에
+    const float mark = notice_alpha(monster);
+    if (mark > 0.0f) {
+        const engine::Vec2 head{feet.x, feet.y - pose.lift - origin_y};
+        queue_notice_mark(camera, head, notice_age_[index], mark, queue);
+    }
+}
+
+std::vector<engine::Light> MonsterView::lights(std::span<const Monster> monsters) const {
+    std::vector<engine::Light> result;
+    for (const auto& monster : monsters) {
+        if (const auto shape = telegraph_shape(monster)) {  // 예고 중인 몬스터마다 붉은 빛 하나
+            result.push_back(telegraph_light(*shape, monster.state_progress()));
+        }
+    }
+    return result;
+}
+
+std::optional<TelegraphShape> MonsterView::telegraph_shape(const Monster& monster) {
+    const auto end = monster.lunge_end();          // 예고 중일 때만 있어요
+    const combat::AttackData* attack = monster.attack();
+    if (!end || attack == nullptr) return std::nullopt;
+    // 덮칠 길: 지금 발에서 덮치기 끝까지, 히트박스가 앞으로 나간 만큼 더 (바닥이라 위아래 lift는 빼요)
+    const engine::Vec2 ahead = monster.attack_direction() * attack->hitbox.forward;
+    return TelegraphShape{monster.feet() + ahead, *end + ahead, attack->hitbox.width};
+}
+
+void MonsterView::queue_telegraph_mark(const engine::Camera2D& camera, const Monster& monster,
+                                       engine::RenderQueue& queue) const {
+    if (const auto shape = telegraph_shape(monster)) {
+        queue_telegraph(camera, glow_, *shape, monster.state_progress(), monster.feet().y, queue);
+    }
 }
 
 void MonsterView::queue_boxes(const engine::Camera2D& camera, const Monster& monster,
@@ -80,6 +136,9 @@ void MonsterView::queue_boxes(const engine::Camera2D& camera, const Monster& mon
     queue.push_fill(engine::DrawLayer::DebugOverlay, 0.0f, to_screen(camera, monster.hurtbox()), kHurtboxColor);
     queue.push_fill(engine::DrawLayer::DebugOverlay, 0.0f, to_screen(camera, body_box(monster.feet(), monster.body())),
                     kBodyColor);
+    if (const auto hitbox = monster.attack_hitbox()) {  // 덮치는 동안만 빨갛게
+        queue.push_fill(engine::DrawLayer::DebugOverlay, 1.0f, to_screen(camera, *hitbox), kHitboxColor);
+    }
 }
 
 }  // namespace wind::game

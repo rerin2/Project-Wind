@@ -51,7 +51,7 @@ public:
     [[nodiscard]] const std::vector<ProjectileEndEvent>& projectile_ends() const { return ended_; }
     // 마지막으로 맞은 일 (F3 정보판용)
     [[nodiscard]] const std::optional<HitEvent>& last_hit() const { return last_hit_; }
-    // F3 정보판의 싸움 줄: "dummies 2  mobs 2 (1 walk)  shards 1  last hit 14 -> #1 86/100 (down)"
+    // F3 정보판의 싸움 줄: "dummies 2  mobs 2 (chase)  shards 1  last hit 14 -> #1 86/100 (down)"
     [[nodiscard]] std::string debug_text() const;
 
     // 빛 탄이 나오는 손끝 (몸 높이). 시전 연출도 같은 자리에서 빛나요.

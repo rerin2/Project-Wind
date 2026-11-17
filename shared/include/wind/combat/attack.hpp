@@ -38,6 +38,7 @@ struct AttackData {
     float hitstop = 0.0f;          // 맞는 순간 멈칫하는 시간 (초, 연출)
     float shake = 0.0f;            // 화면 흔들림 세기 0~1 (연출)
     int mp_cost = 0;               // 시작할 때 쓰는 MP (보통 0)
+    float lunge = 0.0f;            // 판정 구간 동안 몸이 앞으로 나가는 거리 (픽셀, 선택, 몬스터 덮치기 11b)
     std::optional<ProjectileData> projectile;  // 날아가는 공격이면 있어요 (선택, 9.2)
     std::optional<std::string> fx;          // 맞을 때 효과 파일 (선택)
     std::optional<std::string> sfx;         // 맞을 때 소리 파일 (선택)

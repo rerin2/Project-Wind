@@ -3,9 +3,12 @@
 // - 쉬는 중에는 뜨지 않고, 숨쉬기 때문에 가로·세로가 반대로 조금 바뀌어요
 // - 걷는 중에는 한 뜀의 가운데에서 가장 높이 뜨고 위로 길쭉해져요. 땅에 닿을 때는 납작해요
 // - 뜀 세기는 한 번에 확 바뀌지 않고 부드럽게 바뀌어요
+// - 11b: 예고는 웅크림 + 끝 무렵 떨림, 덮치기는 7픽셀 뛰어오름, 후딜 처음은 철퍽, 알아채면 폴짝
 #include "game/presentation/monster_pose.hpp"
 
 #include <gtest/gtest.h>
+
+#include <cmath>
 
 namespace {
 
@@ -48,6 +51,45 @@ TEST(MonsterPose, HopBlendMovesSmoothly) {
     EXPECT_FLOAT_EQ(blend, 1.0f);                             // 1초면 다 올라가고 넘치지 않아요
     for (int i = 0; i < 60; ++i) blend = approach_hop_blend(blend, false, 1.0f / 60.0f);
     EXPECT_FLOAT_EQ(blend, 0.0f);                             // 멈추면 0으로
+}
+
+// ---------------------------------------------------------------- 11b: 싸움 동작 ----
+
+using wind::game::MonsterState;
+using wind::game::slime_action_pose;
+
+TEST(MonsterPose, WindupCrouchesAndShiversNearTheEnd) {
+    const auto early = slime_action_pose(MonsterState::Windup, 0.2f, 0.0f);
+    ASSERT_TRUE(early.has_value());
+    EXPECT_EQ(early->frame, 1);               // 웅크린 그림
+    EXPECT_FLOAT_EQ(early->offset_x, 0.0f);   // 처음에는 떨지 않아요
+    const auto late = slime_action_pose(MonsterState::Windup, 0.9f, 0.01f);
+    ASSERT_TRUE(late.has_value());
+    EXPECT_FLOAT_EQ(std::abs(late->offset_x), 1.0f);  // 끝 무렵 1픽셀씩 부르르
+    EXPECT_LT(late->scale_y, early->scale_y);          // 점점 더 납작
+}
+
+TEST(MonsterPose, LungeArcsAndLandsWithSplat) {
+    const auto mid = slime_action_pose(MonsterState::Attack, 0.5f, 0.0f);
+    ASSERT_TRUE(mid.has_value());
+    EXPECT_NEAR(mid->lift, 7.0f, 1e-4f);      // 덮치기 꼭대기 7픽셀
+    EXPECT_EQ(mid->frame, 0);
+    const auto land = slime_action_pose(MonsterState::Recover, 0.0f, 0.0f);
+    ASSERT_TRUE(land.has_value());
+    EXPECT_GT(land->scale_x, 1.1f);           // 철퍽
+    const auto settled = slime_action_pose(MonsterState::Recover, 0.5f, 0.0f);
+    EXPECT_FLOAT_EQ(settled->scale_x, 1.0f);  // 후딜 뒤쪽은 원래 모양
+}
+
+TEST(MonsterPose, NoticeHopsOnceAndRestingUsesBreathing) {
+    const auto start = slime_action_pose(MonsterState::Notice, 0.25f, 0.0f);
+    ASSERT_TRUE(start.has_value());
+    EXPECT_NEAR(start->lift, 4.0f, 1e-4f);    // 깜짝 폴짝 꼭대기
+    EXPECT_NEAR(slime_action_pose(MonsterState::Notice, 0.8f, 0.0f)->lift, 0.0f, 1e-4f);  // 뒤쪽 절반은 가만히
+    EXPECT_FALSE(slime_action_pose(MonsterState::Idle, 0.5f, 0.0f).has_value());   // 쉬기·걷기는 숨쉬기 쪽
+    EXPECT_FALSE(slime_action_pose(MonsterState::Chase, 0.5f, 0.0f).has_value());
+    EXPECT_TRUE(wind::game::hops_while(MonsterState::Chase));
+    EXPECT_FALSE(wind::game::hops_while(MonsterState::Windup));
 }
 
 }  // namespace

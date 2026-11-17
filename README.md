@@ -6,7 +6,7 @@ All game content and branding are original. See [docs/MASTER_SPEC.md](docs/MASTE
 
 ## Status
 
-**Phase 11 — monsters (in progress, 11a done).** Two green slimes live in the meadow below the training dummies (walk down from the start). They rest, breathing slowly, then hop to a random spot near home and rest again, sliding along walls and giving up when stuck. F3 shows `mobs 2 (1 walk)`; F4 shows their hurtboxes (yellow) and feet boxes (blue). Noticing, chasing, the attack telegraph and getting hit come in 11b–11d.
+**Phase 11 — monsters (in progress, 11a–11b done).** Two green slimes live in the meadow below the training dummies (walk down from the start). They rest, breathing slowly, and hop around their home spot. Come within about four tiles and one hops in surprise with a yellow "!", then hops after you. Close up it stops, crouches and shivers while a red path glows on the ground where it will land (a red light keeps it visible at night) — step out of the red area before it leaps. Run far enough away and it gives up and hops home. F3 shows the busiest slime state (`mobs 2 (chase)`); F4 shows hurtboxes, feet boxes and the lunge hitbox. The lunge does not hurt yet: getting hit comes in 11c, hitting slimes in 11d.
 
 **Phase 10 — hit feel.** A landed hit freezes the action for a few frames (hitstop), the dummy flashes white, its body is pushed toward the hit and springs back, gold sparks fly, and a damage number pops up above its HP bar; the combo finisher shakes the screen. 5 % of hits are critical for 1.5× damage, shown as a bold gold number with "!". `--shake 0` and `--flash 0` turn shaking and flashing off (any value from 0 to 1 scales them).
 

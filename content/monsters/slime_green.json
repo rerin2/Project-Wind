@@ -7,10 +7,12 @@
   "defense": 0,
   "move_speed": 40,
   "detect_range": 120,
-  "attack_range": 28,
+  "attack_range": 40,
   "leash_range": 260,
+  "notice_seconds": 0.4,
   "wander": { "radius": 40, "speed": 18, "pause": [1.0, 2.5] },
   "body": [12, 6],
   "hurtbox": { "offset": [-9, -13], "size": [18, 13] },
-  "sprite": { "image": "monsters/slime_green.bmp", "frame": [24, 24], "origin": [12, 21] }
+  "sprite": { "image": "monsters/slime_green.bmp", "frame": [24, 24], "origin": [12, 21] },
+  "attacks": ["attacks/slime_hop.json"]
 }

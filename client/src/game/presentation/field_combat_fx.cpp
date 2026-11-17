@@ -20,7 +20,7 @@ constexpr int kCritSparkBursts = 2;   // 치명타는 불꽃을 두 번 터뜨�
 
 FieldCombatFx::FieldCombatFx(CombatFxSetup setup)
     : view_(setup.shadow, std::move(setup.dummies)),
-      monster_view_(setup.shadow, std::move(setup.monsters)),
+      monster_view_(setup.shadow, setup.glow, std::move(setup.monsters)),
       slash_(setup.slash),
       spell_(setup.star_trail, setup.star_burst, setup.glow, setup.spell_light),
       hit_spark_(setup.hit_spark) {}
@@ -86,7 +86,10 @@ void FieldCombatFx::queue(const engine::Camera2D& camera, const FieldCombat& com
 }
 
 std::vector<engine::Light> FieldCombatFx::lights(const FieldCombat& combat, float alpha) const {
-    return spell_.lights(combat.projectiles(), alpha);
+    auto result = spell_.lights(combat.projectiles(), alpha);         // 빛 탄, 손끝
+    const auto warnings = monster_view_.lights(combat.monsters());    // 공격 예고 붉은 빛 (11b)
+    result.insert(result.end(), warnings.begin(), warnings.end());
+    return result;
 }
 
 }  // namespace wind::game

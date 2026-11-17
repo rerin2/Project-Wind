@@ -24,6 +24,7 @@ constexpr double kMaxPower = 10.0;
 constexpr double kMaxKnockback = 1000.0;  // 픽셀/초
 constexpr double kMaxHitstop = 0.5;       // 초
 constexpr std::int64_t kMaxMpCost = 999;
+constexpr double kMaxLunge = 256.0;       // 덮치기 거리 최대 (픽셀, 여덟 칸)
 
 // 없어도 되는 파일 위치 칸 (fx, sfx)
 void read_optional_path(JsonReader& reader, std::string_view key,
@@ -60,6 +61,11 @@ LoadResult<combat::AttackData> parse_attack(const nlohmann::json& document,
     if (reader.has("mp_cost")) {
         if (const auto mp = reader.integer("mp_cost", 0, kMaxMpCost)) {
             attack.mp_cost = static_cast<int>(*mp);
+        }
+    }
+    if (reader.has("lunge")) {  // 덮치기 거리 (선택, 11b). 틀리면 공책에 적혀서 아래에서 거절돼요
+        if (const auto lunge = reader.number("lunge", 0.0, kMaxLunge)) {
+            attack.lunge = static_cast<float>(*lunge);
         }
     }
     if (reader.has("projectile")) {  // 날아가는 공격 (선택). 틀리면 공책에 적혀서 아래에서 거절돼요

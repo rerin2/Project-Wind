@@ -8,6 +8,7 @@
 #include "wind/log.hpp"
 
 #include <algorithm>
+#include <string>
 #include <utility>
 
 namespace wind::game {
@@ -46,7 +47,7 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
         dummy.step(dt);
     }
     for (auto& monster : monsters_) {  // 5) 몬스터: 쉬기·돌아다니기 (11a)
-        monster.step(dt, map, monster_random_);
+        monster.step(dt, map, monster_random_, player.mover().feet());  // 주인공 발 위치를 보고 알아채요 (11b)
     }
 }
 
@@ -136,10 +137,15 @@ engine::Vec2 FieldCombat::spell_hand(engine::Vec2 feet, world::Direction facing)
 
 std::string FieldCombat::debug_text() const {
     std::string text = "dummies " + std::to_string(dummies_.size());          // 허수아비 수
-    if (!monsters_.empty()) {                                                 // 몬스터 수와 걷는 수 (11a)
-        const auto walking = std::ranges::count_if(
-            monsters_, [](const Monster& m) { return m.state() == MonsterState::Wander; });
-        text += "  mobs " + std::to_string(monsters_.size()) + " (" + std::to_string(walking) + " walk)";
+    if (!monsters_.empty()) {  // 몬스터 수와 "가장 바쁜" 상태 (11b: 싸우는 몬스터가 있으면 그 상태가 보여요)
+        // 이름표 순서: 쉬기 < 배회 < 알아채기 < 쫓기 < 예고 < 공격 < 후딜 < 복귀. 싸움 쪽(알아채기~후딜)을 먼저 보여 줘요.
+        const auto busy = [](MonsterState s) {
+            const bool fighting = s >= MonsterState::Notice && s <= MonsterState::Recover;
+            return (fighting ? 100 : 0) + static_cast<int>(s);  // 싸우는 중이면 크게
+        };
+        const auto top = std::ranges::max_element(
+            monsters_, [&busy](const Monster& a, const Monster& b) { return busy(a.state()) < busy(b.state()); });
+        text += "  mobs " + std::to_string(monsters_.size()) + " (" + std::string(to_string(top->state())) + ")";
     }
     text += "  shards " + std::to_string(projectiles_.size());                // 날고 있는 빛 탄 수
     if (!last_hit_) return text;                                              // 아직 아무도 안 맞았으면 여기까지

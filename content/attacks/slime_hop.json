@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "slime_hop",
+  "windup": 0.6,
+  "active": 0.25,
+  "recovery": 0.7,
+  "cancel_window": [0, 0],
+  "hitbox": { "offset": [6, -6], "size": [18, 14] },
+  "power": 1.0,
+  "knockback": 160,
+  "hitstop": 0.06,
+  "shake": 0.25,
+  "lunge": 40
+}

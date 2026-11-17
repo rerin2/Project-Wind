@@ -84,6 +84,20 @@ TEST(AttackLoader, ReadsOptionalProjectile) {
 }
 
 // 판정 0초, 음수 시간, 범위 밖 숫자는 거절해요.
+// 덮치기 거리 lunge (선택, 11b): 없으면 0, 있으면 0~256 픽셀
+TEST(AttackLoader, ReadsOptionalLunge) {
+    EXPECT_FLOAT_EQ(parse_attack(make_doc(), "a.json").value->lunge, 0.0f);  // 없으면 제자리 공격
+    auto doc = make_doc();
+    doc["lunge"] = 44;
+    const auto result = parse_attack(doc, "a.json");
+    ASSERT_TRUE(result.ok());
+    EXPECT_FLOAT_EQ(result.value->lunge, 44.0f);
+    doc["lunge"] = 300;  // 너무 멀어요
+    const auto bad = parse_attack(doc, "a.json");
+    EXPECT_FALSE(bad.ok());
+    EXPECT_TRUE(has_error_at(bad.errors, "lunge"));
+}
+
 TEST(AttackLoader, RejectsBadTimes) {
     auto zero_active = make_doc();
     zero_active["active"] = 0;

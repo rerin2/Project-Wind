@@ -18,6 +18,16 @@ constexpr float kHopHeight = 3.0f;       // 가장 높이 뜰 때 (픽셀)
 constexpr float kAirStretch = 0.16f;     // 공중에서 위로 길쭉해지는 정도
 constexpr float kLandSquash = 0.10f;     // 땅에 닿을 때 납작해지는 정도
 constexpr float kHopBlendRate = 6.0f;    // 뜀 세기가 1초에 바뀌는 양 (약 0.17초면 다 바뀌어요)
+// 싸움 동작 (11b)
+constexpr float kNoticeJumpPart = 0.5f;    // 알아채기 앞쪽 절반 동안 폴짝
+constexpr float kNoticeJumpHeight = 4.0f;  // 폴짝 높이 (픽셀)
+constexpr float kWindupSpread = 0.08f;     // 예고 끝에 옆으로 8% 더 퍼져요
+constexpr float kWindupSquash = 0.10f;     // 예고 끝에 10% 더 낮아져요
+constexpr float kShiverStart = 0.6f;       // 예고 60%부터 부르르
+constexpr float kShiverHz = 15.0f;         // 떨림 빠르기 (1초에 15번 왕복)
+constexpr float kLungeHeight = 7.0f;       // 덮칠 때 가장 높이 (픽셀)
+constexpr float kSplatPart = 0.3f;         // 후딜 앞 30% 동안 납작
+constexpr float kSplat = 0.18f;            // 땅에 떨어질 때 납작한 정도 (18%)
 
 }  // namespace
 
@@ -34,6 +44,53 @@ MonsterPose slime_pose(float clock, float phase, float distance, float hop_blend
     pose.scale_y = 1.0f - breath + air * kAirStretch - ground * kLandSquash;
     pose.lift = air * kHopHeight;
     return pose;
+}
+
+std::optional<MonsterPose> slime_action_pose(MonsterState state, float progress, float clock) {
+    const float p = std::clamp(progress, 0.0f, 1.0f);
+    const float pi = std::numbers::pi_v<float>;
+    MonsterPose pose;
+    switch (state) {
+        case MonsterState::Notice: {
+            // 앞쪽 절반 동안 한 번 폴짝 (깜짝!), 나머지는 가만히
+            const float jump = std::sin(pi * std::min(p / kNoticeJumpPart, 1.0f));
+            pose.lift = jump * kNoticeJumpHeight;
+            pose.scale_y = 1.0f + jump * kAirStretch * 0.5f;
+            pose.scale_x = 1.0f - jump * kAirStretch * 0.25f;
+            return pose;
+        }
+        case MonsterState::Windup: {
+            // 웅크린 그림 + 점점 더 납작하게. 끝 무렵에는 부르르 떨어서 "곧 온다"가 보여요
+            pose.frame = 1;
+            pose.scale_x = 1.0f + p * kWindupSpread;
+            pose.scale_y = 1.0f - p * kWindupSquash;
+            if (p >= kShiverStart) {  // 1픽셀 왼쪽·오른쪽을 번갈아 (사인파 부호)
+                pose.offset_x = std::sin(kTwoPi * kShiverHz * clock) >= 0.0f ? 1.0f : -1.0f;
+            }
+            return pose;
+        }
+        case MonsterState::Attack: {
+            // 덮치기: 높이 뛰어 공중에서 길쭉
+            const float air = std::sin(pi * p);
+            pose.lift = air * kLungeHeight;
+            pose.scale_y = 1.0f + air * kAirStretch;
+            pose.scale_x = 1.0f - air * kAirStretch * 0.5f;
+            return pose;
+        }
+        case MonsterState::Recover: {
+            // 후딜 앞부분: 철퍽 납작했다가 원래대로
+            const float splat = 1.0f - std::min(p / kSplatPart, 1.0f);
+            pose.scale_x = 1.0f + splat * kSplat;
+            pose.scale_y = 1.0f - splat * kSplat;
+            return pose;
+        }
+        default:
+            return std::nullopt;  // 쉬기·걷기는 slime_pose
+    }
+}
+
+bool hops_while(MonsterState state) {
+    return state == MonsterState::Wander || state == MonsterState::Chase || state == MonsterState::Return;
 }
 
 float approach_hop_blend(float blend, bool walking, float dt_seconds) {

@@ -265,7 +265,22 @@ Code: `client/src/game/presentation/monster_view.cpp`, `monster_pose.cpp`. Art: 
 | Hopping (wander) | one hop per 14 px walked: lift up to 3 px at mid-hop, 16 % taller (8 % thinner) in the air, 10 % flatter on landing | Slimes move in hops; tying the hop to walked distance keeps feet and motion in sync at any speed |
 | Hop blend | hop strength eases 0 ↔ 1 at 6/s (about 0.17 s) when walking starts or stops | Stops never snap the body from the air to the ground |
 | Pixel crispness | scaled size and position are rounded to whole pixels; the feet (origin) stay on the ground point while scaling | Keeps pixel art from smearing and the slime from sliding while it breathes |
-| F4 boxes | hurtbox `#f0d23c` at 100 alpha (same as dummies), feet box `#50c8ff` at 140 alpha (same as the hero) | Debug only; drawn at the current fixed-step position (what collision uses) |
+| F4 boxes | hurtbox `#f0d23c` at 100 alpha (same as dummies), feet box `#50c8ff` at 140 alpha (same as the hero), attack hitbox `#f03c3c` at 110 alpha while lunging (11b, same as the sword) | Debug only; drawn at the current fixed-step position (what collision uses) |
+
+### Monster fighting (phase 11b)
+
+Code: `monster_pose.cpp` (`slime_action_pose`), `monster_marks.cpp`, `monster_view.cpp`. Agreed with the developer: the telegraph uses **pose + ground marker only, no body flash**.
+
+| Element | Look | Why |
+|---|---|---|
+| "!" mark | 3 px wide yellow `#ffd64a` bar (7 px) + dot (3×3) inside one 1 px dark `#10131c` outline, 3 px above the head; pops up 5 px over 0.18 s; shown while noticing and 0.35 s into the chase, fading; drawn after lighting | Classic, readable at 640×360 and at night; one outline rect so the gap row does not darken while fading (two overlapping rects did, 11b screen check) |
+| Notice hop | one 4 px hop with a little stretch in the first half of `notice_seconds` | "Surprised" body language that matches the mark |
+| Windup pose | frame 1 (wide, low, frowning), squashing a further 8 % wider / 10 % lower over the windup; from 60 % on it shivers ±1 px at 15 Hz | Pose change you can read without a flash; the shiver says "now" just before the lunge |
+| Ground telegraph | the soft round light texture stretched along the locked lunge path (from feet + hitbox forward to lunge end + forward, plus the hitbox width at each end) and rotated to it; outer `#e63428`, inner core `#ff805c` at 55 % size and 60 % alpha; grows from 55 % to full size (ease-out) and from alpha 70 to 190; drawn in the Shadows layer (on the ground, under bodies) | Shows exactly where the hit will land so the player can step out (spec 9.6). The path is the real swept area, so trusting it always works |
+| Telegraph light | a red light `#ff5440` at the path centre, radius (path + width) × 0.9, intensity 0.35 → 0.9 over the windup | The ground marker is drawn before lighting, so at night it was nearly invisible (11b screen check). The light keeps it visible in the dark and lights the slime ominously; in daylight it changes nothing |
+| Lunge | rises up to 7 px (sine) while travelling, 16 % taller and 8 % thinner at the top; shadow stays on the ground and shrinks | The leap reads clearly and its landing spot is the shadow |
+| Landing | splats 18 % wider / lower at the start of recovery, back to normal by 30 % | Weight on landing and a visible "opening" |
+| Chase / return | same distance-locked hops as wandering, at chase speed | Consistent movement language |
 
 ## Dodge afterimages
 

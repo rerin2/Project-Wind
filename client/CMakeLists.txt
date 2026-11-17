@@ -57,7 +57,7 @@ wind_set_warnings(wind_engine_core)
 #   physics/      : 발 상자와 벽 충돌 (미끄러지기, 모서리 보정)
 #   entities/     : 캐릭터 다리(Mover), 바라보는 방향, 스태미나, 상태 전이 표
 #   combat/       : 칼 휘두르기 진행(AttackRunner), 히트박스 배치, 허수아비, 맞았는지 판정
-#   monsters/     : 몬스터 한 마리의 행동 (11a: 대기·배회)
+#   monsters/     : 몬스터 한 마리의 행동 (대기·배회·알아채기·쫓기·예고·덮치기·복귀), 한 박자 걷기
 #   presentation/ : 먼지, 잔상 같은 보여 주기용 효과 (그리기 목록에 넣기까지만, SDL은 안 씀)
 #   world/        : 게임 시계, 맵 옮기기 순서
 #   states/field_assets : 필드 화면 준비물(맵·캐릭터·효과 파일) 읽기
@@ -82,11 +82,13 @@ add_library(wind_game_core STATIC
     src/game/combat/hit_stop.cpp
     src/game/combat/hit_resolution.cpp
     src/game/monsters/monster.cpp
+    src/game/monsters/monster_moves.cpp
     src/game/presentation/dust_emitter.cpp
     src/game/presentation/afterimage_trail.cpp
     src/game/presentation/player_sprite.cpp
     src/game/presentation/combat_view.cpp
     src/game/presentation/monster_pose.cpp
+    src/game/presentation/monster_marks.cpp
     src/game/presentation/monster_view.cpp
     src/game/presentation/slash_arc.cpp
     src/game/presentation/ambient_particles.cpp

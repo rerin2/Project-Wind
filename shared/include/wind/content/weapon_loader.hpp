@@ -11,22 +11,19 @@
 
 #include "wind/combat/attack.hpp"
 #include "wind/combat/weapon.hpp"
+#include "wind/content/attack_loader.hpp"
 #include "wind/content/load_result.hpp"
 
 #include <nlohmann/json.hpp>
 
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <string>
 #include <string_view>
 
 namespace wind::content {
 
 inline constexpr std::int64_t kWeaponSchemaVersion = 1;
-
-// 공격 파일 하나를 읽어 주는 함수. 진짜 게임에서는 load_attack_file, 테스트에서는 가짜를 넣어요.
-using AttackSource = std::function<LoadResult<combat::AttackData>(std::string_view path)>;
 
 [[nodiscard]] LoadResult<combat::Weapon> parse_weapon(const nlohmann::json& document,
                                                       const std::string& file,
