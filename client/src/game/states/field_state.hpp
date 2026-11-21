@@ -17,12 +17,13 @@
 #include "engine/fx/particle_random.hpp"
 #include "engine/render/render_queue.hpp"
 #include "engine/resources/resource_manager.hpp"
-#include "game/combat/hit_stop.hpp"
+#include "game/combat/sim_time_scale.hpp"
 #include "game/entities/player_motion.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/input/movement_intent.hpp"
 #include "game/presentation/player_sprite.hpp"
 #include "game/presentation/ambient_particles.hpp"
+#include "game/presentation/death_fx.hpp"
 #include "game/presentation/feel_settings.hpp"
 #include "game/presentation/field_atmosphere.hpp"
 #include "game/presentation/field_camera.hpp"
@@ -134,6 +135,14 @@ public:
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }
     // 주인공 HP (HUD 바용, 12a)
     [[nodiscard]] const Health& health() const { return player_.health(); }
+    // 주인공이 쓰러져 있나요? (12b: "쓰러졌다" 화면, 12c: 부활)
+    [[nodiscard]] bool hero_down() const { return player_.dead(); }
+    // 주인공 HP·MP·스태미나 (12c: 맵을 옮길 때 새 필드로 들고 가요)
+    [[nodiscard]] HeroVitals hero_vitals() const { return player_.vitals(); }
+    // 들고 온 HP·MP·스태미나로 맞춰요 (12c: 출구로 들어온 새 필드에서만. 부활은 가득 찬 채 시작해요)
+    void restore_hero(const HeroVitals& vitals) { player_.restore(vitals); }
+    // 화면을 흑백으로 만들 정도 0~1 (12b, 렌더러가 월드에만 입혀요)
+    [[nodiscard]] float desaturation() const { return death_fx_.grayscale(); }
     // 주인공 스태미나 (HUD 바용)
     [[nodiscard]] const Stamina& stamina() const { return player_.stamina(); }
     // 주인공 MP (HUD 바용)
@@ -178,8 +187,9 @@ private:
     FieldCamera camera_rig_;                 // 사진사: 주인공을 따라가며 가는 쪽을 조금 더 보여 줘요
     PlayerMotion player_;                    // 캐릭터의 몸: 다리(이동) + 스태미나 + 구르기 버튼 메모장
     FieldCombat combat_;                     // 허수아비들과 칼 판정 (9c)
-    HitStop hit_stop_;                       // 맞는 순간 멈칫: 시뮬레이션 시간 배수 (10a)
-    FieldCombatFx combat_fx_;                // 싸움 연출: 허수아비·칼자국·빛 탄·번쩍임·흔들림·피해 숫자
+    SimTimeScale time_scale_;                // 시뮬레이션 시간 배수: 맞는 순간 멈칫(10a) × 쓰러질 때 슬로모션(12b)
+    DeathFx death_fx_;                       // 쓰러짐 연출 시계: 흑백 정도, 눕는 정도 (12b)
+    FieldCombatFx combat_fx_;               // 싸움 연출: 허수아비·칼자국·빛 탄·번쩍임·흔들림·피해 숫자
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요

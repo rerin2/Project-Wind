@@ -27,8 +27,10 @@ wind::world::MapExit make_exit(std::string to_map) {
 struct FakeWorld {
     std::string current = "maps/meadow.json";
     int attempts = 0;
-    bool enter(const wind::world::MapExit& exit) {
+    bool last_respawn = false;  // 마지막으로 연 맵이 부활이었나 (12c)
+    bool enter(const wind::world::MapExit& exit, bool respawn) {
         ++attempts;
+        last_respawn = respawn;
         if (exit.to_map == "maps/missing.json") {
             return false;  // 못 열었으니 current는 그대로
         }
@@ -40,7 +42,7 @@ struct FakeWorld {
 // 0.1초씩 n번 진행
 void run(MapTravel& travel, FakeWorld& world, int steps) {
     for (int i = 0; i < steps; ++i) {
-        travel.update(0.1f, [&](const wind::world::MapExit& e) { return world.enter(e); });
+        travel.update(0.1f, [&](const wind::world::MapExit& e, bool respawn) { return world.enter(e, respawn); });
     }
 }
 
@@ -95,6 +97,27 @@ TEST(MapTravel, UsesTheExitTransitionStyle) {
     exit.transition = wind::world::ScreenTransition::Iris;
     ASSERT_TRUE(travel.begin(exit));
     EXPECT_EQ(travel.fade().style(), wind::world::ScreenTransition::Iris);
+}
+
+// 12c: 부활은 "부활" 표시를 달고 열고, 느린 페이드(이번만)로 가려졌다 밝아져요. 다음 출구는 다시 기본 길이예요.
+TEST(MapTravel, RespawnUsesItsOwnSlowFadeAndFlag) {
+    MapTravel travel(0.3f);
+    FakeWorld world;
+    ASSERT_TRUE(travel.begin(make_exit("maps/meadow.json"), {true, 0.8f}));
+    run(travel, world, 7);   // 0.7초: 기본(0.3초)이면 이미 열었겠지만 아직 가리는 중
+    EXPECT_EQ(world.attempts, 0);
+    run(travel, world, 2);   // 0.9초: 다 가려져서 열었어요
+    EXPECT_EQ(world.attempts, 1);
+    EXPECT_TRUE(world.last_respawn);
+    run(travel, world, 6);   // 밝아지는 것도 0.8초라 아직 진행 중 (많아야 0.7초 지남)
+    EXPECT_TRUE(travel.busy());
+    run(travel, world, 4);
+    EXPECT_FALSE(travel.busy());
+
+    ASSERT_TRUE(travel.begin(make_exit("maps/forest.json")));  // 보통 출구: 기본 0.3초, 부활 아님
+    run(travel, world, 3);
+    EXPECT_EQ(world.attempts, 2);
+    EXPECT_FALSE(world.last_respawn);
 }
 
 }  // namespace

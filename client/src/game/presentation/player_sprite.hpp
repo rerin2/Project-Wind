@@ -26,8 +26,10 @@ public:
     void update(double dt_seconds, const Mover& mover, engine::Vec2 feet);
     // 잔상과 주인공을 그리기 목록에 넣어요. 둘 다 발 위치(y)로 줄을 서요.
     // alpha: 주인공 그림 투명도 0~1 (11c: 맞은 뒤 무적이면 깜빡여요). 잔상에는 쓰지 않아요.
+    // lying: 옆으로 눕는 정도 0~1 (12b 쓰러짐). 그림을 90도까지 돌리고 바닥 쪽으로 내려요.
+    //        왼쪽을 보고 있었으면 왼쪽으로, 그 밖에는 오른쪽으로 쓰러져요.
     void queue(const engine::Camera2D& camera, engine::Vec2 feet, world::Direction facing,
-               engine::RenderQueue& queue, float alpha = 1.0f) const;
+               engine::RenderQueue& queue, float alpha = 1.0f, float lying = 0.0f) const;
 
 private:
     engine::SpriteSheet sheet_;

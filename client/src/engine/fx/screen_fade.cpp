@@ -3,20 +3,24 @@
 
 #include "engine/fx/screen_fade.hpp"
 
+#include <cmath>
+
 namespace wind::engine {
 
-ScreenFade::ScreenFade(float seconds) : seconds_(seconds) {}
+ScreenFade::ScreenFade(float seconds) : seconds_(seconds), trip_seconds_(seconds) {}
 
-void ScreenFade::fade_out(world::ScreenTransition style) {
+void ScreenFade::fade_out(world::ScreenTransition style, float seconds) {
     style_ = style;
+    // 이번 전환 길이: 따로 정했으면 그 값, 아니면 기본 길이 (0·음수·NaN은 기본)
+    trip_seconds_ = (std::isfinite(seconds) && seconds > 0.0f) ? seconds : seconds_;
     // 어두워질 때는 처음엔 천천히, 끝에 빠르게 (InQuad)
-    tween_ = Tween(darkness(), 1.0f, seconds_, Ease::InQuad);
+    tween_ = Tween(darkness(), 1.0f, trip_seconds_, Ease::InQuad);
     phase_ = Phase::FadingOut;
 }
 
 void ScreenFade::fade_in() {
-    // 밝아질 때는 처음엔 빠르게, 끝에 사뿐히 (OutQuad)
-    tween_ = Tween(darkness(), 0.0f, seconds_, Ease::OutQuad);
+    // 밝아질 때는 처음엔 빠르게, 끝에 사뿐히 (OutQuad). 어두워질 때와 같은 길이예요.
+    tween_ = Tween(darkness(), 0.0f, trip_seconds_, Ease::OutQuad);
     phase_ = Phase::FadingIn;
 }
 

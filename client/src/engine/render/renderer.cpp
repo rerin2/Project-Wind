@@ -4,14 +4,15 @@
 
 #include "engine/render/renderer.hpp"
 
+#include "engine/render/frame_readback.hpp"
 #include "engine/render/surface_painter.hpp"
 
 #include "wind/log.hpp"
 
 #include <SDL3/SDL.h>
 
+#include <initializer_list>
 #include <string>
-#include <system_error>
 #include <utility>
 
 namespace wind::engine {
@@ -38,6 +39,24 @@ SDL_BlendMode to_sdl(BlendMode blend) {
     return SDL_BLENDMODE_BLEND;
 }
 
+// 화면 크기의 도화지 하나를 (다시) 만들어요: 옛것은 버리고, 또렷하게 키우고, 섞기 방법을 정해요.
+// slot: 바꿔 끼울 자리, what: 실패 기록에 쓸 이름. 못 만들면 slot은 nullptr이 되고 false예요.
+bool remake_screen_texture(SDL_Renderer* renderer, SDL_Texture*& slot, SDL_PixelFormat format,
+                           SDL_TextureAccess access, SDL_BlendMode blend, std::int32_t width, std::int32_t height,
+                           const char* what) {
+    if (slot != nullptr) {
+        SDL_DestroyTexture(slot);
+    }
+    slot = SDL_CreateTexture(renderer, format, access, width, height);
+    if (slot == nullptr) {
+        log::error("Cannot create the {}x{} {}: {}", width, height, what, SDL_GetError());
+        return false;
+    }
+    SDL_SetTextureScaleMode(slot, SDL_SCALEMODE_NEAREST);  // 키울 때 또렷하게
+    SDL_SetTextureBlendMode(slot, blend);
+    return true;
+}
+
 }  // namespace
 
 Renderer::Renderer(SDL_Renderer* renderer) : renderer_(renderer) {
@@ -55,11 +74,9 @@ Renderer::~Renderer() {
     for (const auto& [id, texture] : textures_) {
         SDL_DestroyTexture(texture);
     }
-    if (frame_target_ != nullptr) {
-        SDL_DestroyTexture(frame_target_);
-    }
-    if (light_target_ != nullptr) {
-        SDL_DestroyTexture(light_target_);
+    // 화면 크기 도화지 셋(그림, 빛 지도, 흑백용)도 버려요.
+    for (SDL_Texture* screen : {frame_target_, light_target_, gray_scratch_}) {
+        if (screen != nullptr) SDL_DestroyTexture(screen);
     }
 }
 
@@ -73,31 +90,21 @@ bool Renderer::set_logical_size(std::int32_t width, std::int32_t height) {
     }
     // 작은 도화지(렌더 타깃) = 640x360 크기의 그림 종이. 게임 화면은 모두 여기에 먼저 그려요.
     // 나중에 조명·화면 효과를 이 종이 위에 덧칠한 다음, 통째로 창에 크게 붙일 거예요. (명세 5.2)
-    if (frame_target_ != nullptr) {
-        SDL_DestroyTexture(frame_target_);
-    }
-    frame_target_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
-                                      SDL_TEXTUREACCESS_TARGET, width, height);
-    if (frame_target_ == nullptr) {
-        log::error("Cannot create the {}x{} frame target: {}", width, height, SDL_GetError());
+    // 창에 붙일 때는 그대로 덮어써요(NONE).
+    if (!remake_screen_texture(renderer_, frame_target_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
+                               SDL_BLENDMODE_NONE, width, height, "frame target")) {
         return false;
     }
-    SDL_SetTextureScaleMode(frame_target_, SDL_SCALEMODE_NEAREST);  // 키울 때 또렷하게
-    SDL_SetTextureBlendMode(frame_target_, SDL_BLENDMODE_NONE);     // 창에 붙일 때 그대로 덮어쓰기
-
     // 빛 지도: 같은 크기의 도화지. 그림 위에 "곱하기(MOD)"로 얹어요.
     // 흰색인 곳은 그림이 그대로, 검은색인 곳은 그림이 까맣게 돼요.
-    if (light_target_ != nullptr) {
-        SDL_DestroyTexture(light_target_);
-    }
-    light_target_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGBA8888,
-                                      SDL_TEXTUREACCESS_TARGET, width, height);
-    if (light_target_ == nullptr) {
-        log::error("Cannot create the {}x{} light map: {}", width, height, SDL_GetError());
+    if (!remake_screen_texture(renderer_, light_target_, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET,
+                               SDL_BLENDMODE_MOD, width, height, "light map")) {
         return false;
     }
-    SDL_SetTextureScaleMode(light_target_, SDL_SCALEMODE_NEAREST);
-    SDL_SetTextureBlendMode(light_target_, SDL_BLENDMODE_MOD);
+    // 흑백용 텍스처 (12b): CPU에서 바꾼 픽셀을 자주 올리니까 "스트리밍", 바이트 순서는 R,G,B,A.
+    // 도화지를 그대로 덮어써요(NONE). 못 만들어도 게임은 계속돼요 (쓰러졌을 때 흑백만 안 돼요).
+    (void)remake_screen_texture(renderer_, gray_scratch_, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING,
+                                SDL_BLENDMODE_NONE, width, height, "grayscale texture");
     logical_size_ = {static_cast<float>(width), static_cast<float>(height)};
     return true;
 }
@@ -136,38 +143,25 @@ void Renderer::save_pending_screenshot() {
     }
     const std::filesystem::path path = std::move(*pending_screenshot_);
     pending_screenshot_.reset();
+    save_frame_bmp(renderer_, path);  // 읽어 와서 BMP로 저장 (frame_readback)
+}
 
-    // 저장할 폴더가 없으면 만들어요.
-    std::error_code ec;
-    std::filesystem::create_directories(path.parent_path(), ec);
-    if (ec) {
-        log::error("Cannot create screenshot folder {}: {}", path.parent_path().string(), ec.message());
+void Renderer::apply_desaturation(float amount) {
+    if (!(amount > 0.0f) || desaturate_failed_) {
+        return;  // 색 그대로 (0, 이상한 값, 이미 실패함)
+    }
+    if (!desaturate_frame(renderer_, gray_scratch_, amount)) {
+        desaturate_failed_ = true;  // 이유는 이미 기록했어요. 다음부터는 색 그대로 둬요.
+        log::warn("Grayscale is turned off for this run");
         return;
     }
-    // 지금 도화지의 픽셀을 그래픽 카드에서 읽어 와요.
-    SDL_Surface* surface = SDL_RenderReadPixels(renderer_, nullptr);
-    if (surface == nullptr) {
-        log::error("Cannot read pixels for screenshot: {}", SDL_GetError());
-        return;
-    }
-    const auto utf8 = path.u8string();
-    if (SDL_SaveBMP(surface, reinterpret_cast<const char*>(utf8.c_str()))) {
-        log::info("Saved screenshot {} ({}x{})", path.string(), surface->w, surface->h);
-    } else {
-        log::error("Cannot save screenshot {}: {}", path.string(), SDL_GetError());
-    }
-    SDL_DestroySurface(surface);
+    ++stats_.draw_calls;
 }
 
 // 순서표에 적힌 대로 하나씩 그려요.
+// (맨 앞 단계 Ground부터 맨 뒤 단계 DebugOverlay까지 = 전부)
 void Renderer::submit(const RenderQueue& queue) {
-    for (const DrawCommand& cmd : queue.commands()) {
-        if (cmd.kind == DrawCommand::Kind::Sprite) {
-            draw_sprite(cmd.sprite);
-        } else {
-            fill_rect(cmd.rect, cmd.color);
-        }
-    }
+    submit(queue, DrawLayer::Ground, DrawLayer::DebugOverlay);
 }
 
 // 정해진 단계(first~last)의 명령만 그려요. 순서표는 단계 순으로 줄 서 있어요.

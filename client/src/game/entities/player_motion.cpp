@@ -42,6 +42,9 @@ void PlayerMotion::press_cast() {
 }
 
 CharacterState PlayerMotion::state() const {
+    if (dead()) {
+        return CharacterState::Dead;  // 쓰러짐이 무엇보다 먼저: 표가 모든 행동을 막아요 (12b)
+    }
     if (hit_.staggered()) {
         return CharacterState::Hit;  // 경직이 가장 먼저: 표가 모든 행동을 막아요 (11c)
     }
@@ -116,6 +119,10 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     const auto dt = static_cast<float>(dt_seconds);
     attack_started_ = false;
     spell_released_ = false;
+    if (dead()) {  // 9) 쓰러졌으면 아무 행동도 안 해요 (12b)
+        step_dead(dt_seconds, map);
+        return false;
+    }
 
     // 1) 구르기 먼저: 버튼을 같이 눌렀으면 피하는 쪽이 이겨요.
     const bool dodge = try_dodge();
@@ -157,17 +164,39 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     return started;
 }
 
+// 쓰러진 박자: 버튼 메모는 흘려보내고(0.15초 뒤 사라져요), 다리는 멈춘 채,
+// 마지막 한 방의 넉백만 벽을 따라 끝까지 밀려나요. 스태미나·MP는 차지 않아요.
+void PlayerMotion::step_dead(double dt_seconds, const world::MapData& map) {
+    (void)mover_.step(dt_seconds, {}, false, map, false);  // 다리: 가만히 (위치 기록도 이어져요)
+    mover_.shove(hit_.step(static_cast<float>(dt_seconds)), map);  // 넉백은 끝까지
+    buffer_.tick(dt_seconds);                               // 눌렀던 버튼은 그냥 잊혀요
+}
+
 bool PlayerMotion::can_be_hit() const {
-    return !hit_.invulnerable() && !mover_.invulnerable();  // 피격 무적도, 구르기 무적도 아니면 (11c)
+    // 쓰러져 있지 않고(12b), 피격 무적도, 구르기 무적도 아니면 (11c)
+    return !dead() && !hit_.invulnerable() && !mover_.invulnerable();
 }
 
 int PlayerMotion::take_hit(int amount, engine::Vec2 direction, float knockback) {
+    if (dead()) {
+        return 0;       // 이미 쓰러졌으면 더 맞지 않아요 (12b)
+    }
     attack_.cancel();   // 휘두르던 칼은 끊겨요 (상태 표: attacking -> hit)
     caster_.cancel();   // 모으던 마술도 끊겨요. 먼저 낸 MP는 돌아오지 않아요 (casting -> hit)
     mover_.halt();      // 걷던 힘·구르던 힘도 끊겨요
-    const int taken = health_.take(amount);  // HP 깎기 (11c 임시: 1 아래로는 안 내려가요)
-    hit_.start(direction, knockback);         // 경직·무적·넉백 시작
+    const int taken = health_.take(amount);  // HP 깎기 (12b: 0까지 내려가면 쓰러져요)
+    hit_.start(direction, knockback);         // 경직·무적·넉백 시작 (쓰러져도 넉백은 밀려나요)
     return taken;
+}
+
+HeroVitals PlayerMotion::vitals() const {
+    return {health_.current(), mana_.current(), stamina_.current(), stamina_.exhausted()};
+}
+
+void PlayerMotion::restore(const HeroVitals& vitals) {
+    health_.restore(vitals.hp);                            // HP (0~최대)
+    mana_.restore(vitals.mana);                            // MP (0~최대)
+    stamina_.restore(vitals.stamina, vitals.exhausted);    // 스태미나와 지침
 }
 
 engine::RectF PlayerMotion::hurtbox() const {

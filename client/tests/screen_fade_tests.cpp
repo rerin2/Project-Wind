@@ -63,4 +63,28 @@ TEST(ScreenFade, RemembersTransitionStyle) {
     EXPECT_EQ(fade.style(), ScreenTransition::Fade);
 }
 
+// 12c: 이번만 다른 길이(부활 0.8초). 밝아지기도 같은 길이이고, 다음 전환은 다시 기본 길이예요. 이상한 길이는 기본.
+TEST(ScreenFade, PerTripLength) {
+    using wind::world::ScreenTransition;
+    ScreenFade fade(0.2f);
+    fade.fade_out(ScreenTransition::Fade, 0.8f);
+    fade.update(0.5f);
+    EXPECT_EQ(fade.phase(), ScreenFade::Phase::FadingOut);  // 기본(0.2초)이면 이미 다 가려졌을 때
+    fade.update(0.31f);
+    EXPECT_EQ(fade.phase(), ScreenFade::Phase::Covered);
+    fade.fade_in();
+    fade.update(0.5f);
+    EXPECT_EQ(fade.phase(), ScreenFade::Phase::FadingIn);   // 밝아지기도 0.8초
+    fade.update(0.31f);
+    EXPECT_EQ(fade.phase(), ScreenFade::Phase::Clear);
+    fade.fade_out();                                        // 다음은 기본 0.2초
+    fade.update(0.21f);
+    EXPECT_EQ(fade.phase(), ScreenFade::Phase::Covered);
+    fade.fade_in();
+    fade.update(0.21f);
+    fade.fade_out(ScreenTransition::Fade, -1.0f);           // 음수는 기본 길이
+    fade.update(0.21f);
+    EXPECT_EQ(fade.phase(), ScreenFade::Phase::Covered);
+}
+
 }  // namespace

@@ -52,6 +52,10 @@ public:
     // 빛 지도를 지금까지 그린 그림 위에 곱해요. 빛이 없는 곳은 주변광만큼 어두워져요.
     // frame.enabled가 false면 아무것도 안 해요.
     void apply_lighting(const LightingFrame& frame);
+    // 흑백 입히기 (12b, 쓰러짐): 지금까지 그린 그림을 amount(0~1)만큼 회색으로 바꿔요.
+    // CPU로 읽어 와서 바꾸는 느린 방법이라, 0이면 아무것도 안 하고 쓰러져 있을 때만 불러요.
+    // 한 번 실패하면 기록을 남기고 그 뒤로는 시도하지 않아요 (매 화면 같은 오류를 쓰지 않게).
+    void apply_desaturation(float amount);
     // 그림 조각 하나 그리기
     void draw_sprite(const SpriteDraw& sprite);
     // 색칠한 네모 하나 그리기
@@ -103,6 +107,8 @@ private:
     SDL_Renderer* renderer_;  // 빌려 쓰는 SDL 붓
     SDL_Texture* frame_target_ = nullptr;  // 게임 화면을 먼저 그리는 640x360 작은 도화지
     SDL_Texture* light_target_ = nullptr;  // 빛 지도: 밝기를 칠하는 640x360 도화지
+    SDL_Texture* gray_scratch_ = nullptr;  // 흑백으로 바꾼 그림을 다시 올리는 640x360 텍스처 (12b)
+    bool desaturate_failed_ = false;       // 흑백이 한 번 실패했으면 다시 시도하지 않아요
     std::unordered_map<std::uint32_t, SDL_Texture*> textures_;  // 번호표 -> 스티커 종이 보관함
     std::uint32_t next_texture_id_ = 1;  // 다음에 줄 번호표 (0은 "없음"이라 1부터)
     Vec2 logical_size_;

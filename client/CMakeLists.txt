@@ -31,6 +31,7 @@ add_library(wind_engine_core STATIC
     src/engine/animation/animator.cpp
     src/engine/animation/sprite_sheet_loader.cpp
     src/engine/render/render_queue.cpp
+    src/engine/render/desaturate.cpp
     src/engine/fx/particle_pool.cpp
     src/engine/fx/particle_random.cpp
     src/engine/fx/particle_spawn.cpp
@@ -83,6 +84,8 @@ add_library(wind_game_core STATIC
     src/game/combat/combat_random.cpp
     src/game/combat/knock_sway.cpp
     src/game/combat/hit_stop.cpp
+    src/game/combat/slow_motion.cpp
+    src/game/combat/sim_time_scale.cpp
     src/game/combat/hit_resolution.cpp
     src/game/monsters/monster.cpp
     src/game/monsters/monster_moves.cpp
@@ -95,6 +98,7 @@ add_library(wind_game_core STATIC
     src/game/presentation/monster_marks.cpp
     src/game/presentation/hurt_vignette.cpp
     src/game/presentation/hero_blink.cpp
+    src/game/presentation/death_fx.cpp
     src/game/presentation/monster_view.cpp
     src/game/presentation/slash_arc.cpp
     src/game/presentation/ambient_particles.cpp
@@ -111,9 +115,11 @@ add_library(wind_game_core STATIC
     src/game/presentation/field_atmosphere.cpp
     src/game/world/game_clock.cpp
     src/game/world/map_travel.cpp
+    src/game/world/respawn_trigger.cpp
     src/game/ui/area_banner.cpp
     src/game/ui/delayed_bar.cpp
     src/game/ui/hud_bar_layout.cpp
+    src/game/ui/fallen_screen.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
@@ -134,6 +140,7 @@ add_executable(wind_client
     src/engine/ui/ui_painter.cpp
     src/engine/platform/sdl_platform.cpp
     src/engine/render/renderer.cpp
+    src/engine/render/frame_readback.cpp
     src/engine/render/surface_painter.cpp
     src/engine/render/text_renderer.cpp
     src/engine/resources/resource_manager.cpp
@@ -180,6 +187,8 @@ if(WIND_BUILD_TESTS)
         tests/combat_random_tests.cpp
         tests/knock_sway_tests.cpp
         tests/hit_stop_tests.cpp
+        tests/slow_motion_tests.cpp
+        tests/sim_time_scale_tests.cpp
         tests/hit_resolution_tests.cpp
         tests/field_combat_tests.cpp
         tests/monster_tests.cpp
@@ -187,6 +196,8 @@ if(WIND_BUILD_TESTS)
         tests/monster_view_tests.cpp
         tests/hurt_vignette_tests.cpp
         tests/hero_blink_tests.cpp
+        tests/death_fx_tests.cpp
+        tests/desaturate_tests.cpp
         tests/field_combat_fx_tests.cpp
         tests/slash_arc_tests.cpp
         tests/combat_view_tests.cpp
@@ -203,6 +214,7 @@ if(WIND_BUILD_TESTS)
         tests/area_banner_tests.cpp
         tests/delayed_bar_tests.cpp
         tests/hud_bar_layout_tests.cpp
+        tests/fallen_screen_tests.cpp
         tests/screenshot_name_tests.cpp
         tests/particle_effect_loader_tests.cpp
         tests/particle_spawn_tests.cpp
@@ -216,6 +228,7 @@ if(WIND_BUILD_TESTS)
         tests/iris_mask_tests.cpp
         tests/game_clock_tests.cpp
         tests/map_travel_tests.cpp
+        tests/respawn_trigger_tests.cpp
         tests/field_assets_tests.cpp
         tests/weather_system_tests.cpp
         tests/field_atmosphere_tests.cpp)

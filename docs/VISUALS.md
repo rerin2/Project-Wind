@@ -310,6 +310,18 @@ Code: `client/src/game/presentation/hurt_vignette.cpp`, `hero_blink.cpp`, `field
 | Accessibility | the vignette follows `--flash` (0 hides it); shake follows `--shake` | A full-screen red pulse counts as a flash for photosensitive players |
 | No number | no damage number over the hero (agreed with the developer) | Numbers are for enemies; the HUD HP bar (phase 12) will show the hero's HP |
 
+## Hero falling (phase 12b)
+
+Code: `client/src/game/presentation/death_fx.cpp` (timers), `player_sprite.cpp` (lying pose), `client/src/engine/render/desaturate.cpp` + `frame_readback.cpp` + `Renderer::apply_desaturation` (grayscale), `client/src/game/ui/fallen_screen.cpp` + `client/src/app/field_ui.cpp` (fallen screen). All of it only reads `PlayerMotion::dead()`; timers run on frame time.
+
+| Element | Look | Why |
+|---|---|---|
+| Lying pose | no fall frames exist yet, so the standing frame is rotated about its centre up to 90° over **0.35 s** (`InQuad`: tips slowly, then drops) and lowered **14 px** (rounded to whole pixels). Facing left falls to the left, any other facing to the right. No blink while fallen | The sprite centre is 22 px above the feet; 14 px down puts the lying body on the ground line. Reuses the current art (agreed); a real fall frame can replace it later |
+| Grayscale | the world (everything drawn before the HUD, including damage numbers) mixes toward luminance `(77R + 150G + 29B) / 256` by an amount that rises 0 → 1 over **1.5 s** (`OutQuad`). HUD bars and the fallen screen stay in colour | Spec 9.5. Same length as the slow motion. HUD colour kept so the empty red HP bar still reads (agreed) |
+| Grayscale method | the 640×360 frame target is read to the CPU (`SDL_RenderReadPixels`), converted to RGBA32, desaturated row by row, uploaded to a streaming texture and drawn back over the target. Only while the hero is down | Chosen with the developer: SDL_Renderer has no shader path. Cost measured on the dev machine (Debug build): about 144 → 66 FPS while fallen. If it fails once, it logs and stays off for the run |
+| Fallen screen | after **1.2 s**, a full-width black band (alpha 150, 48 px high, centred at **68 %** of the screen height) and the bold red text "쓰러졌다" (`#d64840`, same red as the HP bar) fade in over **0.8 s** (`OutCubic`) while rising 6 px; then "Enter: 바로 부활" (12c) fades in over 0.4 s (`OutQuad`) | The delay lets the slow motion and grayscale land first. The band sits below the centre because the camera keeps the fallen hero in the middle; the first try (centred band) covered the body |
+| Respawn fade (12c) | full-screen black fade, **0.8 s** out (`InQuad`) and **0.8 s** in (`OutQuad`), more than twice the 0.35 s map fade; the new map opens in colour with the area banner and a full HP bar that fills up | A slow "waking up" instead of a quick door change; the gray world fades to black and comes back in colour (agreed) |
+
 ## Dodge afterimages
 
 Code: `client/src/game/presentation/afterimage_trail.cpp`.

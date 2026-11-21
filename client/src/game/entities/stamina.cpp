@@ -4,6 +4,7 @@
 #include "game/entities/stamina.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace wind::game {
 
@@ -52,6 +53,16 @@ void Stamina::refill() {
     current_ = tuning_.max;
     regen_wait_ = 0.0f;
     exhausted_ = false;
+}
+
+void Stamina::restore(float stamina, bool exhausted) {
+    if (!std::isfinite(stamina)) {
+        return;  // 이상한 값은 무시
+    }
+    current_ = std::clamp(stamina, 0.0f, tuning_.max);
+    regen_wait_ = 0.0f;
+    // 지침은 들고 온 대로. 단, 다 찼으면 지침일 수 없고, 0이면 늘 지침이에요 (spend와 같은 규칙)
+    exhausted_ = current_ <= 0.0f || (exhausted && current_ < tuning_.exhausted_until);
 }
 
 float Stamina::fraction() const {

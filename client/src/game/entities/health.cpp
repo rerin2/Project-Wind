@@ -20,6 +20,10 @@ int Health::take(int amount) {
     return before - current_;                                        // 실제로 깎인 양
 }
 
+void Health::restore(int hp) {
+    current_ = std::clamp(hp, tuning_.floor, tuning_.max);  // 이상한 값도 범위 안으로
+}
+
 float Health::fraction() const {
     return static_cast<float>(current_) / static_cast<float>(tuning_.max);
 }

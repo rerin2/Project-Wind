@@ -5,6 +5,7 @@
 // - 구르기는 25를 쓰고, 25가 안 되면 구르지 않아요
 // - 다 쓰면 지침: 25까지 차야 다시 달리고 구를 수 있어요
 // - 11c: 맞으면 HP가 줄고 경직(행동 막힘)·넉백(벽 미끄러짐)·무적 0.6초, 구르기 처음 0.16초는 안 맞아요
+// - 12b: HP 0이면 쓰러짐(dead). 버튼·이동·스태미나·MP가 멈추고 더 맞지 않아요. 마지막 넉백은 끝까지 밀려요
 #include "game/entities/player_motion.hpp"
 
 #include "wind/combat/weapon.hpp"
@@ -436,6 +437,93 @@ TEST(PlayerMotion, HitCancelsAttack) {
     (void)player.take_hit(4, kRight, 160.0f);
     EXPECT_EQ(player.state(), CharacterState::Hit);   // 칼은 끊기고 경직
     EXPECT_FALSE(player.attack().busy());
+}
+
+// ---------------------------------------------------------------- 12b: 쓰러짐 ----
+
+TEST(PlayerMotion, ZeroHpMeansDead) {
+    auto player = make_player();
+    EXPECT_FALSE(player.dead());
+    EXPECT_EQ(player.take_hit(250, kRight, 0.0f), 100);  // 남은 100만 깎여요
+    EXPECT_EQ(player.health().current(), 0);
+    EXPECT_TRUE(player.dead());
+    EXPECT_EQ(player.state(), CharacterState::Dead);  // 경직(hit)보다 쓰러짐이 먼저
+}
+
+TEST(PlayerMotion, DeadHeroCannotActMoveOrBeHit) {
+    const auto map = open_map();
+    wind::combat::Weapon weapon;
+    wind::combat::AttackData swing;
+    swing.id = "s";
+    swing.windup = 0.1f;
+    swing.active = 0.1f;
+    swing.recovery = 0.2f;
+    weapon.combo.push_back(swing);
+    PlayerMotion player({100.0f, 300.0f}, wind::world::Direction::Right, MovementTuning{}, StaminaTuning{}, 0.15,
+                        weapon);
+    run_for(player, 30, kRight, true, map);         // 달려서 스태미나를 조금 써 둬요
+    (void)player.take_hit(1000, kRight, 0.0f);      // 넉백 없이 쓰러짐
+    ASSERT_TRUE(player.dead());
+    run_for(player, 30, Vec2{}, false, map);        // 미끄러지던 몸이 멈출 시간
+    const Vec2 lying = player.mover().feet();
+    const float stamina = player.stamina().current();
+    const float mana = player.mana().current();
+    for (int i = 0; i < 60; ++i) {                  // 1초 동안 모든 버튼을 눌러요
+        player.press_attack();
+        player.press_dodge();
+        player.press_cast();
+        player.step(kDt, Vec2{-1.0f, 0.0f}, true, map);
+        EXPECT_FALSE(player.attack_started());
+        EXPECT_EQ(player.state(), CharacterState::Dead);
+    }
+    EXPECT_EQ(player.mover().feet().x, lying.x);    // 한 픽셀도 안 움직여요
+    EXPECT_EQ(player.mover().feet().y, lying.y);
+    EXPECT_FALSE(player.attack().busy());
+    EXPECT_FLOAT_EQ(player.stamina().current(), stamina);  // 쓰러져 있으면 차지 않아요
+    EXPECT_FLOAT_EQ(player.mana().current(), mana);
+    EXPECT_FALSE(player.can_be_hit());                      // 무적이 끝나도 안 맞아요
+    EXPECT_EQ(player.take_hit(10, kRight, 160.0f), 0);      // 더 맞지 않고, 밀리지도 않아요
+    player.step(kDt, Vec2{}, false, map);
+    EXPECT_EQ(player.mover().feet().x, lying.x);
+}
+
+// ---------------------------------------------------------------- 12c: 맵을 옮길 때 들고 가기 ----
+
+TEST(PlayerMotion, VitalsCarryOverToANewBody) {
+    const auto map = open_map();
+    auto before = make_player();
+    (void)before.take_hit(40, kRight, 0.0f);   // HP 60
+    run_for(before, 30, kRight, true, map);    // 달려서 스태미나를 써요
+    const auto carried = before.vitals();
+    EXPECT_EQ(carried.hp, 60);
+    EXPECT_LT(carried.stamina, 100.0f);
+
+    auto after = make_player();                // 새 맵의 새 몸 (가득 찬 채 태어나요)
+    after.restore(carried);
+    EXPECT_EQ(after.health().current(), 60);   // 다시 차지 않아요
+    EXPECT_FLOAT_EQ(after.stamina().current(), carried.stamina);
+    EXPECT_FLOAT_EQ(after.mana().current(), carried.mana);
+    EXPECT_FALSE(after.dead());
+}
+
+TEST(PlayerMotion, RestoreClampsBadValuesAndKeepsExhaustion) {
+    auto player = make_player();
+    player.restore({500, -10.0f, 10.0f, true});    // 최대보다 큰 HP, 음수 MP, 지친 스태미나 10
+    EXPECT_EQ(player.health().current(), 100);
+    EXPECT_FLOAT_EQ(player.mana().current(), 0.0f);
+    EXPECT_FLOAT_EQ(player.stamina().current(), 10.0f);
+    EXPECT_TRUE(player.stamina().exhausted());     // 25까지 차기 전이라 계속 지쳐 있어요
+    player.restore({-5, 20.0f, 100.0f, true});     // 음수 HP는 0, 가득 찬 스태미나는 지침이 아니에요
+    EXPECT_EQ(player.health().current(), 0);
+    EXPECT_FALSE(player.stamina().exhausted());
+}
+
+TEST(PlayerMotion, FatalHitStillKnocksBack) {
+    const auto map = open_map();
+    auto player = make_player();
+    (void)player.take_hit(1000, kRight, 160.0f);  // 마지막 한 방도 24픽셀 밀려나요 (넉백은 끝까지)
+    run_for(player, 30, Vec2{}, false, map);
+    EXPECT_NEAR(player.mover().feet().x, 124.0f, 0.5f);
 }
 
 }  // namespace

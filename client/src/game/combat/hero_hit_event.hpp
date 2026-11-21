@@ -9,7 +9,8 @@
 namespace wind::game {
 
 struct HeroHitEvent {
-    int amount = 0;           // 깎인 HP (HP가 1이면 0일 수도 있어요, 11c 임시 규칙)
+    int amount = 0;           // 깎인 HP (남은 HP보다 많이는 안 깎여요)
+    bool fatal = false;       // 이 한 방에 HP가 0이 되어 쓰러졌나 (12b: 슬로모션·흑백이 시작돼요)
     engine::Vec2 at;          // 맞은 곳 (주인공 맞는 상자 가운데)
     engine::Vec2 direction;   // 밀린 방향 (길이 1, 덮친 방향)
     float knockback = 0.0f;   // 밀어낸 힘 (픽셀/초)

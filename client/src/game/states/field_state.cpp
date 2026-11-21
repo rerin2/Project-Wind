@@ -154,20 +154,21 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     const engine::Vec2 direction = intent_.direction(bindings, input);
     // 구르기·달리기는 스태미나 규칙에 맞을 때만 돼요 (PlayerMotion이 확인해요).
     const bool run = bindings.held(Action::Run, input);
-    // 히트스톱: 시뮬레이션 시간 = 박자 × 배수(멈칫 중이면 0). 이 배수가 시간을 멈추는 유일한 길이에요 (명세 3.2).
-    const double sim_dt = dt_seconds * hit_stop_.time_scale();
+    // 시뮬레이션 시간 = 박자 × 배수 (멈칫 중이면 0, 쓰러진 직후면 0.3~1). 시간을 바꾸는 유일한 길이에요 (명세 3.2).
+    const double sim_dt = dt_seconds * time_scale_.scale();
     if (player_.step(sim_dt, direction, run, map_.map)) {
         // 구르기 시작! 연출(먼지 팍)은 다음 frame_update에서 해요.
         dodge_burst_ = engine::normalized(player_.mover().velocity());
     }
     combat_.step(sim_dt, player_, map_.map);  // 칼 판정, 빛 탄 만들기·날리기, 피해·넉백 주기
-    hit_stop_.update(static_cast<float>(dt_seconds));  // 멈춤은 진짜 시간으로 줄어요
-    hit_stop_.trigger(combat_.strongest_hitstop());  // 이번에 누가 맞았으면(주인공도, 11c) 다음 박자부터 멈칫
+    // 멈춤·느림은 진짜 시간으로 줄고, 이번에 누가 맞았으면 멈칫, 주인공이 쓰러졌으면 슬로모션 (12b)
+    time_scale_.update(static_cast<float>(dt_seconds), combat_.strongest_hitstop(), combat_.hero_fell());
     combat_fx_.collect(combat_);  // 맞은 일·사라진 빛 탄은 다음 frame_update에서 연출해요 (안 빠지게 모아 둬요)
 
     // 출구 확인: 발이 출구 칸에 들어가면 "다른 맵으로 가 주세요" 요청을 남겨요.
     // 출구가 아닌 칸을 한 번 밟은 뒤에만 출구가 동작해요(무장). 그래야 출구 바로 옆에서
-    // 나타났을 때 곧장 되돌아가는 일이 없어요.
+    // 나타났을 때 곧장 되돌아가는 일이 없어요. 쓰러진 몸이 넉백으로 출구에 밀려 들어가도 떠나지 않아요 (12c).
+    if (player_.dead()) return;
     const world::MapExit* exit = map_.map.exit_at(engine::world_to_tile(player_.mover().feet(), map_.map.tile_size));
     if (exit == nullptr) {
         exit_armed_ = true;
@@ -206,8 +207,9 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     lighting_.update(dt, feet, fx_random_, air_fx_);
     air_fx_.update(dt);
 
-    // 주인공 그림: 동작 그림 넘기기와 구르기 잔상
+    // 주인공 그림: 동작 그림 넘기기와 구르기 잔상. 쓰러졌으면 흑백·눕기 시계가 흘러요 (12b)
     sprite_.update(dt_seconds, player_.mover(), feet);
+    death_fx_.update(dt, player_.dead());
 
     // 카메라: 가는 쪽을 조금 더 보여 주면서 캐릭터 몸 가운데를 따라가고, 흔들림을 얹어요.
     camera_rig_.follow(feet, player_.mover().velocity(), player_.mover().speed(),
@@ -227,8 +229,9 @@ void FieldState::render(engine::RenderQueue& queue) {
     queue_shadow(camera_rig_.camera(), textures_.shadow(), feet, textures_.shadow_size(), queue);
 
     // 3) 잔상, 플레이어, 먼지: 모두 발 위치(y)로 줄을 서요.
-    const float blink = hero_blink_alpha(player_.hit_reaction());  // 맞은 뒤 무적이면 깜빡여요 (11c)
-    sprite_.queue(camera_rig_.camera(), feet, player_.mover().facing(), queue, blink);
+    // 맞은 뒤 무적이면 깜빡여요 (11c). 쓰러졌으면 깜빡이지 않고 옆으로 누워요 (12b)
+    const float blink = player_.dead() ? 1.0f : hero_blink_alpha(player_.hit_reaction());
+    sprite_.queue(camera_rig_.camera(), feet, player_.mover().facing(), queue, blink, death_fx_.lying());
     // 허수아비·HP 바·번쩍임, 칼자국, 손끝 빛·빛 탄 (F4면 판정 상자)
     combat_fx_.queue(camera_rig_.camera(), combat_, player_, static_cast<float>(alpha_), show_collision_, queue);
     engine::queue_particles(ground_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::YSorted, queue);

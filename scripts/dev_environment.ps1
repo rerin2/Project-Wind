@@ -5,6 +5,12 @@
 # 여기서 $ErrorActionPreference를 바꾸지 않는다. 이 파일은 dot-source되므로
 # 'Stop'이 호출한 쪽에 남아 외부 도구의 stderr 출력까지 치명적 오류로 바뀌기 때문이다.
 
+# 컴파일러 메시지를 늘 영어로 고정한다 (1033 = 영어).
+# Ninja는 cl의 "포함 파일" 줄(/showIncludes)을 읽어 헤더 의존성을 기록하는데, 그 줄의 말머리를 configure 때 한 번 정해 둔다.
+# 한국어 Windows에서는 출력을 파일로 돌리느냐에 따라 cl이 한국어("참고: 포함 파일:")와 영어("Note: including file:")를
+# 오가서, 말머리가 안 맞으면 의존성이 0개로 기록되고 헤더를 고쳐도 .cpp가 다시 컴파일되지 않았다 (12c에서 발견).
+$env:VSLANG = '1033'
+
 # 이미 불러온 세션이면 아무것도 하지 않는다.
 if (Get-Command cl.exe -ErrorAction SilentlyContinue) {
     Write-Host 'MSVC environment already loaded.'

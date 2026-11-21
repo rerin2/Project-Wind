@@ -155,7 +155,7 @@ Longsword hit 1 (90) peaks at about 4 px; hit 3 (160) at about 7–8 px; the sta
 
 ## Hitstop (phase 10a)
 
-Code: `client/src/game/combat/hit_stop.*`, `client/src/game/states/field_state.cpp`. Tested in `hit_stop_tests.cpp`.
+Code: `client/src/game/combat/hit_stop.*`, `sim_time_scale.*` (multiplies hitstop with the 12b slow motion), `client/src/game/states/field_state.cpp`. Tested in `hit_stop_tests.cpp`, `sim_time_scale_tests.cpp`.
 
 - When a hit lands, the field simulation (hero, dummies, shards) freezes for the attack's `hitstop` seconds. Spec 3.2: the only way it reaches the simulation is the time scale, `sim_dt = step × time_scale` (0 while frozen, 1 otherwise). Nothing is moved or skipped; frozen steps simply advance by 0.
 - The freeze counts down in real step time and starts on the step after the hit. A second hit during a freeze keeps the **longer** of the two (no stacking); values are capped at 0.5 s.
@@ -279,8 +279,8 @@ Code: `client/src/game/monsters/monster.*`, `client/src/game/combat/hit_resoluti
 Code: `client/src/game/entities/health.*`, `hit_reaction.*`, `player_motion.*`, `client/src/game/states/field_combat.*` (`resolve_monster_attacks`). Tested in `health_tests.cpp`, `hit_reaction_tests.cpp`, `player_motion_tests.cpp`, `field_combat_tests.cpp`.
 
 - **When:** each fixed step after monsters move, a lunging monster's attack hitbox is checked against the hero hurtbox (14 × 30 px above the feet). A hit needs: overlap, the hero not invulnerable, and the first hit of this lunge (`Monster::claim_hit`). If the hero is invulnerable the lunge stays "unused", so it can still land if the invulnerability ends while the lunge is active.
-- **Damage:** `compute_damage(monster attack_power × attack power − hero defense)`; hero defense is 0 until equipment (phase 15). Green slime: `attack_power` × 1.0 − 0. The data now has `attack_power` **40** (changed by the developer in the 11c commit; it was 4), so a lunge deals 40 and three lunges bring the hero to the HP floor of 1. Tests read the value from the data file, so tuning it does not break them.
-- **HP:** max **100** (spec 8.2, vigor 10). Temporary rule until phase 12 (agreed 2026-11-17): HP never drops below **1**; phase 12 changes the floor to 0 and adds death.
+- **Damage:** `compute_damage(monster attack_power × attack power − hero defense)`; hero defense is 0 until equipment (phase 15). Green slime: `attack_power` × 1.0 − 0. The data now has `attack_power` **40** (changed by the developer in the 11c commit; it was 4), so a lunge deals 40 and three lunges make the hero fall (40 + 40 + the last 20). Tests read the value from the data file, so tuning it does not break them.
+- **HP:** max **100** (spec 8.2, vigor 10). Since 12b HP goes down to **0** and the hero falls (see "Hero falling"). The 11c temporary floor of 1 is gone; `HealthTuning::floor` stays only for tests.
 - **Stagger (`hit`):** **0.3 s**. The state table blocks attacking, dodging and casting; the legs stop; a running attack and a cast are cancelled (MP already paid is not refunded); walking or dodge momentum stops. Buttons pressed during the stagger stay in the 0.15 s input buffer.
 - **Knockback:** along the lunge direction, starting at the attack's `knockback` (slime 160 px/s) and slowing evenly to 0 at the end of the stagger, so the distance is knockback × stagger ÷ 2 (**24 px**). It moves the feet box with `move_and_slide`, so a wall stops it on one axis and the hero slides along the wall on the other.
 - **Invulnerability:** **0.6 s** after a hit (spec 9.4). The first **0.16 s** of a dodge are invulnerable too (`dodge_invulnerable_seconds`, pulled into 11c from phase 12, agreed).
@@ -292,6 +292,26 @@ Code: `client/src/game/entities/health.*`, `hit_reaction.*`, `player_motion.*`, 
 | stagger | 0.3 s | Long enough to feel the hit and see the push; short enough that the 0.6 s invulnerability leaves time to act before the next hit |
 | invulnerability | 0.6 s | Spec 9.4 default; also how long the red vignette fades |
 | hurtbox | 14 × 30 px, from 30 px above the feet | Body of the 32 × 48 sprite without the ears and hair edge, same width as the feet box |
+
+## Hero falling and respawning (phases 12b, 12c, spec 9.5)
+
+Code: `client/src/game/entities/player_motion.*` (`dead`, `step_dead`, `vitals`, `restore`), `health.*`, `client/src/game/combat/slow_motion.*`, `sim_time_scale.*`, `client/src/game/states/field_combat.*` (`hero_fell`), `client/src/game/world/respawn_trigger.*`, `map_travel.*`, `client/src/app/client_app.cpp` (respawn and carrying vitals). Tested in `respawn_trigger_tests.cpp`, `map_travel_tests.cpp`, `screen_fade_tests.cpp`, `health_tests.cpp`, `player_motion_tests.cpp`, `slow_motion_tests.cpp`, `sim_time_scale_tests.cpp`, `field_combat_tests.cpp`.
+
+- **When:** a hit takes HP to **0** (damage above the remaining HP only removes what is left). The hero's state becomes `dead` before anything else, even during the stagger.
+- **While dead:** buttons do nothing (presses expire from the 0.15 s buffer), the legs stop, stamina and MP do not refill, and the hero cannot be hit (`can_be_hit` is false, `take_hit` returns 0). Only the knockback of the fatal hit keeps sliding to its end (24 px for a slime), so the body lands where the hit pushed it.
+- **Monsters:** they see no hero (`std::nullopt`). A chasing, winding-up or recovering monster gives up and walks home, then rests and wanders as usual. The fallen body is left out of body separation, so monsters can walk over it.
+- **Slow motion:** the step after the fatal hit, the simulation time scale drops to **0.3** and returns to **1** over **1.5 s** of real step time with `InQuad` (stays slow for most of the time, then catches up). It is a time scale like hitstop (spec 3.2): `sim_dt = step × hitstop_scale × slow_scale` (`SimTimeScale`). If the fatal hit also has hitstop, the freeze comes first and the slow motion continues after it. Knockback distance and projectile paths are the same as at normal speed, only slower (tested).
+- **A fallen body never leaves the map:** exits are not checked while the hero is dead, so knockback that pushes the body onto an exit tile does not start a map change.
+- **When to respawn (12c, agreed 2026-11-22):** `RespawnTrigger` starts counting once the fallen screen is fully shown (2.0 s after falling). **Enter** respawns at once; otherwise it respawns by itself after **2.5 s**. If the map cannot be opened the hero stays down and the trigger fires again 2.5 s later.
+- **Where:** the current map's `default` spawn (agreed; from phase 13 the last cat-nip cushion). The map is read again, so HP, MP and stamina start full and defeated monsters are back (spec 9.5). Rune loss comes with runes in phase 13.
+- **Carrying HP between maps (12c, agreed):** a normal exit no longer refills the hero. Before the new field replaces the old one, `HeroVitals` (HP, MP, stamina, exhausted) is read from the old hero and given to the new one (`PlayerMotion::restore`, every value clamped to its range). Only a respawn starts full. This closes the "walk between maps to heal" hole noted in 12a; phase 16 can save the same values.
+
+| Falling and respawning | Value | Why |
+|---|---|---|
+| slow start | 0.3× | Slow enough to watch the fall and the last knockback; not a full stop, so the world still feels alive (agreed) |
+| slow length | 1.5 s real time, `InQuad` back to 1× | Matches the grayscale fade, so the world reaches full speed just as it turns fully gray (agreed) |
+| auto respawn | 2.5 s after the fallen screen is fully shown (4.5 s after falling) | Long enough to read "쓰러졌다" and feel the loss; short enough not to stall. Never stuck if no key is pressed (agreed) |
+| respawn key | Enter (`Confirm`) | Skips the wait; not a combat key, so a panicked attack press cannot skip the fallen screen |
 
 ## Bodies pushing apart (phase 11c, spec 7.3)
 
@@ -318,7 +338,7 @@ Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `charact
 | dead | transitioning, idle (respawn) |
 | transitioning | idle |
 
-For now the hero uses idle, moving, running, attacking, casting, dodging and hit (11c); F3 shows the state and the combo hit (`attacking 2`).
+For now the hero uses idle, moving, running, attacking, casting, dodging, hit (11c) and dead (12b); F3 shows the state and the combo hit (`attacking 2`).
 
 ## Time
 

@@ -12,6 +12,8 @@
 //   5) 몬스터를 움직여요 (11a·11b). 몬스터 주사위는 치명타 주사위와 따로 굴려요.
 //   6) 덮치는 몬스터의 판정이 주인공 맞는 상자에 닿으면 주인공이 맞아요 (덮치기 한 번에 한 번, 무적이면 안 맞음, 11c).
 //   7) 겹친 몸(주인공·몬스터, 몬스터끼리)을 부드럽게 떼어 놓아요 (명세 7.3, 11c).
+// - 주인공이 쓰러지면(12b) 몬스터에게는 주인공이 "없음"으로 보여서 포기하고 제자리로 돌아가요.
+//   쓰러진 몸은 밀어내기에서도 빠져요.
 // - 이번 박자에 맞은 일, 사라진 빛 탄, 마지막으로 맞은 일을 기억해요 (연출과 F3 정보판이 봐요).
 // 게임 규칙이라 SDL을 몰라요.
 
@@ -60,6 +62,8 @@ public:
     [[nodiscard]] const std::vector<MonsterVanishEvent>& vanished() const { return vanished_; }
     // 이번 박자에 맞은 일(허수아비·주인공) 중 가장 긴 멈칫 시간 (아무도 안 맞았으면 0). 히트스톱에 넘겨요.
     [[nodiscard]] float strongest_hitstop() const;
+    // 이번 박자에 주인공이 마지막 한 방을 맞고 쓰러졌나요? (12b: 슬로모션 시작)
+    [[nodiscard]] bool hero_fell() const;
     // 마지막으로 맞은 일 (F3 정보판용)
     [[nodiscard]] const std::optional<HitEvent>& last_hit() const { return last_hit_; }
     // F3 정보판의 싸움 줄: "dummies 2  mobs 2 (chase)  shards 1  last hit 14 -> #1 86/100 (down)"

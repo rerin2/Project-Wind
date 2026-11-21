@@ -22,6 +22,8 @@
 //   6) 스태미나는 쓰지 않았으면 0.6초 뒤부터 다시 참, MP는 박자마다 조금씩 참
 //   7) 시전이 끝난 박자에는 spell_released()가 true예요 (FieldCombat이 빛 탄을 만들어요)
 //   8) 경직 중에는 상태가 hit이라 표가 모든 행동을 막고, 다리도 멈추고, 넉백만큼 밀려나요 (벽 미끄러짐, 11c)
+//   9) HP가 0이면 쓰러짐(dead, 12b): 버튼·다리·스태미나·MP가 모두 멈추고 맞지도 않아요.
+//      마지막 한 방의 넉백만 끝까지 밀려나요. 일어나기(부활)는 맵을 새로 여는 것으로 해요 (12c).
 // 어떤 상태에서 무엇을 시작할 수 있는지는 상태 전이 표(character_state)를 따라요.
 // SDL을 몰라서 창 없이 테스트할 수 있어요.
 
@@ -30,6 +32,7 @@
 #include "game/combat/spell_caster.hpp"
 #include "game/entities/character_state.hpp"
 #include "game/entities/health.hpp"
+#include "game/entities/hero_vitals.hpp"
 #include "game/entities/hit_reaction.hpp"
 #include "game/entities/mana.hpp"
 #include "game/entities/mover.hpp"
@@ -71,16 +74,24 @@ public:
     bool register_hit(TargetId target) { return attack_.register_hit(target); }
 
     // 지금 맞을 수 있나요? 피격 무적(맞은 뒤 0.6초)이나 구르기 무적(구르기 처음 0.16초)이면 안 맞아요 (11c)
+    // 쓰러져 있어도 안 맞아요 (12b)
     [[nodiscard]] bool can_be_hit() const;
     // 맞았어요 (FieldCombat이 불러요): HP를 깎고, 하던 공격·시전·구르기를 끊고, 경직·무적·넉백을 시작해요.
     // direction: 밀려날 쪽 (길이 1), knockback: 밀어내는 힘 (픽셀/초). 실제로 깎인 HP를 돌려줘요.
+    // 쓰러져 있으면 아무것도 안 하고 0이에요.
     int take_hit(int amount, engine::Vec2 direction, float knockback);
+    // HP가 0이라 쓰러져 있나요? (12b)
+    [[nodiscard]] bool dead() const { return health_.empty(); }
+    // 지금 HP·MP·스태미나 (12c: 맵을 옮길 때 새 필드로 들고 가요)
+    [[nodiscard]] HeroVitals vitals() const;
+    // 들고 온 HP·MP·스태미나로 맞춰요 (12c). 각 통이 범위 안으로 잘라요.
+    void restore(const HeroVitals& vitals);
     // 맵 위의 맞는 상자 (픽셀)
     [[nodiscard]] engine::RectF hurtbox() const;
     // 밖에서 밀어요 (11c: 몸끼리 밀어내기). 벽에 닿으면 벽을 따라 미끄러져요.
     void shove(engine::Vec2 delta, const world::MapData& map) { mover_.shove(delta, map); }
 
-    // 지금 상태 (idle, moving, running, attacking, casting, dodging, hit)
+    // 지금 상태 (idle, moving, running, attacking, casting, dodging, hit, dead)
     [[nodiscard]] CharacterState state() const;
     // 이번 박자에 공격(또는 다음 콤보)을 시작했나 (연출용)
     [[nodiscard]] bool attack_started() const { return attack_started_; }
@@ -103,6 +114,8 @@ private:
     bool try_dodge();
     void try_attack(engine::Vec2 move);
     void try_cast(engine::Vec2 move);
+    // 쓰러져 있는 한 박자: 다리를 세우고 마지막 넉백만 이어가요 (12b)
+    void step_dead(double dt_seconds, const world::MapData& map);
 
     Mover mover_;
     Stamina stamina_;

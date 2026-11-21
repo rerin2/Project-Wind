@@ -28,6 +28,8 @@ public:
     void update(float dt_seconds);
     // 가득 채워요 (쉬기, 부활).
     void refill();
+    // 맵을 옮길 때 들고 온 MP로 맞춰요 (12c). 0~최대로 자르고, 이상한 값(NaN)이면 그대로 둬요.
+    void restore(float mana);
 
     [[nodiscard]] float current() const { return current_; }
     [[nodiscard]] float max() const { return tuning_.max; }

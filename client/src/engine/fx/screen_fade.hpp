@@ -22,8 +22,9 @@ public:
 
     // 어두워지기 시작. 다 까매지면 Covered가 돼요.
     // style: 화면 전체를 어둡게(Fade) 할지, 둥근 구멍이 오므라들게(Iris) 할지
-    void fade_out(world::ScreenTransition style = world::ScreenTransition::Fade);
-    // 밝아지기 시작. 다 밝아지면 Clear가 돼요.
+    // seconds: 이번 전환만 다른 길이로 (0 이하나 이상한 값이면 기본 길이). 다음 fade_in도 같은 길이예요 (12c 부활).
+    void fade_out(world::ScreenTransition style = world::ScreenTransition::Fade, float seconds = 0.0f);
+    // 밝아지기 시작. 다 밝아지면 Clear가 돼요. 마지막 fade_out과 같은 길이예요.
     void fade_in();
     void update(float dt_seconds);
 
@@ -36,7 +37,8 @@ public:
     [[nodiscard]] bool busy() const { return phase_ != Phase::Clear; }
 
 private:
-    float seconds_;
+    float seconds_;        // 기본 길이
+    float trip_seconds_;   // 이번 전환의 길이 (fade_out이 정해요)
     Phase phase_ = Phase::Clear;
     world::ScreenTransition style_ = world::ScreenTransition::Fade;
     Tween tween_;

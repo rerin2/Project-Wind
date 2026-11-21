@@ -34,6 +34,17 @@ constexpr float kBannerGap = 8.0f;      // 이름과 선 사이
 constexpr float kBannerMaxWidth = 280.0f;
 constexpr engine::Color kBannerBand{0, 0, 0, 96};  // 뒤에 깔리는 반투명 띠
 
+// "쓰러졌다" 화면 (12b): 주인공 아래쪽 가로 띠, 그 위에 붉은 글자, 아래에 작은 안내
+constexpr std::string_view kFallenText = "쓰러졌다";
+constexpr std::string_view kFallenHint = "Enter: 바로 부활";  // 12c: 안 누르면 2.5초 뒤 저절로 부활해요
+constexpr float kFallenBandHeight = 48.0f;                    // 띠 높이
+// 띠 가운데 높이 (화면 높이의 비율). 카메라가 쓰러진 주인공을 화면 가운데에 두니까, 띠는 그 아래에 둬서 몸을 가리지 않아요.
+constexpr float kFallenBandCenter = 0.68f;
+constexpr engine::Color kFallenBand{0, 0, 0, 150};            // 띠 색 (흑백 화면 위라 조금 진하게)
+constexpr engine::Color kFallenColor{214, 72, 64, 255};       // 글자 (HP 바와 같은 빨강 #d64840)
+constexpr float kFallenHintGap = 4.0f;                        // 글자와 안내 사이
+constexpr float kFallenTextTop = 8.0f;                        // 띠 위쪽에서 글자까지
+
 game::DelayedBarTuning stamina_tuning() {
     game::DelayedBarTuning tuning;
     tuning.auto_hide = true;  // 가득 차 있으면 흐려져요 (명세 13.2)
@@ -108,6 +119,7 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     mana_denied_seen_ = hud.mana_denied;
     mana_blink_ = std::max(0.0f, mana_blink_ - dt_seconds);
     banner_.update(dt_seconds);
+    fallen_.update(dt_seconds, hud.fallen);
     panel_.update(dt_seconds);
 }
 
@@ -116,6 +128,7 @@ void FieldUi::draw_hud(engine::UiPainter& painter, engine::Vec2 screen) {
     draw_stamina(painter);
     draw_mana(painter);
     draw_banner(painter, screen);
+    draw_fallen(painter, screen);  // HUD 위, 화면 전환 가림막 아래 (부활 페이드와 함께 어두워져요)
 }
 
 void FieldUi::draw_panels(engine::UiPainter& painter, engine::Vec2 screen) {
@@ -178,6 +191,36 @@ void FieldUi::draw_banner(engine::UiPainter& painter, engine::Vec2 screen) {
     style.align = engine::TextAlign::Center;
     style.max_lines = 1;
     painter.text({x, y, text_w, height}, banner_.name(), style, alpha);
+}
+
+// "쓰러졌다": 주인공 아래쪽 띠가 진해지고, 붉은 글자가 살짝 올라오며 나타나요. 다 나타나면 안내가 떠요.
+void FieldUi::draw_fallen(engine::UiPainter& painter, engine::Vec2 screen) {
+    if (!fallen_.visible()) {
+        return;
+    }
+    const float alpha = fallen_.alpha();
+    const auto font = engine::FontStyle::Bold;
+    const float line = painter.line_height(font);
+    const float band_y = std::round(screen.y * kFallenBandCenter - kFallenBandHeight * 0.5f);  // 띠 위쪽 (주인공 아래)
+    painter.renderer().fill_rect({0.0f, band_y, screen.x, kFallenBandHeight}, engine::with_alpha(kFallenBand, alpha));
+
+    engine::TextStyle style;
+    style.font = font;
+    style.color = kFallenColor;
+    style.align = engine::TextAlign::Center;
+    style.max_lines = 1;
+    // 글자는 띠 위쪽 절반 가운데, 나타날 때 아래에서 올라와요
+    const float text_y = std::round(band_y + kFallenTextTop + fallen_.drop());
+    painter.text({0.0f, text_y, screen.x, line}, kFallenText, style, alpha);
+
+    const float hint = fallen_.hint_alpha();
+    if (hint <= 0.0f) {
+        return;  // 안내는 글자가 다 나타난 뒤에
+    }
+    style.font = engine::FontStyle::Regular;
+    style.color = painter.theme().text;
+    painter.text({0.0f, text_y + line + kFallenHintGap, screen.x, painter.line_height(style.font)}, kFallenHint, style,
+                 hint);
 }
 
 }  // namespace wind::client

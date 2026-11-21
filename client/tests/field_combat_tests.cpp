@@ -294,7 +294,7 @@ TEST(FieldCombat, SlimeLungeHitsHeroOncePerLunge) {
     // 피해 = 공격력 × 위력 - 방어 0 (최소 1). 숫자는 데이터 파일에서 와서, 슬라임을 고쳐도 규칙만 검사해요
     const auto& slime = combat.monsters()[0];
     const int expected = std::max(1, static_cast<int>(slime.data().attack_power * slime.attack()->power));
-    const int expected_hp = std::max(1, 100 - expected);  // HP는 1 아래로 안 내려가요 (11c 임시 규칙)
+    const int expected_hp = std::max(0, 100 - expected);  // HP는 0 아래로 안 내려가요 (12b)
     EXPECT_EQ(hits[0].amount, 100 - expected_hp);
     EXPECT_EQ(player.health().current(), expected_hp);
     EXPECT_LT(hits[0].direction.x, 0.0f);            // 왼쪽으로 덮쳤으니 왼쪽으로 밀려요
@@ -315,6 +315,47 @@ TEST(FieldCombat, InvulnerableHeroIsNotHit) {
     (void)player.take_hit(0, {0.0f, 1.0f}, 0.0f);  // 덮치기 직전에 무적 0.6초를 켜 둬요
     EXPECT_TRUE(stand_for(player, combat, 20).empty());  // 덮치기(0.25초) 내내 무적이라 안 맞아요
     EXPECT_EQ(player.health().current(), 100);
+}
+
+// 12b: 가만히 서 있으면 슬라임에게 계속 맞아 쓰러지고(마지막 한 방만 fatal),
+// 쓰러진 뒤에는 더 맞지 않고 슬라임은 포기하고 제자리로 돌아가요. 쓰러진 몸은 밀어내지 않아요.
+TEST(FieldCombat, HeroFallsAndSlimeGoesHome) {
+    auto player = make_player();  // 발 (100, 300)
+    FieldCombat combat({}, 1, 0.0f, {make_slime(140.0f)});
+    const auto map = open_map();
+    int fatal = 0;
+    int fell_steps = 0;
+    int hits_after_death = 0;
+    for (int i = 0; i < 60 * 20 && !player.dead(); ++i) {  // 쓰러질 때까지 (최대 20초)
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        for (const auto& hit : combat.hero_hits()) fatal += hit.fatal ? 1 : 0;
+        fell_steps += combat.hero_fell() ? 1 : 0;
+    }
+    ASSERT_TRUE(player.dead());
+    EXPECT_EQ(player.health().current(), 0);
+    EXPECT_EQ(fatal, 1);       // 마지막 한 방만 fatal
+    EXPECT_EQ(fell_steps, 1);  // 쓰러진 박자는 딱 한 번
+    for (int i = 0; i < 30; ++i) {  // 마지막 한 방의 넉백(경직 0.3초)이 끝날 때까지
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        hits_after_death += static_cast<int>(combat.hero_hits().size());
+    }
+    const wind::engine::Vec2 body = player.mover().feet();  // 다 밀려난 뒤 누운 자리
+    for (int i = 0; i < 60 * 10; ++i) {  // 10초 더
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        hits_after_death += static_cast<int>(combat.hero_hits().size());
+        EXPECT_FALSE(combat.hero_fell());
+    }
+    EXPECT_EQ(hits_after_death, 0);
+    const auto& slime = combat.monsters()[0];
+    // 쫓기·공격을 그만두고 제자리 둘레에서 쉬거나 돌아다녀요 (돌아간 뒤에는 다시 알아채지 않아요)
+    EXPECT_TRUE(slime.state() == wind::game::MonsterState::Idle || slime.state() == wind::game::MonsterState::Wander)
+        << wind::game::to_string(slime.state());
+    EXPECT_LE(wind::engine::length(slime.feet() - slime.home()), slime.data().wander.radius + 1.0f);
+    EXPECT_NEAR(player.mover().feet().x, body.x, 0.01f);  // 쓰러진 몸은 밀리지 않아요
+    EXPECT_NEAR(player.mover().feet().y, body.y, 0.01f);
 }
 
 TEST(FieldCombat, BodiesPushApart) {

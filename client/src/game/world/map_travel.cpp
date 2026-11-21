@@ -17,13 +17,15 @@ constexpr float kNoticeSeconds = 4.0f;
 
 MapTravel::MapTravel(float fade_seconds) : fade_(fade_seconds) {}
 
-bool MapTravel::begin(world::MapExit exit) {
+bool MapTravel::begin(world::MapExit exit, TravelOptions options) {
     if (fade_.busy()) {
         return false;
     }
-    log::info("Exit to '{}' (spawn '{}')", exit.to_map, exit.to_spawn);
-    fade_.fade_out(exit.transition);
+    log::info("{} to '{}' (spawn '{}', {})", options.respawn ? "Respawn" : "Exit", exit.to_map, exit.to_spawn,
+              exit.transition == world::ScreenTransition::Iris ? "iris" : "fade");
+    fade_.fade_out(exit.transition, options.fade_seconds);  // 0이면 기본 길이
     pending_ = std::move(exit);
+    pending_respawn_ = options.respawn;
     return true;
 }
 
@@ -41,7 +43,7 @@ void MapTravel::update(float dt_seconds, const EnterMap& enter) {
     }
     const world::MapExit exit = std::move(*pending_);
     pending_.reset();
-    if (enter(exit)) {
+    if (enter(exit, pending_respawn_)) {
         notice_.clear();
         notice_seconds_ = 0.0f;
     } else {

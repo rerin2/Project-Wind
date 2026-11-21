@@ -4,6 +4,7 @@
 #include "game/entities/mana.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace wind::game {
 
@@ -39,6 +40,13 @@ void Mana::update(float dt_seconds) {
 
 void Mana::refill() {
     current_ = tuning_.max;
+}
+
+void Mana::restore(float mana) {
+    if (!std::isfinite(mana)) {
+        return;  // 이상한 값은 무시
+    }
+    current_ = std::clamp(mana, 0.0f, tuning_.max);
 }
 
 // 최대가 0이면 나누지 않고 0이에요.

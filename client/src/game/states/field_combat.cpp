@@ -60,10 +60,13 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
     for (auto& dummy : dummies_) { // 4) 쓰러진 허수아비가 다시 서기까지 시간 세기
         dummy.step(dt);
     }
+    // 몬스터가 보는 주인공 발 위치. 쓰러졌으면 "없음"이라 쫓던 몬스터는 포기하고 돌아가요 (12b)
+    const std::optional<engine::Vec2> hero =
+        player.dead() ? std::nullopt : std::optional<engine::Vec2>{player.mover().feet()};
     for (std::size_t i = 0; i < monsters_.size(); ++i) {  // 5) 몬스터: 쉬기·돌아다니기·쫓기·덮치기·쓰러지기
         auto& monster = monsters_[i];
         const bool was_gone = monster.gone();  // 이번 박자에 다 사라졌는지 보려고 (11d)
-        monster.step(dt, map, monster_random_, player.mover().feet());  // 주인공 발 위치를 보고 알아채요 (11b)
+        monster.step(dt, map, monster_random_, hero);  // 주인공 발 위치를 보고 알아채요 (11b)
         if (!was_gone && monster.gone()) vanished_.push_back({i, monster.feet()});  // 사라짐 연출용 (11d)
     }
     resolve_monster_attacks(player);  // 6) 덮치기가 주인공에게 닿았나 (11c)
@@ -171,6 +174,7 @@ void FieldCombat::resolve_monster_attacks(PlayerMotion& player) {
         const engine::Vec2 direction = monster.attack_direction();  // 덮친 쪽으로 밀려나요
         HeroHitEvent hit;
         hit.amount = player.take_hit(damage.amount, direction, attack->knockback);  // HP·경직·무적·넉백
+        hit.fatal = player.dead();                               // 이 한 방에 쓰러졌나 (12b)
         hit.at = {hurtbox.x + hurtbox.w * 0.5f, hurtbox.y + hurtbox.h * 0.5f};
         hit.direction = direction;
         hit.knockback = attack->knockback;
@@ -189,7 +193,7 @@ void FieldCombat::separate(PlayerMotion& player, const world::MapData& map, floa
     if (!(max_step > 0.0f)) return;
     const float hero_radius = player.mover().tuning().body.width * 0.5f;  // 몸 반지름 = 발 상자 가로의 절반
     for (auto& monster : monsters_) {                                     // 주인공 ↔ 몬스터
-        if (monster.defeated()) continue;                                 // 쓰러진 몸은 밀지 않아요 (11d)
+        if (monster.defeated() || player.dead()) continue;                // 쓰러진 몸은 밀지 않아요 (11d, 12b)
         const SeparationPush push = separate_bodies(
             {player.mover().feet(), hero_radius, kHeroPushWeight},
             {monster.feet(), monster.body().width * 0.5f, kMonsterPushWeight}, max_step);
@@ -220,6 +224,10 @@ float FieldCombat::strongest_hitstop() const {
     for (const auto& hit : hits_) longest = std::max(longest, hit.hitstop);
     for (const auto& hit : hero_hits_) longest = std::max(longest, hit.hitstop);
     return longest;
+}
+
+bool FieldCombat::hero_fell() const {
+    return std::ranges::any_of(hero_hits_, [](const HeroHitEvent& hit) { return hit.fatal; });
 }
 
 std::string FieldCombat::debug_text() const {

@@ -7,6 +7,7 @@
 //   - MP 바: 마술이 MP가 모자라 안 나가면 테두리가 빨갛게 깜빡여요. 늘 보여요.
 //   - 스태미나 바: 가득 차면 흐려지고, 지치면 빨갛게 깜빡여요.
 // - 지역 이름 배너 (새 맵에 들어가면 위에서 내려와 잠깐 보였다가 사라짐)
+// - "쓰러졌다" 화면 (12b): 주인공이 쓰러지면 주인공 아래쪽 띠와 글자, 그다음 "Enter: 바로 부활" 안내 (12c)
 // - UI 시험판 (F7)
 // 게임 규칙은 바꾸지 않고, 필드가 알려 준 값(스태미나 등)을 보여 주기만 해요.
 
@@ -14,6 +15,7 @@
 #include "engine/ui/ui_painter.hpp"
 #include "game/ui/area_banner.hpp"
 #include "game/ui/delayed_bar.hpp"
+#include "game/ui/fallen_screen.hpp"
 
 #include <optional>
 #include <string_view>
@@ -30,6 +32,7 @@ struct HudInfo {
     float mana = 1.0f;       // 0~1
     float mana_max = 50.0f;  // 최대 MP (바 길이가 이 값에 비례해요, 명세 13.2)
     unsigned mana_denied = 0;  // MP가 모자라 마술이 안 나간 횟수. 늘면 MP 바가 깜빡여요 (명세 9.2)
+    bool fallen = false;       // 주인공이 쓰러져 있나 (12b: "쓰러졌다" 화면)
 };
 
 class FieldUi {
@@ -43,6 +46,8 @@ public:
     UiCommand handle_input(const engine::InputState& input, const game::InputBindings& bindings,
                            bool& consumed_quit);
     [[nodiscard]] bool captures_input() const { return panel_.open(); }
+    // "쓰러졌다" 화면이 다 나타나서 부활해도 되나요? (12c)
+    [[nodiscard]] bool fallen_ready() const { return fallen_.ready(); }
 
     void update(float dt_seconds, const HudInfo& hud);
     // HUD와 배너 (화면 전환 가림막보다 아래)
@@ -55,8 +60,10 @@ private:
     void draw_stamina(engine::UiPainter& painter);
     void draw_mana(engine::UiPainter& painter);
     void draw_banner(engine::UiPainter& painter, engine::Vec2 screen);
+    void draw_fallen(engine::UiPainter& painter, engine::Vec2 screen);
 
     game::AreaBanner banner_;
+    game::FallenScreen fallen_;  // "쓰러졌다" 화면 시간표 (12b)
     game::DelayedBar health_;
     game::DelayedBar stamina_;
     game::DelayedBar mana_;

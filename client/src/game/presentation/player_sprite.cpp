@@ -19,6 +19,11 @@ constexpr std::string_view kWalkClip = "walk";  // 걷기 (달리기도 이 그�
 // 달리면 속도만큼 빨리 (1.5배), 구를 때는 2배
 constexpr double kMinWalkAnimRate = 0.5;
 constexpr double kDodgeAnimRate = 2.0;
+// 쓰러짐(12b): 다 누우면 90도 돌아가고, 그림 가운데가 이만큼 내려가요 (픽셀).
+// 그림 가운데는 발보다 22픽셀 위라서, 14픽셀 내리면 누운 몸이 발 높이 바닥에 닿아요.
+// 이유는 docs/VISUALS.md "Hero falling" 절에 있어요.
+constexpr float kLyingDegrees = 90.0f;
+constexpr float kLyingDrop = 14.0f;
 
 }  // namespace
 
@@ -55,7 +60,7 @@ void PlayerSprite::update(double dt_seconds, const Mover& mover, engine::Vec2 fe
 }
 
 void PlayerSprite::queue(const engine::Camera2D& camera, engine::Vec2 feet, world::Direction facing,
-                         engine::RenderQueue& queue, float alpha) const {
+                         engine::RenderQueue& queue, float alpha, float lying) const {
     trail_.queue(camera, texture_, sheet_.origin, {sheet_.frame_width, sheet_.frame_height}, queue);
 
     // 그림 속 "발 위치"(origin)가 맵 위의 진짜 발 위치에 딱 오도록 그려요.
@@ -70,6 +75,13 @@ void PlayerSprite::queue(const engine::Camera2D& camera, engine::Vec2 feet, worl
                    static_cast<float>(sheet_.frame_width), static_cast<float>(sheet_.frame_height)};
     // 투명도: 맞은 뒤 무적이면 깜빡여요 (11c, hero_blink). 1이면 그대로
     sprite.tint.a = static_cast<std::uint8_t>(std::lround(std::clamp(alpha, 0.0f, 1.0f) * 255.0f));
+    // 쓰러짐(12b): 그림 가운데를 축으로 돌리고, 누운 몸이 바닥에 닿게 내려요. 보여 주기만 해요.
+    const float lie = std::isfinite(lying) ? std::clamp(lying, 0.0f, 1.0f) : 0.0f;
+    if (lie > 0.0f) {
+        const float side = facing == world::Direction::Left ? -1.0f : 1.0f;  // 왼쪽을 보면 왼쪽으로 쓰러져요
+        sprite.rotation_degrees = side * kLyingDegrees * lie;
+        sprite.dest.y += std::round(kLyingDrop * lie);                     // 정수 픽셀로 내려요
+    }
     // 발 위치(y)로 줄을 세워서, 나무 밑동보다 아래(앞)에 서면 나무보다 앞에 그려져요.
     queue.push_sprite(engine::DrawLayer::YSorted, feet.y, sprite);
 }

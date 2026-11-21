@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Phase 12c — respawn
+- `RespawnTrigger`: respawn on Enter or 2.5 s after the fallen screen is fully shown; retries if still down.
+- Respawn goes through `MapTravel` (`TravelOptions{respawn, fade_seconds}`): slow 0.8 s fade out and in, current
+  map at its `default` spawn, fresh field (full HP/MP/stamina, monsters back). `EnterMap` gets a `respawn` flag.
+- `ScreenFade::fade_out(style, seconds)`: per-trip length reused by the next `fade_in`.
+- `HeroVitals` (HP, MP, stamina, exhausted) carried into the new field on normal exits
+  (`PlayerMotion::vitals`/`restore`, `Health`/`Mana`/`Stamina::restore`), closing the heal-by-travel hole.
+- A dead hero no longer triggers exits. Fallen-screen hint: "Enter: 바로 부활".
+- Build fix: `scripts/dev_environment.ps1` sets `VSLANG=1033` so Ninja's `/showIncludes` prefix matches and
+  header dependencies are recorded (before, every object had 0 deps and header edits left stale objects).
+- 503 CTest tests.
+
+### Phase 12b — hero falls
+- HP floor is now 0 (`HealthTuning::floor` default 0, `Health::empty`). `PlayerMotion::dead()`; state `dead`
+  wins over `hit`. While dead: no actions, no movement, no stamina/MP regen, cannot be hit; the fatal hit's
+  knockback still finishes.
+- `FieldCombat`: monsters see no hero once it is dead (they give up and go home); the fallen body is not
+  pushed; `HeroHitEvent::fatal` and `FieldCombat::hero_fell()`.
+- `SlowMotion` (0.3× → 1× over 1.5 s, `InQuad`) and `SimTimeScale` (hitstop × slow motion) replace the
+  field's bare `HitStop` member.
+- Presentation: `DeathFx` (grayscale 1.5 s, lying 0.35 s), lying pose in `PlayerSprite::queue` (rotate 90°,
+  drop 14 px), world-only grayscale via CPU readback (`Renderer::apply_desaturation`, `frame_readback`,
+  `desaturate_rgba`), "쓰러졌다" screen (`FallenScreen`, band at 68 % height).
+- Temporary (12b only): Enter on the fallen screen reloads the current map at `default`.
+- `renderer.cpp`: screenshot saving moved to `frame_readback`; screen textures made by one helper.
+- 495 CTest tests.
+
 ### Phase 12a — HUD HP bar
 - HUD HP bar (delayed bar, red `#d64840`, cream trail, never fades) on the top row; the bars now go HP · MP ·
   stamina from the top (spec 13.2). The stamina bar moved from y = 12 to y = 30.
