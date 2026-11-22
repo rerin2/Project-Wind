@@ -12,7 +12,7 @@ Set-Location (Join-Path $PSScriptRoot '..')
 # cl.exe를 PATH에 올린다 (Ninja 프리셋에 필요).
 . (Join-Path $PSScriptRoot 'dev_environment.ps1')
 
-# 각 단계가 실패하면 그 종료 코드를 그대로 돌려준다.
+# 각 단계가 실패하면 그 종료 코드를 그대로 돌려준다.{z}
 cmake --preset $Preset
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

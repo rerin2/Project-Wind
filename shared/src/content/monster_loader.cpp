@@ -32,6 +32,7 @@ constexpr double kMaxBody = 64.0;           // 발 상자 최대 (두 칸)
 constexpr double kMaxNotice = 2.0;          // 알아채기 멈춤 최대 (초)
 constexpr std::size_t kMaxAttacks = 6;      // 공격 목록 최대 (명세 14.4)
 constexpr double kMaxStagger = 2.0;         // 맞았을 때 움찔 최대 (초)
+constexpr std::int64_t kMaxRuneReward = 9999999;  // 한 마리가 주는 룬 상한 (보스도 넉넉히)
 
 // "wander": { "radius": 40, "speed": 18, "pause": [1.0, 2.5] }
 std::optional<combat::WanderData> read_wander(JsonReader& parent) {
@@ -110,6 +111,7 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     const auto max_hp = reader.integer("max_hp", 1, kMaxHp);                  // 가득 찬 HP
     const auto attack = reader.number("attack_power", 0.0, kMaxPower);        // 공격력
     const auto defense = reader.number("defense", 0.0, kMaxPower);            // 방어력
+    const auto runes = reader.integer("rune_reward", 0, kMaxRuneReward);      // 주는 룬 (13a)
     const auto move_speed = reader.number("move_speed", kMinSpeed, kMaxSpeed);  // 쫓는 빠르기
     const auto detect = reader.number("detect_range", 1.0, kMaxRange);        // 알아채는 거리
     const auto attack_range = reader.number("attack_range", 1.0, kMaxRange);  // 공격 예고 거리
@@ -123,7 +125,7 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     const auto stagger = reader.number("stagger_seconds", 0.0, kMaxStagger);  // 맞으면 움찔 (11d)
     std::optional<std::string> death_fx;                                      // 사라질 때 효과 (선택, 11d)
     if (reader.has("death_fx")) death_fx = reader.content_path("death_fx");    // 틀리면 공책에 적혀 거절돼요
-    if (!id || !name || !max_hp || !attack || !defense || !move_speed || !detect || !attack_range ||
+    if (!id || !name || !max_hp || !attack || !defense || !runes || !move_speed || !detect || !attack_range ||
         !leash || !notice || !wander || !body || !hurtbox || !sprite || attacks.empty() || !stagger) {
         if (errors.empty()) errors.add(file, "", "monster is incomplete");
         return {std::nullopt, errors.take()};
@@ -134,6 +136,7 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     data.max_hp = static_cast<int>(*max_hp);
     data.attack_power = static_cast<float>(*attack);
     data.defense = static_cast<float>(*defense);
+    data.rune_reward = static_cast<int>(*runes);
     data.move_speed = static_cast<float>(*move_speed);
     data.detect_range = static_cast<float>(*detect);
     data.attack_range = static_cast<float>(*attack_range);

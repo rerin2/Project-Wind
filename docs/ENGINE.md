@@ -256,7 +256,7 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 
 ```json
 { "schema_version": 1, "id": "slime_green", "name": "초록 슬라임",
-  "max_hp": 30, "attack_power": 4, "defense": 0, "move_speed": 40,
+  "max_hp": 30, "attack_power": 4, "defense": 0, "rune_reward": 12, "move_speed": 40,
   "detect_range": 120, "attack_range": 40, "leash_range": 260, "notice_seconds": 0.4,
   "wander": { "radius": 40, "speed": 18, "pause": [1.0, 2.5] },
   "body": [12, 6],
@@ -266,13 +266,39 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 ```
 
 - `max_hp` 1–99,999; `attack_power`, `defense` 0–9,999; `move_speed` 1–400 px/s; `detect_range`, `attack_range`, `leash_range` 1–2,000 px with **attack ≤ detect ≤ leash**.
+- `rune_reward` 0–9,999,999 (required, 13a): runes the hero gets when the monster falls (once per monster, on the step its HP reaches 0).
 - `notice_seconds` 0–2 (the "!" pause before chasing).
 - `wander.radius` 0–512 px and **`wander.radius + detect_range ≤ leash_range`** (a hero noticed from the edge of the wander area is still inside the leash); `wander.speed` 1–400 px/s; `wander.pause` `[min, max]` seconds, 0–30, min ≤ max.
 - `body` `[w, h]` 1–64 px: the feet box for wall collision. `hurtbox` and `sprite` as for the training dummy. Sprite frame 0 = normal, frame 1 = attack windup (crouch, used from 11b).
 - `attacks`: 1–6 attack file paths (same format as "Attack"; every file must load). 11b uses the first one. Monster attacks use `lunge` and set `cancel_window` to `[0, 0]` (no cancelling).
 - `stagger_seconds` 0–2: how long a hit staggers the monster (and how long its knockback lasts, 11d). `death_fx` (optional): a content path to a particle effect burst where the monster vanishes; a broken effect file only removes the effect.
-- Parsed by `wind/content/monster_loader` (attack files through the shared `AttackSource` in `attack_loader.hpp`, also used by weapons). Fields still to come: `rune_reward` (13), `drop_table` (14).
+- Parsed by `wind/content/monster_loader` (attack files through the shared `AttackSource` in `attack_loader.hpp`, also used by weapons). Field still to come: `drop_table` (14).
 - A broken monster file only removes that monster (logged once per file); the map still opens, because monsters do not block tiles.
+
+### Progression (`content/progression/*.json`, phase 13a, spec 8.2 / 8.3)
+
+`stat_curves.json`: one curve per derived value, each a list of `[stat, value]` points joined by straight lines.
+
+```json
+{ "schema_version": 1,
+  "max_hp": [[10, 100], [20, 190], [30, 280], [40, 360], [60, 450]],
+  "max_mp": [...], "max_stamina": [...], "carry_weight": [...],
+  "strength_bonus": [...], "intelligence_bonus": [...], "spell_slots": [...] }
+```
+
+- All seven curves are required. 1–20 points each; stat is an integer 1–60, strictly increasing; value 0–99,999.
+- Below the first point the curve stays at the first value; above the last point it stays at the last value.
+- Which stat drives which curve is fixed in code (`derive_stats`, spec 8.2 table): vigor → `max_hp`, mind → `max_mp`, endurance → `max_stamina`, strength → `carry_weight` and `strength_bonus`, intelligence → `intelligence_bonus` and `spell_slots`. `max_hp`, `max_mp`, `max_stamina` and `spell_slots` are floored to whole numbers.
+
+`levels.json`: level-up cost coefficients, cost from level L to L+1 = `floor(a + b·(L−1) + c·(L−1)²)`.
+
+```json
+{ "schema_version": 1, "a": 100, "b": 40, "c": 6 }
+```
+
+- `a` 1–1,000,000 (every level costs at least 1 rune), `b` 0–100,000, `c` 0–10,000. Levels run 1–251, so 250 → 251 is the last cost.
+- Both files are parsed by `wind/content/progression_loader` (`load_progression_rules`). The client refuses to start if either file is broken, because max HP/MP/stamina come from them.
+- Rules live in `shared/…/wind/progression/`: `Stats` (five stats, level = sum − 49), `StatCurve`, `derive_stats` (the one place derived values are computed), `level_up_cost`/`cost_between`, `RuneWallet` (0–999,999,999, all-or-nothing spending, `lose_half`). `game::HeroProgress` (client) owns stats + wallet outside the field, so they survive map travel and respawn; `try_raise` is all-or-nothing.
 
 ### Images
 

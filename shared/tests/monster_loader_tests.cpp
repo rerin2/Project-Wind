@@ -22,6 +22,7 @@ json make_monster() {
                 {"max_hp", 30},
                 {"attack_power", 4},
                 {"defense", 0},
+                {"rune_reward", 12},
                 {"move_speed", 40},
                 {"detect_range", 120},
                 {"attack_range", 28},

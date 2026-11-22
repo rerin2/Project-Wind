@@ -470,3 +470,36 @@ TEST(FieldCombat, SameSeedSameInputsSameFight) {
 }
 
 }  // namespace
+
+// ---------------------------------------------------------------- 13a: 룬과 능력치 보너스 ----
+
+TEST(FieldCombat, KillingSlimeEarnsItsRunesOnce) {
+    auto player = make_player();
+    FieldCombat combat({}, 1, 0.0f, {make_slime(125.0f)});  // 칼이 닿는 곳
+    const auto map = open_map();
+    const auto reward = combat.monsters()[0].data().rune_reward;  // 슬라임 데이터 값 (12)
+    ASSERT_GT(reward, 0);
+    std::int64_t total = 0;
+    int paying_steps = 0;
+    for (int i = 0; i < 240; ++i) {  // 쓰러뜨리고 사라질 때까지 (4초)
+        player.press_attack();
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        if (combat.runes_earned() > 0) ++paying_steps;
+        total += combat.runes_earned();
+    }
+    EXPECT_TRUE(combat.monsters()[0].defeated());
+    EXPECT_EQ(total, reward);    // 정확히 한 마리 몫
+    EXPECT_EQ(paying_steps, 1);  // 쓰러진 박자 한 번만
+}
+
+TEST(FieldCombat, StrengthBonusRaisesSwordDamage) {
+    auto player = make_player();
+    FieldCombat combat({make_dummy(125.0f)}, 1, 0.0f);
+    wind::progression::DerivedStats derived;
+    derived.strength_bonus = 0.5f;  // 힘 20
+    combat.set_hero_stats(derived);
+    const auto amounts = swing_for(player, combat, 30);
+    ASSERT_FALSE(amounts.empty());
+    EXPECT_EQ(amounts[0], 19);  // 14 × (1 + 0.8 × 0.5) = 19.6 → 19 (1타 위력 1.0)
+}

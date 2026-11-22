@@ -15,11 +15,8 @@
 namespace wind::game {
 namespace {
 
-// 힘 보너스 (명세 8.2). 능력치가 생기는 13단계 전까지는 시작 힘 10의 보너스 0이에요.
-constexpr float kStrengthBonus = 0.0f;
-// 기본 마력과 지능 보너스 (명세 8.2). 13단계 전까지는 시작 지능 10의 보너스 0이라 마법 공격력 12예요.
+// 기본 마력 (명세 8.2). 마법 공격력 = 12 × (1 + 지능 보너스). 지팡이(확장)가 생기면 장비 값이 돼요.
 constexpr float kBaseMagic = 12.0f;
-constexpr float kIntelligenceBonus = 0.0f;
 // 빛 탄이 나오는 곳: 발에서 앞으로 10픽셀, 화면 위로 14픽셀(가슴 높이)
 // 이유는 docs/GAMEPLAY.md "Casting" 절에 있어요.
 constexpr float kSpellSpawnForward = 10.0f;
@@ -41,7 +38,8 @@ FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed,
       monsters_(std::move(monsters)),
       random_(seed),
       monster_random_(seed ^ kMonsterStream),
-      base_crit_chance_(base_crit_chance) {
+      base_crit_chance_(base_crit_chance),
+      rewarded_(monsters_.size(), false) {
     // 몬스터의 맞는 대상 번호는 허수아비 다음부터 (같은 휘두르기에 두 번 맞지 않게 서로 달라야 해요, 11d)
     for (std::size_t i = 0; i < monsters_.size(); ++i) {
         monsters_[i].set_id(static_cast<TargetId>(dummies_.size() + i + 1));
@@ -53,6 +51,7 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
     ended_.clear();
     hero_hits_.clear();
     vanished_.clear();
+    runes_earned_ = 0;
     const auto dt = static_cast<float>(dt_seconds);
     resolve_sword(player);         // 1) 칼
     spawn_spell(player);           // 2) 시전이 끝났으면 빛 탄 하나
@@ -71,6 +70,21 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
     }
     resolve_monster_attacks(player);  // 6) 덮치기가 주인공에게 닿았나 (11c)
     separate(player, map, dt);         // 7) 겹친 몸 떼어 놓기 (11c)
+    collect_runes();                   // 8) 이번 박자에 쓰러진 몬스터의 룬 (13a)
+}
+
+void FieldCombat::set_hero_stats(const progression::DerivedStats& derived) {
+    strength_bonus_ = derived.strength_bonus;          // 칼 공격력에 곱해요
+    intelligence_bonus_ = derived.intelligence_bonus;  // 마법 공격력에 곱해요
+}
+
+// 쓰러진(HP 0) 몬스터마다 한 번만 룬을 세요. 칼이든 빛 탄이든 쓰러뜨린 박자에 들어와요.
+void FieldCombat::collect_runes() {
+    for (std::size_t i = 0; i < monsters_.size(); ++i) {
+        if (!monsters_[i].defeated() || rewarded_[i]) continue;  // 살아 있거나 이미 받았어요
+        rewarded_[i] = true;
+        runes_earned_ += monsters_[i].data().rune_reward;
+    }
 }
 
 // 칼이 판정 중이면 허수아비에 맞았는지 보고 피해를 줘요 (9c).
@@ -84,7 +98,7 @@ void FieldCombat::resolve_sword(PlayerMotion& player) {
     Swing swing;                                                // 이번 칼 한 번
     swing.hitbox = *hitbox;                                     // 닿는 곳
     swing.attack_power = combat::physical_attack_power(weapon.base_power, weapon.strength_scaling,
-                                                       kStrengthBonus);  // 공격력
+                                                       strength_bonus_);  // 공격력 (힘 보너스, 13a)
     swing.power = attack->power;                                // 콤보마다 다른 위력
     swing.crit_chance = base_crit_chance_ + weapon.crit_bonus;  // 기본 5% + 무기 보너스
     swing.push_direction = direction_vector(player.mover().facing());  // 바라보는 쪽으로 밀어요
@@ -107,7 +121,7 @@ void FieldCombat::spawn_spell(const PlayerMotion& player) {
     shot.ground = player.mover().feet() + shot.direction * kSpellSpawnForward;     // 발 조금 앞
     shot.lift = kSpellLift;                                                        // 가슴 높이
     shot.data = *spell->projectile;                                                // 빠르기·거리·크기
-    shot.attack_power = combat::magic_attack_power(kBaseMagic, kIntelligenceBonus);  // 마법 공격력
+    shot.attack_power = combat::magic_attack_power(kBaseMagic, intelligence_bonus_);  // 마법 공격력 (13a)
     shot.power = spell->power;                                                     // 마술 위력
     shot.crit_chance = base_crit_chance_;                                          // 마술도 기본 5%
     shot.knockback = spell->knockback;                                             // 타격감 (마술 데이터)

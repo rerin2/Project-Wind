@@ -303,7 +303,7 @@ Code: `client/src/game/entities/player_motion.*` (`dead`, `step_dead`, `vitals`,
 - **Slow motion:** the step after the fatal hit, the simulation time scale drops to **0.3** and returns to **1** over **1.5 s** of real step time with `InQuad` (stays slow for most of the time, then catches up). It is a time scale like hitstop (spec 3.2): `sim_dt = step × hitstop_scale × slow_scale` (`SimTimeScale`). If the fatal hit also has hitstop, the freeze comes first and the slow motion continues after it. Knockback distance and projectile paths are the same as at normal speed, only slower (tested).
 - **A fallen body never leaves the map:** exits are not checked while the hero is dead, so knockback that pushes the body onto an exit tile does not start a map change.
 - **When to respawn (12c, agreed 2026-11-22):** `RespawnTrigger` starts counting once the fallen screen is fully shown (2.0 s after falling). **Enter** respawns at once; otherwise it respawns by itself after **2.5 s**. If the map cannot be opened the hero stays down and the trigger fires again 2.5 s later.
-- **Where:** the current map's `default` spawn (agreed; from phase 13 the last cat-nip cushion). The map is read again, so HP, MP and stamina start full and defeated monsters are back (spec 9.5). Rune loss comes with runes in phase 13.
+- **Where:** the current map's `default` spawn (agreed; from phase 13 the last cat-nip cushion). The map is read again, so HP, MP and stamina start full and defeated monsters are back (spec 9.5). Rune loss: see "Stats, runes and levels" (13a).
 - **Carrying HP between maps (12c, agreed):** a normal exit no longer refills the hero. Before the new field replaces the old one, `HeroVitals` (HP, MP, stamina, exhausted) is read from the old hero and given to the new one (`PlayerMotion::restore`, every value clamped to its range). Only a respawn starts full. This closes the "walk between maps to heal" hole noted in 12a; phase 16 can save the same values.
 
 | Falling and respawning | Value | Why |
@@ -312,6 +312,19 @@ Code: `client/src/game/entities/player_motion.*` (`dead`, `step_dead`, `vitals`,
 | slow length | 1.5 s real time, `InQuad` back to 1× | Matches the grayscale fade, so the world reaches full speed just as it turns fully gray (agreed) |
 | auto respawn | 2.5 s after the fallen screen is fully shown (4.5 s after falling) | Long enough to read "쓰러졌다" and feel the loss; short enough not to stall. Never stuck if no key is pressed (agreed) |
 | respawn key | Enter (`Confirm`) | Skips the wait; not a combat key, so a panicked attack press cannot skip the fallen screen |
+
+## Stats, runes and levels (phase 13a, spec 8.2, 8.3)
+
+Code: `shared/include/wind/progression/*` (`Stats`, `StatCurve`, `derive_stats`, `level_cost`, `RuneWallet`), `shared/src/content/progression_loader.cpp`, `client/src/game/progression/hero_progress.*`, `hero_tuning.*`, `FieldCombat::collect_runes`/`set_hero_stats`. Data: `content/progression/stat_curves.json`, `levels.json` (formats in `docs/ENGINE.md`). Tested in `stats_tests.cpp`, `stat_curve_tests.cpp`, `derived_stats_tests.cpp`, `level_cost_tests.cpp`, `rune_wallet_tests.cpp`, `progression_loader_tests.cpp`, `hero_progress_tests.cpp`, `hero_tuning_tests.cpp`, `field_combat_tests.cpp`.
+
+- **Five stats**, each 1–60, all start at **10** (agreed 2026-11-22). Level = sum − 49 (start 1, max 251), never stored.
+- **Derived values** come only from `derive_stats` (one function, spec 22.2): max HP/MP/stamina, carry weight, strength and intelligence bonus, spell slots. The start values match the fixed numbers used up to phase 12 (HP 100, MP 50, stamina 100, bonuses 0), so nothing changes for a new hero. The field builds the hero's `Health`/`Mana`/`Stamina` maximums from them (`hero_tuning`); the sword uses the strength bonus and the star shard the intelligence bonus.
+- **Curves outside their points stay flat** (13a): a stat below the first point (10) gets the first value. Stats can only go up from 10, so this only matters for test data. Whole-number values (max HP, MP, stamina, spell slots) are floored.
+- **Level-up cost** from L to L+1 = `floor(100 + 40·(L−1) + 6·(L−1)²)` (1→2: 100, 10→11: 946, 30→31: 6,306, 250→251: 382,066). Raising several levels at once adds each step.
+- **Raising stats** (`HeroProgress::try_raise`, screen in 13c) is all-or-nothing: the target may not lower any stat or pass 60; if the runes are short nothing changes.
+- **Runes:** wallet 0–999,999,999 (extra is dropped). A monster gives its `rune_reward` once, on the fixed step its HP reaches 0 (sword or shard). The green slime gives **12** (spec 14.2 example), so level 2 takes 9 slimes.
+- **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. Lost runes cannot be recovered (spec 23.2). If a kill and the fall land on the same step, the runes are added first, then halved.
+- **Owner:** `HeroProgress` lives in `ClientApp`, outside the field, so stats and runes survive map travel and respawn (agreed 2026-11-22). The field borrows it. Phase 16 saves only the five stats and runes.
 
 ## Bodies pushing apart (phase 11c, spec 7.3)
 
@@ -347,4 +360,4 @@ For now the hero uses idle, moving, running, attacking, casting, dodging, hit (1
 
 ## Not yet defined
 
-The rest of combat (hit feel, monsters, survival in 10–12; more spells, Q and spell slots in 15), growth and items (13–15), and saves (16) are defined later (spec section 19).
+More spells, Q and spell slots (15), cushions and the level-up screen (13b, 13c), items and equipment (14–15), and saves (16) are defined later (spec section 19).

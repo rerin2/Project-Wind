@@ -12,6 +12,7 @@
 //   5) 몬스터를 움직여요 (11a·11b). 몬스터 주사위는 치명타 주사위와 따로 굴려요.
 //   6) 덮치는 몬스터의 판정이 주인공 맞는 상자에 닿으면 주인공이 맞아요 (덮치기 한 번에 한 번, 무적이면 안 맞음, 11c).
 //   7) 겹친 몸(주인공·몬스터, 몬스터끼리)을 부드럽게 떼어 놓아요 (명세 7.3, 11c).
+//   8) 이번 박자에 쓰러진 몬스터의 룬(rune_reward)을 세요 (13a). 지갑에 넣는 일은 필드(HeroProgress)가 해요.
 // - 주인공이 쓰러지면(12b) 몬스터에게는 주인공이 "없음"으로 보여서 포기하고 제자리로 돌아가요.
 //   쓰러진 몸은 밀어내기에서도 빠져요.
 // - 이번 박자에 맞은 일, 사라진 빛 탄, 마지막으로 맞은 일을 기억해요 (연출과 F3 정보판이 봐요).
@@ -25,6 +26,7 @@
 #include "game/monsters/monster_vanish_event.hpp"
 #include "game/entities/player_motion.hpp"
 
+#include "wind/progression/derived_stats.hpp"
 #include "wind/world/map.hpp"
 
 #include <cstdint>
@@ -66,6 +68,11 @@ public:
     [[nodiscard]] bool hero_fell() const;
     // 마지막으로 맞은 일 (F3 정보판용)
     [[nodiscard]] const std::optional<HitEvent>& last_hit() const { return last_hit_; }
+    // 이번 박자에 쓰러뜨린 몬스터들이 주는 룬 합 (다음 박자에 0, 13a). 한 마리는 한 번만 세요.
+    [[nodiscard]] std::int64_t runes_earned() const { return runes_earned_; }
+    // 주인공 능력치에서 나온 공격 보너스를 알려 줘요 (13a). 칼은 힘 보너스, 빛 탄은 지능 보너스를 써요.
+    // 부르지 않으면 둘 다 0 (시작 능력치 10과 같아요).
+    void set_hero_stats(const progression::DerivedStats& derived);
     // F3 정보판의 싸움 줄: "dummies 2  mobs 2 (chase)  shards 1  last hit 14 -> #1 86/100 (down)"
     [[nodiscard]] std::string debug_text() const;
 
@@ -82,6 +89,8 @@ private:
     void resolve_monster_attacks(PlayerMotion& player);
     // 겹친 몸을 떼어 놓아요: 주인공 ↔ 몬스터, 몬스터 ↔ 몬스터 (11c)
     void separate(PlayerMotion& player, const world::MapData& map, float dt_seconds);
+    // 이번 박자에 쓰러진 몬스터의 룬을 세요 (한 마리 한 번, 13a)
+    void collect_runes();
 
     std::vector<TrainingDummy> dummies_;      // 맵의 허수아비들
     std::vector<Monster> monsters_;           // 맵의 몬스터들 (11a)
@@ -94,6 +103,10 @@ private:
     CombatRandom random_;                     // 치명타 주사위 (시드가 있어 재현 가능)
     CombatRandom monster_random_;             // 몬스터 행동 주사위 (치명타와 따로: 칼질이 걷는 길을 바꾸지 않게)
     float base_crit_chance_;                  // 기본 치명타 확률
+    std::vector<bool> rewarded_;              // 몬스터마다 룬을 이미 셌나 (monsters_와 같은 순서, 13a)
+    std::int64_t runes_earned_ = 0;           // 이번 박자에 받은 룬 (13a)
+    float strength_bonus_ = 0.0f;             // 힘 보너스 (13a, 주인공 능력치에서)
+    float intelligence_bonus_ = 0.0f;         // 지능 보너스 (13a)
 };
 
 }  // namespace wind::game

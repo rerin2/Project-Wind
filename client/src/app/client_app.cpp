@@ -20,6 +20,7 @@
 #include "engine/render/render_queue.hpp"
 #include "engine/resources/resource_manager.hpp"
 #include "game/input/input_bindings.hpp"
+#include "game/progression/hero_progress.hpp"
 #include "game/world/game_clock.hpp"
 #include "game/world/map_travel.hpp"
 #include "game/world/respawn_trigger.hpp"
@@ -112,12 +113,15 @@ int ClientApp::run() {
     const UiResources ui_resources = load_ui_resources(resources, platform->text(), kUiTheme);
     engine::UiPainter painter(renderer, platform->text(), ui_resources.theme, ui_resources.frames);
     FieldUi field_ui;  // HUD 스태미나 바, 지역 이름 배너, UI 시험판(F7)
+    // 주인공 진행 상태(능력치·룬): 필드 밖에 하나만 두어 맵을 옮기거나 부활해도 남아요 (13a)
+    auto progress = game::HeroProgress::load(options_.content_dir);  // 능력치 모두 10, 룬 0
+    if (!progress) return 1;  // 성장 규칙 파일이 틀리면 최대 HP 같은 값을 정할 수 없어요 (이유는 로그에)
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
     auto make_field = [&](std::string_view map_path, std::string_view spawn_id) {
         auto made = game::FieldState::create(resources, renderer, map_path, kPlayerSheet,
-                                             renderer.logical_size(), spawn_id, stress,
+                                             renderer.logical_size(), *progress, spawn_id, stress,
                                              options_.start_weather);
         if (made) {
             made->set_feel(options_.feel);  // 흔들림·번쩍임 세기 (접근성, 새 맵마다)

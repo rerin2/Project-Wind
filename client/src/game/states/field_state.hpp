@@ -51,6 +51,8 @@ class Renderer;
 
 namespace wind::game {
 
+class HeroProgress;  // 주인공 진행 상태 (참조로만 써서 미리 알려 두기만 해요, 13a)
+
 // 디버그 화면(F3, 개발자용 정보판)에 보여 줄 필드 상태
 struct FieldDebugInfo {
     std::string map_id;                                // 지금 맵 이름(영문 ID)
@@ -96,6 +98,7 @@ public:
                                                             std::string_view map_path,
                                                             std::string_view player_sheet_path,
                                                             engine::Vec2 viewport,
+                                                            HeroProgress& progress,
                                                             std::string_view spawn_id = "default",
                                                             FieldStress stress = {},
                                                             std::string_view start_weather = {});
@@ -173,7 +176,8 @@ private:
     FieldState(engine::Renderer& renderer, FieldAssets assets, engine::TextureHandle tileset_texture,
                engine::TextureHandle player_texture,
                CombatTextures combat_textures,
-               std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights);
+               std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights,
+               HeroProgress& progress);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
@@ -187,6 +191,7 @@ private:
     FieldCamera camera_rig_;                 // 사진사: 주인공을 따라가며 가는 쪽을 조금 더 보여 줘요
     PlayerMotion player_;                    // 캐릭터의 몸: 다리(이동) + 스태미나 + 구르기 버튼 메모장
     FieldCombat combat_;                     // 허수아비들과 칼 판정 (9c)
+    HeroProgress& progress_;                 // 주인공 진행 상태 (능력치·룬, 앱이 가지고 필드는 빌려 써요, 13a)
     SimTimeScale time_scale_;                // 시뮬레이션 시간 배수: 맞는 순간 멈칫(10a) × 쓰러질 때 슬로모션(12b)
     DeathFx death_fx_;                       // 쓰러짐 연출 시계: 흑백 정도, 눕는 정도 (12b)
     FieldCombatFx combat_fx_;               // 싸움 연출: 허수아비·칼자국·빛 탄·번쩍임·흔들림·피해 숫자

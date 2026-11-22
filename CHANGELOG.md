@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Phase 13a — growth rules (stats, runes, level cost)
+- New SDL-free rules in `shared/…/wind/progression/`: `Stats` (five stats 1–60, start 10, level = sum − 49),
+  `StatCurve` (points joined by lines, flat outside), `derive_stats` (the one place derived values are computed),
+  `level_up_cost`/`cost_between` (`floor(a + b·(L−1) + c·(L−1)²)`), `RuneWallet` (cap 999,999,999,
+  all-or-nothing spending, `lose_half`).
+- New data `content/progression/stat_curves.json`, `levels.json` and loader `wind/content/progression_loader`;
+  the client will not start without them.
+- Monster data: required `rune_reward` (green slime 12).
+- `game::HeroProgress` (owned by `ClientApp`, survives travel and respawn): stats, runes, `derived`, `preview`,
+  `cost_to`, all-or-nothing `try_raise`, `earn`, `fall`. `hero_tuning` turns derived values into the hero's
+  `Health`/`Mana`/`Stamina` maximums.
+- `FieldCombat`: `set_hero_stats` (strength/intelligence bonus replace the fixed 0), `runes_earned` (once per
+  monster, on the step it falls). The field adds runes and halves them when the hero falls.
+- `field_state.cpp` kept under 300 lines by collapsing four one-line loops (no behavior change).
+- 545 CTest tests.
+
 ### Phase 12c — respawn
 - `RespawnTrigger`: respawn on Enter or 2.5 s after the fallen screen is fully shown; retries if still down.
 - Respawn goes through `MapTravel` (`TravelOptions{respawn, fade_seconds}`): slow 0.8 s fade out and in, current

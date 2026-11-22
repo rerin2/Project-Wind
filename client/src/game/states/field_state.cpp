@@ -10,6 +10,8 @@
 #include "engine/map/tilemap_renderer.hpp"
 #include "engine/render/renderer.hpp"
 #include "game/physics/tile_collision.hpp"
+#include "game/progression/hero_progress.hpp"
+#include "game/progression/hero_tuning.hpp"
 #include "game/presentation/hero_blink.hpp"
 #include "game/presentation/shadow_drawing.hpp"
 
@@ -50,7 +52,7 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
                                                engine::Renderer& renderer,
                                                std::string_view map_path,
                                                std::string_view player_sheet_path,
-                                               engine::Vec2 viewport,
+                                               engine::Vec2 viewport, HeroProgress& progress,
                                                std::string_view spawn_id, FieldStress stress,
                                                std::string_view start_weather) {
     // 1) 파일 준비물: 맵, 주인공 그림 설명서, 등장 자리, 하루 색, 날씨, 효과들
@@ -65,20 +67,14 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     const auto player_texture = resources.texture(assets->sheet.image);
     // 3) 싸움 그림: 칼자국, 허수아비·몬스터마다 그림 (같은 파일은 리소스 관리자가 한 번만 읽어요)
     CombatTextures combat_textures{resources.texture(kSlashTexture), {}, {}};
-    for (const auto& dummy : assets->dummies) {
-        combat_textures.dummies.push_back(resources.texture(dummy.data().sprite.image));
-    }
-    for (const auto& monster : assets->monsters) {
-        combat_textures.monsters.push_back(resources.texture(monster.data().sprite.image));
-    }
-    if (stress.lights > 0) {
-        log::info("Light stress test: {} extra lights", stress.lights);
-    }
+    for (const auto& dummy : assets->dummies) combat_textures.dummies.push_back(resources.texture(dummy.data().sprite.image));
+    for (const auto& monster : assets->monsters) combat_textures.monsters.push_back(resources.texture(monster.data().sprite.image));
+    if (stress.lights > 0) log::info("Light stress test: {} extra lights", stress.lights);
     log_field_entry(*assets);  // 맵 크기·효과·빛·허수아비 수 기록
     return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture,
                                                       player_texture,
                                                       std::move(combat_textures), start_weather,
-                                                      viewport, stress.lights));
+                                                      viewport, stress.lights, progress));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
@@ -86,7 +82,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                        engine::TextureHandle tileset_texture, engine::TextureHandle player_texture,
                        CombatTextures combat_textures,
                        std::string_view start_weather, engine::Vec2 viewport,
-                       std::uint32_t stress_lights)
+                       std::uint32_t stress_lights, HeroProgress& progress)
     : map_(std::move(assets.map)),
       sprite_(std::move(assets.sheet), player_texture),
       tileset_texture_(tileset_texture),
@@ -98,12 +94,13 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                       static_cast<float>(map_.map.tile_size),
                   static_cast<float>(map_.map.tile_size),
                   engine::tile_feet(assets.spawn_tile, map_.map.tile_size)),
-      // 캐릭터가 처음 설 곳 (준비물을 읽을 때 고른 등장 자리)
-      player_(engine::tile_feet(assets.spawn_tile, map_.map.tile_size),
-              world::Direction::Down, MovementTuning{}, StaminaTuning{}, kInputBufferSeconds,
-              std::move(assets.weapon)),
+      // 캐릭터가 처음 설 곳(등장 자리)과 능력치에서 나온 최대 HP·MP·스태미나 (13a)
+      player_(engine::tile_feet(assets.spawn_tile, map_.map.tile_size), world::Direction::Down, MovementTuning{},
+              stamina_tuning(progress.derived()), kInputBufferSeconds, std::move(assets.weapon),
+              mana_tuning(progress.derived()), health_tuning(progress.derived())),
       // 허수아비들, 싸움 주사위 씨앗(치명타·몬스터, 켤 때마다 달라요), 기본 치명타 확률, 몬스터들 (11a)
       combat_(std::move(assets.dummies), std::random_device{}(), kBaseCritChance, std::move(assets.monsters)),
+      progress_(progress),
       // 싸움 연출: 그림자·칼자국·빛 그림, 허수아비 그림, 빛 탄·불꽃 효과, 마술 빛
       combat_fx_(CombatFxSetup{textures_.shadow(), combat_textures.slash, textures_.light(),
                                std::move(combat_textures.dummies), std::move(combat_textures.monsters),
@@ -122,10 +119,9 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       // 시간·날씨: 날씨 주사위 씨앗은 켤 때마다 달라서, 매번 다른 날씨로 시작해요.
       atmosphere_(std::move(assets.day_cycle), std::move(assets.weather), effects_.weather_fx, effects_.night,
                   std::random_device{}(), start_weather) {
-    for (const auto& effect : effects_.ambient) {
-        ambient_.add(effect);
-    }
+    for (const auto& effect : effects_.ambient) ambient_.add(effect);  // 꽃잎·반딧불 같은 분위기 효과
     player_.set_spell(std::move(assets.spell));  // 고른 마술 (9e: 별빛 조각)
+    combat_.set_hero_stats(progress_.derived());   // 칼·빛 탄 공격력의 힘·지능 보너스 (13a)
 }
 
 FieldState::~FieldState() = default;  // 코드로 만든 그림은 FieldTextures가 지워요
@@ -161,6 +157,8 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
         dodge_burst_ = engine::normalized(player_.mover().velocity());
     }
     combat_.step(sim_dt, player_, map_.map);  // 칼 판정, 빛 탄 만들기·날리기, 피해·넉백 주기
+    progress_.earn(combat_.runes_earned());     // 쓰러뜨린 몬스터의 룬 (13a)
+    if (combat_.hero_fell()) progress_.fall();  // 쓰러지면 룬 절반을 잃어요 (13a)
     // 멈춤·느림은 진짜 시간으로 줄고, 이번에 누가 맞았으면 멈칫, 주인공이 쓰러졌으면 슬로모션 (12b)
     time_scale_.update(static_cast<float>(dt_seconds), combat_.strongest_hitstop(), combat_.hero_fell());
     combat_fx_.collect(combat_);  // 맞은 일·사라진 빛 탄은 다음 frame_update에서 연출해요 (안 빠지게 모아 둬요)

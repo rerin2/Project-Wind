@@ -61,6 +61,7 @@ wind_set_warnings(wind_engine_core)
 #   monsters/     : 몬스터 한 마리의 행동 (대기·배회·알아채기·쫓기·예고·덮치기·복귀), 한 박자 걷기
 #   presentation/ : 먼지, 잔상 같은 보여 주기용 효과 (그리기 목록에 넣기까지만, SDL은 안 씀)
 #   world/        : 게임 시계, 맵 옮기기 순서
+#   progression/  : 주인공 진행 상태(능력치·룬, 필드 밖에 하나), 파생값 → 몸 숫자 (13a)
 #   states/field_assets : 필드 화면 준비물(맵·캐릭터·효과 파일) 읽기
 add_library(wind_game_core STATIC
     src/game/input/input_bindings.cpp
@@ -121,7 +122,9 @@ add_library(wind_game_core STATIC
     src/game/ui/hud_bar_layout.cpp
     src/game/ui/fallen_screen.cpp
     src/game/states/field_assets.cpp
-    src/game/states/field_combat.cpp)
+    src/game/states/field_combat.cpp
+    src/game/progression/hero_progress.cpp
+    src/game/progression/hero_tuning.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -191,6 +194,8 @@ if(WIND_BUILD_TESTS)
         tests/sim_time_scale_tests.cpp
         tests/hit_resolution_tests.cpp
         tests/field_combat_tests.cpp
+        tests/hero_progress_tests.cpp
+        tests/hero_tuning_tests.cpp
         tests/monster_tests.cpp
         tests/monster_pose_tests.cpp
         tests/monster_view_tests.cpp
