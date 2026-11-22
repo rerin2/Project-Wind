@@ -45,6 +45,9 @@ CharacterState PlayerMotion::state() const {
     if (dead()) {
         return CharacterState::Dead;  // 쓰러짐이 무엇보다 먼저: 표가 모든 행동을 막아요 (12b)
     }
+    if (rest_.active()) {
+        return CharacterState::Resting;  // 쿠션에서 쉬는 중: 표가 모든 행동을 막아요 (13b)
+    }
     if (hit_.staggered()) {
         return CharacterState::Hit;  // 경직이 가장 먼저: 표가 모든 행동을 막아요 (11c)
     }
@@ -123,6 +126,11 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
         step_dead(dt_seconds, map);
         return false;
     }
+    seconds_since_hit_ += dt;  // 마지막으로 맞은 뒤 지난 시간 (쉬기 조건, 13b)
+    if (rest_.active()) {      // 10) 쿠션에서 쉬는 중이면 앉기·일어나기만 해요 (13b)
+        step_resting(dt_seconds, move, map);
+        return false;
+    }
 
     // 1) 구르기 먼저: 버튼을 같이 눌렀으면 피하는 쪽이 이겨요.
     const bool dodge = try_dodge();
@@ -172,9 +180,40 @@ void PlayerMotion::step_dead(double dt_seconds, const world::MapData& map) {
     buffer_.tick(dt_seconds);                               // 눌렀던 버튼은 그냥 잊혀요
 }
 
+// 쉬는 박자: 앉아 있을 때 방향키를 누르면 일어나요. 다리는 멈추고, 옮겨 가는 동안만 쿠션 쪽으로 미끄러져요.
+void PlayerMotion::step_resting(double dt_seconds, engine::Vec2 move, const world::MapData& map) {
+    const auto dt = static_cast<float>(dt_seconds);
+    if (rest_.phase() == HeroRest::Phase::Sitting && engine::length(move) > 0.0f) {
+        (void)rest_.stand_up();  // 방향키: 기지개 켜고 일어나기 (E는 FieldRest가 stand_up을 불러요)
+    }
+    (void)mover_.step(dt_seconds, {}, false, map, false);  // 다리: 가만히 (위치 기록은 이어져요)
+    mover_.shove(rest_.step(dt, mover_.feet()), map);      // 쿠션 가운데로 사뿐히 (벽에 닿으면 미끄러져요)
+    stamina_.update(dt);                                   // 이미 가득이지만 규칙은 같아요
+    mana_.update(dt);
+    buffer_.tick(dt_seconds);                              // 눌렀던 버튼은 그냥 잊혀요
+}
+
+bool PlayerMotion::begin_rest(engine::Vec2 seat) {
+    if (dead() || !can_transition(state(), CharacterState::Resting)) return false;  // 걷기·서기 중에만
+    mover_.halt();          // 걷던 힘을 끊고
+    buffer_.clear();        // 미리 눌러 둔 버튼도 잊어요 (일어나자마자 칼이 나가지 않게)
+    health_.refill();       // 모든 상태 회복: HP·MP·스태미나 가득, 지침도 풀려요 (명세 8.7 쉬기 2번)
+    mana_.refill();
+    stamina_.refill();
+    mover_.face(world::Direction::Down);  // 쿠션 위에서는 화면 쪽을 봐요 (앉은 그림이 앞모습뿐이에요)
+    rest_.begin(seat);
+    return true;
+}
+
+void PlayerMotion::sit_on(engine::Vec2 seat) {
+    mover_.teleport(seat);                // 쿠션 자리에 딱
+    mover_.face(world::Direction::Down);
+    rest_.sit_now(seat);
+}
+
 bool PlayerMotion::can_be_hit() const {
-    // 쓰러져 있지 않고(12b), 피격 무적도, 구르기 무적도 아니면 (11c)
-    return !dead() && !hit_.invulnerable() && !mover_.invulnerable();
+    // 쓰러져 있지 않고(12b), 쉬는 중도 아니고(13b), 피격 무적도, 구르기 무적도 아니면 (11c)
+    return !dead() && !rest_.active() && !hit_.invulnerable() && !mover_.invulnerable();
 }
 
 int PlayerMotion::take_hit(int amount, engine::Vec2 direction, float knockback) {
@@ -184,6 +223,7 @@ int PlayerMotion::take_hit(int amount, engine::Vec2 direction, float knockback) 
     attack_.cancel();   // 휘두르던 칼은 끊겨요 (상태 표: attacking -> hit)
     caster_.cancel();   // 모으던 마술도 끊겨요. 먼저 낸 MP는 돌아오지 않아요 (casting -> hit)
     mover_.halt();      // 걷던 힘·구르던 힘도 끊겨요
+    seconds_since_hit_ = 0.0f;               // 방금 맞았어요: 3초 동안 쉴 수 없어요 (13b)
     const int taken = health_.take(amount);  // HP 깎기 (12b: 0까지 내려가면 쓰러져요)
     hit_.start(direction, knockback);         // 경직·무적·넉백 시작 (쓰러져도 넉백은 밀려나요)
     return taken;

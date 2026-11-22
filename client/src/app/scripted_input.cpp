@@ -30,6 +30,7 @@ engine::Key scripted_key(std::string_view name) {
     if (name == "shift") return engine::Key::Shift;
     if (name == "j") return engine::Key::J;
     if (name == "l") return engine::Key::L;
+    if (name == "e") return engine::Key::E;  // 쿠션에서 쉬기 (13b)
     if (name == "up") return engine::Key::Up;
     if (name == "down") return engine::Key::Down;
     if (name == "left") return engine::Key::Left;

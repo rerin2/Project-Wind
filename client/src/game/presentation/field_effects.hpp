@@ -27,6 +27,7 @@ struct FieldEffects {
     std::optional<engine::ParticleEffect> star_trail;  // 별빛 조각 꼬리 (9e)
     std::optional<engine::ParticleEffect> star_burst;  // 별빛 조각이 사라질 때 반짝 (9e)
     std::optional<engine::ParticleEffect> hit_spark;   // 맞을 때 튀는 불꽃 (10b)
+    std::optional<engine::ParticleEffect> catnip_bloom;  // 캣닢 쿠션이 처음 피어날 때 꽃잎 (13b)
     std::vector<engine::ParticleEffect> ambient;  // 맵 분위기 효과 (+ 시험용 부하 효과)
     std::map<std::string, engine::ParticleEffect> light_fx;  // 빛 자리 효과 (파일 위치 -> 효과)
     std::vector<engine::ParticleEffect> night;    // 밤에만 나오는 효과 (반딧불 등)

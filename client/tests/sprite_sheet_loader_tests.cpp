@@ -63,6 +63,30 @@ TEST(SpriteSheetLoader, RepositoryHeroSheetIsValid) {
     ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
     EXPECT_NE(result.value->clip("idle"), nullptr);
     EXPECT_NE(result.value->clip("walk"), nullptr);
+    // 13b: 쿠션 동작 그림은 4번 줄에 있어요 (방향과 상관없이)
+    const auto* sit = result.value->clip("sit");
+    ASSERT_NE(sit, nullptr);
+    ASSERT_TRUE(sit->row.has_value());
+    EXPECT_EQ(*sit->row, 4);
+    EXPECT_NE(result.value->clip("curl"), nullptr);
+    EXPECT_NE(result.value->clip("stretch"), nullptr);
+}
+
+// 13b: 클립에 "row"가 있으면 바라보는 방향과 상관없이 그 줄에서 오려요. 범위 밖 줄은 거절해요.
+TEST(SpriteSheetLoader, ClipRowOverridesDirection) {
+    auto doc = make_sheet();
+    doc["clips"]["sit"] = {{"row", 4}, {"frames", {2}}, {"frame_ms", {500}}, {"loop", false}};
+    const auto result = wind::engine::parse_sprite_sheet(doc, "hero.json");
+    ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
+    const auto* sit = result.value->clip("sit");
+    const auto rect = result.value->frame_rect(sit, wind::world::Direction::Left, 2);
+    EXPECT_EQ(rect.x, 64);
+    EXPECT_EQ(rect.y, 4 * 48);  // 왼쪽(1번 줄)이 아니라 4번 줄
+    const auto walk_rect = result.value->frame_rect(result.value->clip("walk"), wind::world::Direction::Left, 2);
+    EXPECT_EQ(walk_rect.y, 48);  // "row"가 없으면 방향의 줄
+
+    doc["clips"]["sit"]["row"] = 999;
+    EXPECT_FALSE(wind::engine::parse_sprite_sheet(doc, "hero.json").ok());
 }
 
 }  // namespace

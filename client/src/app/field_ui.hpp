@@ -8,9 +8,11 @@
 //   - 스태미나 바: 가득 차면 흐려지고, 지치면 빨갛게 깜빡여요.
 // - 지역 이름 배너 (새 맵에 들어가면 위에서 내려와 잠깐 보였다가 사라짐)
 // - "쓰러졌다" 화면 (12b): 주인공이 쓰러지면 주인공 아래쪽 띠와 글자, 그다음 "Enter: 바로 부활" 안내 (12c)
+// - 캣닢 쿠션 "[E] 쉬기" 안내와 "주변이 너무 소란스럽다" 알림 (13b)
 // - UI 시험판 (F7)
 // 게임 규칙은 바꾸지 않고, 필드가 알려 준 값(스태미나 등)을 보여 주기만 해요.
 
+#include "app/rest_hud.hpp"
 #include "app/ui_test_panel.hpp"
 #include "engine/ui/ui_painter.hpp"
 #include "game/ui/area_banner.hpp"
@@ -33,6 +35,8 @@ struct HudInfo {
     float mana_max = 50.0f;  // 최대 MP (바 길이가 이 값에 비례해요, 명세 13.2)
     unsigned mana_denied = 0;  // MP가 모자라 마술이 안 나간 횟수. 늘면 MP 바가 깜빡여요 (명세 9.2)
     bool fallen = false;       // 주인공이 쓰러져 있나 (12b: "쓰러졌다" 화면)
+    bool rest_prompt = false;  // 쿠션 가까이라 "[E] 쉬기"를 보여 줄 때인가 (13b)
+    unsigned rest_denied = 0;  // 소란스러워 못 쉰 횟수. 늘면 "주변이 너무 소란스럽다" (13b)
 };
 
 class FieldUi {
@@ -41,6 +45,8 @@ public:
 
     // 새 지역에 들어왔어요: 이름 배너를 보여 줘요.
     void enter_area(std::string_view display_name);
+    // 배너에 다른 글을 띄워요 (13b: "캣닢 쿠션을 찾았다 — 이름")
+    void announce(std::string_view text) { banner_.show(text); }
 
     // 키 확인. UI가 키를 쓰고 있으면(시험판이 열림) 게임 입력을 막아야 해요.
     UiCommand handle_input(const engine::InputState& input, const game::InputBindings& bindings,
@@ -64,6 +70,7 @@ private:
 
     game::AreaBanner banner_;
     game::FallenScreen fallen_;  // "쓰러졌다" 화면 시간표 (12b)
+    RestHud rest_hud_;           // "[E] 쉬기" 안내와 "주변이 너무 소란스럽다" 알림 (13b)
     game::DelayedBar health_;
     game::DelayedBar stamina_;
     game::DelayedBar mana_;

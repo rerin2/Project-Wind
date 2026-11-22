@@ -33,6 +33,7 @@ enum class Key : std::uint8_t {
     Z,
     L,
     C,
+    E,      // 살펴보기·쉬기 (13b)
     Shift,  // 왼쪽·오른쪽 Shift 둘 다
     F3,
     F4,

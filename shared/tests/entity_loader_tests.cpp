@@ -100,3 +100,45 @@ TEST(EntityLoader, RejectsNonArray) {
 }
 
 }  // namespace
+
+// ---------------------------------------------------------------- 13b: 캣닢 쿠션 ----
+
+namespace {
+
+json cushion(std::string id, int x, int y) {
+    return json{{"type", "save_point"}, {"id", id}, {"x", x}, {"y", y}};
+}
+
+}  // namespace
+
+TEST(EntityLoader, ParsesSavePointWithoutDataFile) {
+    auto map = make_map();
+    ErrorList errors;
+    auto entry = cushion("c1", 5, 3);
+    entry["display_name"] = "시작 쿠션";
+    parse_entities(json::array({entry, cushion("c2", 6, 3)}), "meadow.json", map, errors);
+    ASSERT_TRUE(errors.empty()) << wind::content::to_string(errors.items().front());
+    ASSERT_EQ(map.entities.size(), 2u);
+    EXPECT_EQ(map.entities[0].type, wind::world::EntityType::SavePoint);
+    EXPECT_EQ(map.entities[0].display_name, "시작 쿠션");
+    EXPECT_TRUE(map.entities[0].data.empty());         // 설명 파일이 없어요
+    EXPECT_TRUE(map.entities[1].display_name.empty());  // 이름은 선택
+    EXPECT_FALSE(wind::world::blocks_movement(wind::world::EntityType::SavePoint));  // 올라설 수 있어요
+}
+
+TEST(EntityLoader, RejectsSavePointNamedLikeSpawn) {
+    auto map = make_map();
+    ErrorList errors;
+    parse_entities(json::array({cushion("default", 5, 3)}), "meadow.json", map, errors);  // 등장 자리 이름과 같음
+    EXPECT_TRUE(has_error_at(errors, "entities[0].id"));
+    EXPECT_TRUE(map.entities.empty());
+}
+
+TEST(EntityLoader, RejectsBadSavePointName) {
+    auto map = make_map();
+    ErrorList errors;
+    auto entry = cushion("c1", 5, 3);
+    entry["display_name"] = 7;  // 글자가 아니에요
+    parse_entities(json::array({entry}), "meadow.json", map, errors);
+    EXPECT_FALSE(errors.empty());
+}

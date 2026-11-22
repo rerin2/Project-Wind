@@ -240,6 +240,12 @@ float FieldCombat::strongest_hitstop() const {
     return longest;
 }
 
+bool FieldCombat::monster_engaged() const {
+    return std::ranges::any_of(monsters_, [](const Monster& m) {
+        return m.state() >= MonsterState::Notice && m.state() <= MonsterState::Hurt;  // 알아채기 ~ 움찔
+    });
+}
+
 bool FieldCombat::hero_fell() const {
     return std::ranges::any_of(hero_hits_, [](const HeroHitEvent& hit) { return hit.fatal; });
 }

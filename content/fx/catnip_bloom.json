@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "catnip_bloom",
+  "shape": "soft",
+  "blend": "add",
+  "lifetime": [0.5, 0.9],
+  "speed": [30, 80],
+  "direction": 270,
+  "spread": 360,
+  "gravity": -20,
+  "drag": 2.5,
+  "spawn_radius": 6,
+  "start_size": [2, 3],
+  "end_size": 1,
+  "start_color": "#e8d0ffff",
+  "end_color": "#9ce0a000",
+  "fade_out": 0.5,
+  "burst": 18
+}

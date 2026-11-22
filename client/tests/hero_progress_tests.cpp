@@ -95,3 +95,17 @@ TEST(HeroProgress, EarnStopsAtCap) {
     EXPECT_EQ(progress.earn(12), 1);
     EXPECT_EQ(progress.runes(), wind::progression::RuneWallet::kMax);
 }
+
+// ---------------------------------------------------------------- 13b: 쿠션 ----
+
+TEST(HeroProgress, RestAtSetsRespawnAndRemembersDiscovery) {
+    auto progress = make_progress(0);
+    EXPECT_FALSE(progress.last_cushion().has_value());       // 처음엔 쉰 적이 없어요
+    EXPECT_TRUE(progress.rest_at("maps/a.json", "a1"));       // 처음 찾음
+    EXPECT_TRUE(progress.discovered("a1"));
+    EXPECT_FALSE(progress.discovered("b1"));
+    EXPECT_FALSE(progress.rest_at("maps/a.json", "a1"));      // 두 번째는 처음이 아니에요
+    EXPECT_TRUE(progress.rest_at("maps/b.json", "b1"));
+    ASSERT_TRUE(progress.last_cushion().has_value());
+    EXPECT_EQ(*progress.last_cushion(), (wind::game::CushionRef{"maps/b.json", "b1"}));  // 마지막 쿠션
+}

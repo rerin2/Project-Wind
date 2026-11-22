@@ -14,12 +14,14 @@
 namespace wind::content {
 namespace {
 
-constexpr std::size_t kMaxIdLength = 64;  // id 글자 수 상한 (바이트)
+constexpr std::size_t kMaxIdLength = 64;    // id 글자 수 상한 (바이트)
+constexpr std::size_t kMaxNameLength = 64;  // 쿠션 이름 상한 (바이트, 한글 한 글자 = 3바이트)
 
 // 종류 글자 -> 물건 종류. 모르는 글자면 "없음"
 std::optional<world::EntityType> parse_type(std::string_view text) {
     if (text == "training_dummy") return world::EntityType::TrainingDummy;  // 훈련용 허수아비
     if (text == "monster") return world::EntityType::Monster;               // 몬스터 (11a)
+    if (text == "save_point") return world::EntityType::SavePoint;          // 캣닢 쿠션 (13b)
     return std::nullopt;                                                     // 모르는 종류
 }
 
@@ -58,7 +60,13 @@ void parse_entities(const nlohmann::json& list, const std::string& file, world::
         auto id = reader.string("id", kMaxIdLength);           // 맵 안 이름
         const auto x = reader.integer("x", 0, map.width - 1);   // 가로 칸 (맵 안)
         const auto y = reader.integer("y", 0, map.height - 1);  // 세로 칸 (맵 안)
-        auto data = reader.content_path("data");                // 설명 파일 (콘텐츠 폴더 안)
+        // 설명 파일 (콘텐츠 폴더 안). 쿠션은 설명 파일이 없어요 (그림은 공용 props/catnip_cushion.json, 13b)
+        const bool cushion = type == world::EntityType::SavePoint;
+        auto data = cushion ? std::optional<std::string>{std::string{}} : reader.content_path("data");
+        std::string display_name;                                // 쿠션 이름 (선택, 13b)
+        if (cushion && reader.has("display_name")) {
+            if (auto name = reader.string("display_name", kMaxNameLength)) display_name = std::move(*name);
+        }
         if (!type || !id || !x || !y || !data) continue;        // 하나라도 틀리면 이 물건은 빼요
 
         const world::TileCoord tile{static_cast<std::int32_t>(*x), static_cast<std::int32_t>(*y)};
@@ -71,6 +79,10 @@ void parse_entities(const nlohmann::json& list, const std::string& file, world::
             reader.error(path, "another entity is already on this tile");
             ok = false;
         }
+        if (cushion && map.find_spawn(*id) != nullptr) {  // 쿠션 id는 등장 자리 이름으로도 쓰여서 겹치면 안 돼요
+            reader.error(reader.field_path("id"), "save point id is also a spawn point id: " + *id);
+            ok = false;
+        }
         if (on_spawn(map, tile)) {  // 등장 자리 위면 (캐릭터가 물건에 갇혀요)
             reader.error(path, "entity is on a spawn point");
             ok = false;
@@ -80,7 +92,7 @@ void parse_entities(const nlohmann::json& list, const std::string& file, world::
             ok = false;
         }
         if (ok) {  // 다 통과한 물건만 맵에 넣어요
-            map.entities.push_back({*type, std::move(*id), tile, std::move(*data)});
+            map.entities.push_back({*type, std::move(*id), tile, std::move(*data), std::move(display_name)});
         }
     }
 }

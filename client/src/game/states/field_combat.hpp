@@ -68,6 +68,9 @@ public:
     [[nodiscard]] bool hero_fell() const;
     // 마지막으로 맞은 일 (F3 정보판용)
     [[nodiscard]] const std::optional<HitEvent>& last_hit() const { return last_hit_; }
+    // 주인공을 노리는 몬스터가 있나요? (알아채기·쫓기·예고·덮치기·후딜·움찔, 13b 쉬기 조건)
+    // 돌아가는 중(복귀)이거나 쉬기·배회·쓰러짐이면 노리지 않는 거예요.
+    [[nodiscard]] bool monster_engaged() const;
     // 이번 박자에 쓰러뜨린 몬스터들이 주는 룬 합 (다음 박자에 0, 13a). 한 마리는 한 번만 세요.
     [[nodiscard]] std::int64_t runes_earned() const { return runes_earned_; }
     // 주인공 능력치에서 나온 공격 보너스를 알려 줘요 (13a). 칼은 힘 보너스, 빛 탄은 지능 보너스를 써요.

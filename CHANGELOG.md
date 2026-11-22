@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Phase 13b — cat-nip cushions
+- Map entity `save_point` (no data file, optional `display_name`, walkable, id may not equal a spawn id; ids unique
+  across `content/maps`, tested). Meadow cushion at (5, 10), forest cushion at (6, 11).
+- Rest rules (`rest_rules`): within 24 px, not while a monster is engaged (`FieldCombat::monster_engaged`) or within
+  3 s of a hit. `FieldRest` handles E: sit (`PlayerMotion::begin_rest` refills HP/MP/stamina, `resting` state, cannot
+  be hit) or stand up; "too noisy" counter; rest trip request 0.6 s after sitting. `HeroRest` timeline
+  (settle 0.25 s, sit, stretch 0.6 s). `PlayerMotion::seconds_since_hit`.
+- New `Action::Interact` on E (also `--press e@N`).
+- `TravelKind` (Exit, Respawn, Rest) replaces the respawn flag in `MapTravel`. Rest: 0.5 s fade, same map reloaded
+  with the cushion id as spawn, hero starts sitting. `HeroProgress::rest_at`/`last_cushion`/`discovered`; respawn goes
+  to the last cushion (`travel_targets`).
+- Visuals: `CushionView` (withered/bloomed cushion, bloom pop + `fx/catnip_bloom.json` + lilac flash, mint rest light,
+  hearts and "z"), hero clips `sit`/`curl`/`stretch` (new sprite row 4, clip `"row"` field), `RestHud`
+  ("[E] 쉬기", "주변이 너무 소란스럽다"), discovery banner.
+- Cleanups (no behavior change): travel moved from `ClientApp` into `FieldSession` (317 → 272 lines), exit watching
+  moved from `FieldState` into `ExitWatcher`; generator draws the front head through shared functions (rows 0–3
+  pixel-identical).
+- 575 CTest tests.
+
 ### Phase 13a — growth rules (stats, runes, level cost)
 - New SDL-free rules in `shared/…/wind/progression/`: `Stats` (five stats 1–60, start 10, level = sum − 49),
   `StatCurve` (points joined by lines, flat outside), `derive_stats` (the one place derived values are computed),

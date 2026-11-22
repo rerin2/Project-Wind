@@ -56,6 +56,17 @@ std::int64_t HeroProgress::earn(std::int64_t runes) {
     return added;
 }
 
+bool HeroProgress::rest_at(std::string_view map, std::string_view cushion_id) {
+    last_cushion_ = CushionRef{std::string(map), std::string(cushion_id)};  // 이제 여기서 부활해요
+    const bool first = discovered_.emplace(cushion_id).second;              // 처음 넣었으면 처음 찾은 것
+    log::info("Rested at cushion '{}' in '{}'{}", cushion_id, map, first ? " (first time)" : "");
+    return first;
+}
+
+bool HeroProgress::discovered(std::string_view cushion_id) const {
+    return discovered_.contains(cushion_id);
+}
+
 std::int64_t HeroProgress::fall() {
     const std::int64_t lost = wallet_.lose_half();
     log::info("Hero fell and lost {} runes (now {})", lost, wallet_.amount());

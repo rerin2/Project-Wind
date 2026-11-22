@@ -8,6 +8,9 @@
   "direction_rows": { "down": 0, "left": 1, "right": 2, "up": 3 },
   "clips": {
     "idle": { "frames": [0], "frame_ms": [500], "loop": true },
-    "walk": { "frames": [1, 0, 3, 0], "frame_ms": [100, 100, 100, 100], "loop": true }
+    "walk": { "frames": [1, 0, 3, 0], "frame_ms": [100, 100, 100, 100], "loop": true },
+    "sit": { "row": 4, "frames": [3, 0], "frame_ms": [500, 1000], "loop": false },
+    "curl": { "row": 4, "frames": [1], "frame_ms": [1000], "loop": true },
+    "stretch": { "row": 4, "frames": [2, 3], "frame_ms": [400, 200], "loop": false }
   }
 }

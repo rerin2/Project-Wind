@@ -76,6 +76,7 @@ add_library(wind_game_core STATIC
     src/game/entities/health.cpp
     src/game/entities/hit_reaction.cpp
     src/game/entities/character_state.cpp
+    src/game/entities/hero_rest.cpp
     src/game/entities/player_motion.cpp
     src/game/combat/hitbox_placement.cpp
     src/game/combat/attack_runner.cpp
@@ -111,18 +112,23 @@ add_library(wind_game_core STATIC
     src/game/presentation/screen_shake.cpp
     src/game/presentation/damage_numbers.cpp
     src/game/presentation/field_combat_fx.cpp
+    src/game/presentation/cushion_view.cpp
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
     src/game/world/game_clock.cpp
     src/game/world/map_travel.cpp
     src/game/world/respawn_trigger.cpp
+    src/game/world/travel_targets.cpp
+    src/game/world/rest_rules.cpp
+    src/game/world/exit_watcher.cpp
     src/game/ui/area_banner.cpp
     src/game/ui/delayed_bar.cpp
     src/game/ui/hud_bar_layout.cpp
     src/game/ui/fallen_screen.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp
+    src/game/states/field_rest.cpp
     src/game/progression/hero_progress.cpp
     src/game/progression/hero_tuning.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
@@ -136,6 +142,8 @@ add_executable(wind_client
     src/app/screenshot_flash.cpp
     src/app/scripted_input.cpp
     src/app/field_ui.cpp
+    src/app/field_session.cpp
+    src/app/rest_hud.cpp
     src/app/damage_number_drawing.cpp
     src/app/ui_test_panel.cpp
     src/app/ui_resources.cpp
@@ -196,6 +204,12 @@ if(WIND_BUILD_TESTS)
         tests/field_combat_tests.cpp
         tests/hero_progress_tests.cpp
         tests/hero_tuning_tests.cpp
+        tests/hero_rest_tests.cpp
+        tests/rest_rules_tests.cpp
+        tests/exit_watcher_tests.cpp
+        tests/travel_targets_tests.cpp
+        tests/field_rest_tests.cpp
+        tests/cushion_view_tests.cpp
         tests/monster_tests.cpp
         tests/monster_pose_tests.cpp
         tests/monster_view_tests.cpp

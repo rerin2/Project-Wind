@@ -32,6 +32,8 @@ struct SpriteSheet {
     [[nodiscard]] const AnimationClip* clip(std::string_view name) const;
     // 방향과 칸 번호로, 그림 판에서 오려 낼 네모를 알려 줘요.
     [[nodiscard]] RectI frame_rect(world::Direction dir, int column) const;
+    // 클립에 정해진 행("row")이 있으면 그 행에서, 없으면 방향의 행에서 오려요 (13b 쿠션 동작)
+    [[nodiscard]] RectI frame_rect(const AnimationClip* clip, world::Direction dir, int column) const;
 };
 
 }  // namespace wind::engine

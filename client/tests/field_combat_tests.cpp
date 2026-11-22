@@ -503,3 +503,19 @@ TEST(FieldCombat, StrengthBonusRaisesSwordDamage) {
     ASSERT_FALSE(amounts.empty());
     EXPECT_EQ(amounts[0], 19);  // 14 × (1 + 0.8 × 0.5) = 19.6 → 19 (1타 위력 1.0)
 }
+
+// ---------------------------------------------------------------- 13b: 쉬기 조건 ----
+
+TEST(FieldCombat, MonsterEngagedWhileSlimeNoticesHero) {
+    auto player = make_player();
+    FieldCombat combat({}, 1, 0.0f, {make_slime(160.0f)});  // 60픽셀 옆: 감지 거리 안
+    const auto map = open_map();
+    EXPECT_FALSE(combat.monster_engaged());  // 아직 쉬는 중
+    bool engaged = false;
+    for (int i = 0; i < 30 && !engaged; ++i) {
+        player.step(kDt, {}, false, map);
+        combat.step(kDt, player, map);
+        engaged = combat.monster_engaged();
+    }
+    EXPECT_TRUE(engaged);
+}

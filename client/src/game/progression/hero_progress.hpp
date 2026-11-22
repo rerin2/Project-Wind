@@ -7,7 +7,7 @@
 //   필드는 이것을 빌려 써요: 처음 만들 때 최대 HP·MP·스태미나와 공격 보너스를 읽고,
 //   몬스터를 쓰러뜨리면 룬을 넣고, 주인공이 쓰러지면 룬 절반을 잃게 해요.
 // - 16단계 저장은 이 값(능력치 + 룬)을 파일로 쓰면 돼요. 레벨과 파생값은 저장하지 않고 계산해요.
-// - 13b에서 마지막 쿠션(부활 자리)도 여기에 더해요.
+// - 13b: 마지막으로 쉰 쿠션(부활 자리)과 찾은 쿠션 목록도 가져요 (16단계 저장도 이 둘을 써요).
 // 게임 규칙이라 SDL을 몰라요.
 
 #include "wind/progression/derived_stats.hpp"
@@ -17,9 +17,20 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
+#include <set>
+#include <string>
+#include <string_view>
 
 namespace wind::game {
+
+// 쿠션 하나를 가리키는 주소 (어느 맵의 어느 쿠션, 13b)
+struct CushionRef {
+    std::string map;  // 맵 파일 (콘텐츠 폴더 기준, 예: "maps/test_meadow.json")
+    std::string id;   // 쿠션 id (게임 전체에서 하나뿐)
+    friend bool operator==(const CushionRef&, const CushionRef&) = default;
+};
 
 class HeroProgress {
 public:
@@ -50,10 +61,20 @@ public:
     // 주인공이 쓰러졌어요: 룬 절반(소수점 버림)을 잃어요. 잃은 양을 돌려줘요. 레벨·능력치는 그대로예요.
     std::int64_t fall();
 
+    // 캣닢 쿠션에서 쉬었어요 (13b): 부활 자리를 이 쿠션으로 정하고, 찾은 쿠션 목록에 넣어요.
+    // 처음 찾은 쿠션이면 true (쿠션이 피어나고 배너가 떠요).
+    bool rest_at(std::string_view map, std::string_view cushion_id);
+    // 마지막으로 쉰 쿠션 (부활 자리). 아직 쉰 적이 없으면 nullopt (그때는 맵 기본 자리에서 부활해요)
+    [[nodiscard]] const std::optional<CushionRef>& last_cushion() const { return last_cushion_; }
+    // 이 쿠션을 찾은 적이 있나요? (찾은 쿠션은 피어난 모습으로 그려요)
+    [[nodiscard]] bool discovered(std::string_view cushion_id) const;
+
 private:
     progression::ProgressionRules rules_;  // 곡선과 비용 계수
     progression::Stats stats_;             // 다섯 능력치
     progression::RuneWallet wallet_;       // 룬
+    std::optional<CushionRef> last_cushion_;           // 부활 자리 (13b)
+    std::set<std::string, std::less<>> discovered_;   // 찾은 쿠션 id (쿠션 id는 게임 전체에서 하나뿐이에요)
 };
 
 }  // namespace wind::game

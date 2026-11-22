@@ -120,6 +120,7 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     mana_blink_ = std::max(0.0f, mana_blink_ - dt_seconds);
     banner_.update(dt_seconds);
     fallen_.update(dt_seconds, hud.fallen);
+    rest_hud_.update(dt_seconds, hud.rest_prompt && !hud.fallen, hud.rest_denied);
     panel_.update(dt_seconds);
 }
 
@@ -127,6 +128,7 @@ void FieldUi::draw_hud(engine::UiPainter& painter, engine::Vec2 screen) {
     draw_health(painter);
     draw_stamina(painter);
     draw_mana(painter);
+    rest_hud_.draw(painter, screen);  // 쿠션 안내·알림 (배너 아래, 13b)
     draw_banner(painter, screen);
     draw_fallen(painter, screen);  // HUD 위, 화면 전환 가림막 아래 (부활 페이드와 함께 어두워져요)
 }

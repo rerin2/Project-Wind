@@ -527,3 +527,40 @@ TEST(PlayerMotion, FatalHitStillKnocksBack) {
 }
 
 }  // namespace
+
+// ---------------------------------------------------------------- 13b: 쿠션에서 쉬기 ----
+
+TEST(PlayerMotion, RestingBlocksActionsAndRefills) {
+    const auto map = open_map();
+    auto player = make_player();
+    player.take_hit(40, {1.0f, 0.0f}, 0.0f);
+    run_for(player, 30, {}, false, map);  // 경직이 끝나도록
+    ASSERT_TRUE(player.begin_rest({110.0f, 300.0f}));
+    EXPECT_EQ(player.health().current(), player.health().max());
+    EXPECT_EQ(player.state(), CharacterState::Resting);
+    player.press_attack();
+    player.press_dodge();
+    run_for(player, 30, {}, false, map);
+    EXPECT_FALSE(player.attack().busy());                       // 쉬는 중에는 칼이 안 나가요
+    EXPECT_EQ(player.state(), CharacterState::Resting);
+    EXPECT_NEAR(player.mover().feet().x, 110.0f, 0.01f);        // 쿠션 자리로 옮겨 갔어요
+}
+
+TEST(PlayerMotion, CannotStartRestWhileDodging) {
+    const auto map = open_map();
+    auto player = make_player();
+    player.press_dodge();
+    player.step(kDt, kRight, false, map);
+    ASSERT_EQ(player.state(), CharacterState::Dodging);
+    EXPECT_FALSE(player.begin_rest({110.0f, 300.0f}));  // 구르는 중에는 못 앉아요 (상태 표)
+}
+
+TEST(PlayerMotion, SecondsSinceHitResetsOnHit) {
+    const auto map = open_map();
+    auto player = make_player();
+    EXPECT_GE(player.seconds_since_hit(), 3.0f);  // 한 번도 안 맞았으면 아주 오래전
+    player.take_hit(1, {1.0f, 0.0f}, 0.0f);
+    EXPECT_FLOAT_EQ(player.seconds_since_hit(), 0.0f);
+    run_for(player, 60, {}, false, map);
+    EXPECT_NEAR(player.seconds_since_hit(), 1.0f, 0.01f);
+}

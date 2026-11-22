@@ -22,6 +22,7 @@ constexpr std::string_view kStarTrailFx = "fx/star_trail.json";
 constexpr std::string_view kStarBurstFx = "fx/star_burst.json";
 // 맞을 때 불꽃 (10b). 무기마다 다른 불꽃은 무기가 늘어나는 15단계에서 공격 데이터 fx로 해요.
 constexpr std::string_view kHitSparkFx = "fx/hit_spark.json";
+constexpr std::string_view kCatnipBloomFx = "fx/catnip_bloom.json";  // 쿠션이 처음 피어날 때 (13b)
 // 시험용 부하 효과의 수명(초). 부하 개수 ÷ 수명 = 1초에 만들 개수
 constexpr float kStressLifetime = 4.0f;
 
@@ -63,6 +64,7 @@ FieldEffects load_field_effects(const std::filesystem::path& content_root,
     effects.star_trail = load_effect(content_root, kStarTrailFx);
     effects.star_burst = load_effect(content_root, kStarBurstFx);
     effects.hit_spark = load_effect(content_root, kHitSparkFx);
+    effects.catnip_bloom = load_effect(content_root, kCatnipBloomFx);
     for (const auto& path : ambience.ambient_fx) {
         if (auto effect = load_effect(content_root, path)) {
             effects.ambient.push_back(std::move(*effect));

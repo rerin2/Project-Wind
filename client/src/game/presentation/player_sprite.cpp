@@ -15,6 +15,11 @@ namespace {
 // 그림 설명서에 꼭 있어야 하는 동작 그림(클립) 이름
 constexpr std::string_view kIdleClip = "idle";  // 가만히 서 있기
 constexpr std::string_view kWalkClip = "walk";  // 걷기 (달리기도 이 그림을 더 빨리 넘겨요)
+// 쿠션 쉬기 그림 (13b, 선택: 없으면 서 있기 그림). 앉고 나서 1.4초 뒤 웅크려요.
+constexpr std::string_view kSitClip = "sit";
+constexpr std::string_view kCurlClip = "curl";
+constexpr std::string_view kStretchClip = "stretch";
+constexpr float kCurlAfterSeconds = 1.4f;
 // 걷기 그림 넘기는 속도: 최고 걷기 속도일 때 1배, 느리면 천천히 (최소 0.5배),
 // 달리면 속도만큼 빨리 (1.5배), 구를 때는 2배
 constexpr double kMinWalkAnimRate = 0.5;
@@ -32,8 +37,28 @@ PlayerSprite::PlayerSprite(engine::SpriteSheet sheet, engine::TextureHandle text
     animator_.play(sheet_.clip(kIdleClip));  // 처음엔 서 있는 모습
 }
 
-void PlayerSprite::update(double dt_seconds, const Mover& mover, engine::Vec2 feet) {
+bool PlayerSprite::play_rest_clip(const HeroRest& rest) {
+    std::string_view name;
+    switch (rest.phase()) {
+        case HeroRest::Phase::None: return false;
+        case HeroRest::Phase::Settling: name = kSitClip; break;   // 앉는 중
+        case HeroRest::Phase::Sitting:                            // 잠깐 앉아 있다가 웅크려 졸아요
+            name = rest.phase_seconds() < kCurlAfterSeconds ? kSitClip : kCurlClip;
+            break;
+        case HeroRest::Phase::Standing: name = kStretchClip; break;  // 기지개
+    }
+    const engine::AnimationClip* clip = sheet_.clip(name);
+    animator_.play(clip != nullptr ? clip : sheet_.clip(kIdleClip));  // 그림이 없으면 서 있기
+    return true;
+}
+
+void PlayerSprite::update(double dt_seconds, const Mover& mover, engine::Vec2 feet, const HeroRest& rest) {
     double rate = 1.0;
+    if (play_rest_clip(rest)) {  // 쿠션에서 쉬는 중 (13b): 다리 상태보다 먼저
+        animator_.update(dt_seconds);
+        trail_.update(static_cast<float>(dt_seconds), false, feet, sheet_.frame_rect(mover.facing(), 0));
+        return;
+    }
     switch (mover.state()) {
         case Mover::State::Idle:
             animator_.play(sheet_.clip(kIdleClip));
@@ -56,7 +81,7 @@ void PlayerSprite::update(double dt_seconds, const Mover& mover, engine::Vec2 fe
 
     // 잔상: 구르는 동안 지금 그림을 사진으로 찍어 둬요
     trail_.update(static_cast<float>(dt_seconds), mover.state() == Mover::State::Dodging, feet,
-                  sheet_.frame_rect(mover.facing(), animator_.column()));
+                  sheet_.frame_rect(animator_.clip(), mover.facing(), animator_.column()));
 }
 
 void PlayerSprite::queue(const engine::Camera2D& camera, engine::Vec2 feet, world::Direction facing,
@@ -68,7 +93,7 @@ void PlayerSprite::queue(const engine::Camera2D& camera, engine::Vec2 feet, worl
     engine::SpriteDraw sprite;
     sprite.texture = texture_;
     // 그림 묶음에서 "지금 방향, 지금 동작 장면"에 해당하는 부분을 오려 와요.
-    sprite.source = sheet_.frame_rect(facing, animator_.column());
+    sprite.source = sheet_.frame_rect(animator_.clip(), facing, animator_.column());  // 쉬기 그림은 정해진 행
     // 위치는 반올림해서 정수 픽셀에 맞춰요. 그래야 픽셀 그림이 흐릿하게 떨리지 않아요.
     sprite.dest = {std::round(screen.x - static_cast<float>(sheet_.origin.x)),
                    std::round(screen.y - static_cast<float>(sheet_.origin.y)),

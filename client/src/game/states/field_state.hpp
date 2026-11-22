@@ -27,10 +27,13 @@
 #include "game/presentation/feel_settings.hpp"
 #include "game/presentation/field_atmosphere.hpp"
 #include "game/presentation/field_camera.hpp"
+#include "game/presentation/cushion_view.hpp"
 #include "game/presentation/field_combat_fx.hpp"
 #include "game/presentation/field_effects.hpp"
 #include "game/states/field_assets.hpp"
 #include "game/states/field_combat.hpp"
+#include "game/states/field_rest.hpp"
+#include "game/world/exit_watcher.hpp"
 #include "game/states/field_textures.hpp"
 #include "game/presentation/field_lighting.hpp"
 #include "game/presentation/dust_emitter.hpp"
@@ -128,11 +131,17 @@ public:
 
     // 주인공이 출구를 밟았으면 그 출구를 한 번 돌려주고 비워요. 없으면 nullopt.
     // 게임 루프가 이걸 보고 화면을 어둡게 한 뒤 다른 맵으로 옮겨 가요.
-    [[nodiscard]] std::optional<world::MapExit> take_exit_request() {
-        auto request = std::move(exit_request_);
-        exit_request_.reset();
-        return request;
-    }
+    [[nodiscard]] std::optional<world::MapExit> take_exit_request() { return exits_.take_request(); }
+    // 쿠션에 앉은 지 잠깐 지났으면 그 쿠션 id를 한 번 돌려줘요 (13b). 게임 루프가 페이드 후 같은 맵을 새로 읽어요.
+    [[nodiscard]] std::optional<std::string> take_rest_request() { return rest_.take_travel_request(); }
+    // 이 맵의 쿠션 이름 (처음 찾았을 때 배너용, 13b). 없는 id면 빈 글자
+    [[nodiscard]] std::string cushion_name(std::string_view cushion_id) const { return rest_.name_of(cushion_id); }
+    // 처음 찾은 쿠션을 피어나게 해요 (퐁, 꽃잎, 빛, 13b. 연출만)
+    void bloom_cushion(std::string_view cushion_id) { cushion_view_.bloom(cushion_id); }
+    // "[E] 쉬기" 안내를 보여 줄 때인가요? (쿠션 가까이 서 있고 쉴 수 있는 상태, 13b)
+    [[nodiscard]] bool rest_prompt() const { return rest_.prompt_cushion(player_) != nullptr; }
+    // 소란스러워서 못 쉰 횟수 (UI가 바뀐 걸 보고 "주변이 너무 소란스럽다"를 띄워요, 13b)
+    [[nodiscard]] unsigned rest_denied_count() const { return rest_.denied_count(); }
 
     // 맵의 보여 줄 이름 (지역 이름 배너용, 예: "시험 초원")
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }
@@ -165,17 +174,18 @@ public:
     [[nodiscard]] FieldDebugInfo debug_info() const;
 
 private:
-    // 싸움 그림 (파일에서 읽어서 리소스 관리자가 정리해요)
-    struct CombatTextures {
+    // 싸움·쿠션 그림 (파일에서 읽어서 리소스 관리자가 정리해요)
+    struct FieldSprites {
         engine::TextureHandle slash;                   // 칼자국 반달
         std::vector<engine::TextureHandle> dummies;    // 허수아비마다 그림 (assets.dummies와 같은 순서)
         std::vector<engine::TextureHandle> monsters;   // 몬스터마다 그림 (assets.monsters와 같은 순서, 11a)
+        engine::TextureHandle cushion;                 // 캣닢 쿠션 그림 판 (13b)
     };
 
     // create()를 통해서만 만들어요. (준비물 검사를 빼먹지 않도록)
     FieldState(engine::Renderer& renderer, FieldAssets assets, engine::TextureHandle tileset_texture,
                engine::TextureHandle player_texture,
-               CombatTextures combat_textures,
+               FieldSprites sprites,
                std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights,
                HeroProgress& progress);
 
@@ -192,9 +202,11 @@ private:
     PlayerMotion player_;                    // 캐릭터의 몸: 다리(이동) + 스태미나 + 구르기 버튼 메모장
     FieldCombat combat_;                     // 허수아비들과 칼 판정 (9c)
     HeroProgress& progress_;                 // 주인공 진행 상태 (능력치·룬, 앱이 가지고 필드는 빌려 써요, 13a)
+    FieldRest rest_;                         // 캣닢 쿠션: E로 쉬기·일어나기, 쉬기 이동 요청 (13b)
     SimTimeScale time_scale_;                // 시뮬레이션 시간 배수: 맞는 순간 멈칫(10a) × 쓰러질 때 슬로모션(12b)
     DeathFx death_fx_;                       // 쓰러짐 연출 시계: 흑백 정도, 눕는 정도 (12b)
     FieldCombatFx combat_fx_;               // 싸움 연출: 허수아비·칼자국·빛 탄·번쩍임·흔들림·피해 숫자
+    CushionView cushion_view_;              // 쿠션 연출: 시든·피어난 모습, 초록 빛, 하트·z (13b)
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요
@@ -208,8 +220,7 @@ private:
     std::optional<engine::Vec2> dodge_burst_;  // 이번 박자에 구르기를 시작했으면 그 방향
     double alpha_ = 1.0;                     // 지금 화면이 두 박자 사이 어디쯤인지
     bool show_collision_ = false;            // F4 충돌 표시가 켜져 있나
-    bool exit_armed_ = false;                // 출구가 아닌 칸을 밟은 뒤라 출구가 동작하나
-    std::optional<world::MapExit> exit_request_;  // 밟은 출구 (게임 루프가 가져가요)
+    ExitWatcher exits_;                      // 출구를 밟았나 지켜보기 (게임 루프가 요청을 가져가요)
     std::uint32_t tiles_queued_ = 0;         // 이번 화면에 넣은 타일 수
     float scene_seconds_ = 0.0f;             // 이 맵에 들어온 뒤 흐른 시간 (움직이는 타일용)
 };

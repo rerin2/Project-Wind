@@ -27,10 +27,10 @@ wind::world::MapExit make_exit(std::string to_map) {
 struct FakeWorld {
     std::string current = "maps/meadow.json";
     int attempts = 0;
-    bool last_respawn = false;  // 마지막으로 연 맵이 부활이었나 (12c)
-    bool enter(const wind::world::MapExit& exit, bool respawn) {
+    wind::game::TravelKind last_kind = wind::game::TravelKind::Exit;  // 마지막으로 연 맵의 종류 (12c, 13b)
+    bool enter(const wind::world::MapExit& exit, wind::game::TravelKind kind) {
         ++attempts;
-        last_respawn = respawn;
+        last_kind = kind;
         if (exit.to_map == "maps/missing.json") {
             return false;  // 못 열었으니 current는 그대로
         }
@@ -42,7 +42,7 @@ struct FakeWorld {
 // 0.1초씩 n번 진행
 void run(MapTravel& travel, FakeWorld& world, int steps) {
     for (int i = 0; i < steps; ++i) {
-        travel.update(0.1f, [&](const wind::world::MapExit& e, bool respawn) { return world.enter(e, respawn); });
+        travel.update(0.1f, [&](const wind::world::MapExit& e, wind::game::TravelKind kind) { return world.enter(e, kind); });
     }
 }
 
@@ -103,12 +103,12 @@ TEST(MapTravel, UsesTheExitTransitionStyle) {
 TEST(MapTravel, RespawnUsesItsOwnSlowFadeAndFlag) {
     MapTravel travel(0.3f);
     FakeWorld world;
-    ASSERT_TRUE(travel.begin(make_exit("maps/meadow.json"), {true, 0.8f}));
+    ASSERT_TRUE(travel.begin(make_exit("maps/meadow.json"), {wind::game::TravelKind::Respawn, 0.8f}));
     run(travel, world, 7);   // 0.7초: 기본(0.3초)이면 이미 열었겠지만 아직 가리는 중
     EXPECT_EQ(world.attempts, 0);
     run(travel, world, 2);   // 0.9초: 다 가려져서 열었어요
     EXPECT_EQ(world.attempts, 1);
-    EXPECT_TRUE(world.last_respawn);
+    EXPECT_EQ(world.last_kind, wind::game::TravelKind::Respawn);
     run(travel, world, 6);   // 밝아지는 것도 0.8초라 아직 진행 중 (많아야 0.7초 지남)
     EXPECT_TRUE(travel.busy());
     run(travel, world, 4);
@@ -117,7 +117,7 @@ TEST(MapTravel, RespawnUsesItsOwnSlowFadeAndFlag) {
     ASSERT_TRUE(travel.begin(make_exit("maps/forest.json")));  // 보통 출구: 기본 0.3초, 부활 아님
     run(travel, world, 3);
     EXPECT_EQ(world.attempts, 2);
-    EXPECT_FALSE(world.last_respawn);
+    EXPECT_EQ(world.last_kind, wind::game::TravelKind::Exit);
 }
 
 }  // namespace

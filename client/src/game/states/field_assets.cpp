@@ -78,6 +78,33 @@ std::vector<Monster> load_monsters(const std::filesystem::path& content_root, co
     return monsters;
 }
 
+// 맵의 쿠션 자리마다 쿠션 정보를 만들어요 (13b). 이름이 없으면 지역 이름을 써요.
+std::vector<Cushion> load_cushions(const world::MapData& map) {
+    std::vector<Cushion> cushions;
+    for (const auto& entity : map.entities) {
+        if (entity.type != world::EntityType::SavePoint) continue;  // 쿠션만
+        const std::string& name = entity.display_name.empty() ? map.display_name : entity.display_name;
+        cushions.push_back({entity.id, name, entity.tile, engine::tile_feet(entity.tile, map.tile_size)});
+    }
+    return cushions;
+}
+
+// 등장 자리 이름으로 시작 칸을 찾아요. 순서: 등장 자리 -> 쿠션 id(13b: 쉬기·부활) -> "default"면 첫 자리.
+// 쿠션에서 시작하면 그 쿠션 id도 알려 줘요 (주인공이 앉은 채 시작해요).
+struct StartPlace {
+    world::TileCoord tile;
+    std::optional<std::string> cushion;
+};
+std::optional<StartPlace> find_start(const world::MapData& map, const std::vector<Cushion>& cushions,
+                                     std::string_view spawn_id) {
+    if (const world::SpawnPoint* spawn = map.find_spawn(spawn_id)) return StartPlace{spawn->position, {}};
+    for (const auto& cushion : cushions) {
+        if (cushion.id == spawn_id) return StartPlace{cushion.tile, cushion.id};
+    }
+    if (spawn_id == "default" && !map.spawn_points.empty()) return StartPlace{map.spawn_points.front().position, {}};
+    return std::nullopt;  // 맵 자료(또는 저장된 부활 자리)가 틀렸어요
+}
+
 }  // namespace
 
 std::optional<FieldAssets> load_field_assets(const std::filesystem::path& content_root,
@@ -102,17 +129,15 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
                    kWalkClip);
         return std::nullopt;
     }
-    // 4) 등장 자리: 요청한 이름이 있으면 거기. "default"를 요청했는데 없으면 첫 번째 자리.
+    // 4) 등장 자리: 요청한 이름의 등장 자리나 쿠션(13b). "default"를 요청했는데 없으면 첫 번째 자리.
     //    다른 이름(출구가 가리킨 자리)이 없으면 맵 자료가 틀린 거라 들어가지 않아요.
-    const world::SpawnPoint* spawn = map.value->map.find_spawn(spawn_id);
-    if (spawn == nullptr && spawn_id == "default") {
-        spawn = &map.value->map.spawn_points.front();
-    }
-    if (spawn == nullptr) {
-        log::error("Map '{}' has no spawn point '{}'", map_path, spawn_id);
+    auto cushions = load_cushions(map.value->map);
+    const auto start = find_start(map.value->map, cushions, spawn_id);
+    if (!start) {
+        log::error("Map '{}' has no spawn point or cushion '{}'", map_path, spawn_id);
         return std::nullopt;
     }
-    const world::TileCoord spawn_tile = spawn->position;
+    const world::TileCoord spawn_tile = start->tile;
 
     // 5) 바깥 맵이면 하루 색 곡선과 날씨 표 (잘못되면 늘 낮·늘 맑음)
     const auto& ambience = map.value->map.ambience;
@@ -170,7 +195,7 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
     return FieldAssets{std::move(*map.value), std::move(*sheet.value), spawn_tile, std::move(effects),
                        std::move(day_cycle), std::move(weather), std::move(weapon),
                        std::move(*dummies), std::move(spell),
-                       std::move(monsters)};
+                       std::move(monsters), std::move(cushions), start->cushion};
 }
 
 void log_field_entry(const FieldAssets& assets) {

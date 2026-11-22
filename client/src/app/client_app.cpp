@@ -22,8 +22,7 @@
 #include "game/input/input_bindings.hpp"
 #include "game/progression/hero_progress.hpp"
 #include "game/world/game_clock.hpp"
-#include "game/world/map_travel.hpp"
-#include "game/world/respawn_trigger.hpp"
+#include "app/field_session.hpp"
 #include "game/states/field_state.hpp"
 
 #include "wind/log.hpp"
@@ -63,12 +62,6 @@ constexpr engine::Color kClearColor{12, 16, 24, 255};
 constexpr float kSecondsPerGameHour = 60.0f;
 constexpr float kDefaultStartHour = 9.0f;
 constexpr float kSkipHours = 3.0f;
-// 맵을 옮길 때 화면이 어두워지는(또는 밝아지는) 시간 (초)
-constexpr float kFadeSeconds = 0.35f;
-// 부활할 때의 느린 페이드 (어두워지기·밝아지기 각각, 12c, 개발자와 정함): "깨어나는" 느낌
-constexpr float kRespawnFadeSeconds = 0.8f;
-// 부활 자리: 지금 맵의 기본 등장 자리 (12c, 개발자와 정함. 13단계부터 마지막 쿠션)
-constexpr std::string_view kRespawnSpawn = "default";
 // UI 테마 파일 (창 테두리, 글꼴, 글자 색)
 constexpr std::string_view kUiTheme = "ui/theme.json";
 // 스크린샷 폴더 정하기: --screenshot-dir가 있으면 그곳, 없으면 사용자 자료 폴더 안의 screenshots.
@@ -128,12 +121,12 @@ int ClientApp::run() {
         }
         return made;
     };
-    auto field = make_field(options_.map, "default");
-    if (!field) {
+    // 지금 필드와 필드 바꾸기(출구·부활·쉬기)를 맡는 곳 (13b에서 ClientApp에서 떼어 냈어요)
+    FieldSession session(make_field, *progress, field_ui);
+    if (!session.start(options_.map)) {
         log::critical("Client cannot start without a valid map; see errors above");
         return 1;  // 맵이 잘못되면 시작할 수 없어요 (자세한 이유는 위쪽 로그에 있어요)
     }
-    field_ui.enter_area(field->display_name());  // 첫 지역 이름 배너
 
     const auto bindings = game::InputBindings::defaults();  // 키 버튼표
     engine::InputState input;                                // 지금 키보드 상태
@@ -144,28 +137,7 @@ int ClientApp::run() {
     ScreenshotFlash screenshot_flash;                        // 찍은 뒤 "찰칵" 효과
     // 게임 시계: 맵을 옮겨도 이어지도록 필드 화면 밖에 둬요.
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
-    game::MapTravel travel(kFadeSeconds);                    // 맵 옮기기 (화면 가리기 -> 새 맵 -> 보여 주기)
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
-    std::string current_map = options_.map;                  // 지금 맵 파일 (부활할 맵, 12c)
-    game::RespawnTrigger respawn;                            // 쓰러진 뒤 언제 부활할지 (Enter 또는 2.5초, 12c)
-    // 출구가 가리키는 맵을 열어요. 못 열면 false (지금 필드는 그대로 둬요).
-    // 보통 출구면 주인공 HP·MP·스태미나를 들고 가고, 부활이면 새 필드 그대로(가득 찬 채) 시작해요 (12c).
-    const game::MapTravel::EnterMap enter_map = [&](const world::MapExit& exit, bool respawning) {
-        const game::HeroVitals carried = field->hero_vitals();  // 떠나기 전 값 (새 필드를 만들기 전에)
-        auto next = make_field(exit.to_map, exit.to_spawn);
-        if (!next) {
-            return false;
-        }
-        if (!respawning) {
-            next->restore_hero(carried);  // 맵을 오가도 HP가 다시 차지 않아요
-            log::info("Hero carries hp {}, mp {:.0f}, stamina {:.0f} into the new map", carried.hp, carried.mana,
-                      carried.stamina);
-        }
-        current_map = exit.to_map;
-        field = std::move(next);
-        field_ui.enter_area(field->display_name());  // 새 지역 이름 배너
-        return true;
-    };
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.
@@ -197,7 +169,7 @@ int ClientApp::run() {
             log::info("Time skipped to {}", game_clock.text());
         }
         if (bindings.pressed(game::Action::NextWeather, input) || command == UiCommand::NextWeather) {
-            field->next_weather();  // F6 (또는 시험판 버튼): 다음 날씨
+            session.field().next_weather();  // F6 (또는 시험판 버튼): 다음 날씨
         }
 
         // 지난 장을 그린 뒤로 시간이 얼마나 흘렀는지 재요.
@@ -210,57 +182,42 @@ int ClientApp::run() {
             input.set_key(move_key(*options_.auto_move), true);
         }
         // 맵을 옮기는 중(페이드)이거나 UI 창이 열려 있으면 캐릭터가 움직이지 않게 키를 막아요.
-        const bool blocked = travel.busy() || field_ui.captures_input();
+        const bool blocked = session.busy() || field_ui.captures_input();
         const engine::InputState& game_input = blocked ? no_input : input;
 
         // 3. 누른 키를 필드에 알려 줘요 (구르기 버튼은 메모장에 적어 둬요).
-        field->handle_input(game_input, bindings);
+        session.field().handle_input(game_input, bindings);
         // 4. 박자 시계가 "몇 번 계산해"라고 알려 준 만큼 게임 규칙을 계산해요.
         //    (보통 1번, 컴퓨터가 느려졌으면 2~5번, 아주 빠르면 0번일 수도 있어요)
         const int steps = clock.advance(frame_seconds);
         for (int i = 0; i < steps; ++i) {
-            field->fixed_update(clock.step_seconds(), game_input, bindings);
+            session.field().fixed_update(clock.step_seconds(), game_input, bindings);
             game_clock.advance(clock.step_seconds());
         }
         // 5. 그림 넘기기, 먼지·잔상, 카메라는 화면 한 장마다 해요.
         //    alpha: 지난 박자와 다음 박자 사이 어디쯤인지 -> 위치를 부드럽게 이어 그려요.
-        field->frame_update(frame_seconds, clock.alpha(), game_clock.hour());
-        // 부활할 때인가요? 쓰러짐 화면이 다 나타난 뒤 Enter 또는 2.5초 (맵을 옮기는 중에는 세지 않아요, 12c)
-        const bool respawn_now =
-            respawn.update(static_cast<float>(frame_seconds), field->hero_down(),
-                           field_ui.fallen_ready() && !travel.busy(),
-                           bindings.pressed(game::Action::Confirm, game_input));
-        // 출구를 밟았으면 맵 옮기기를 시작하고, 화면이 다 가려지면 새 맵을 열어요.
-        if (!travel.busy()) {
-            if (auto exit = field->take_exit_request()) {
-                travel.begin(std::move(*exit));
-            } else if (respawn_now) {
-                // 부활: 느린 페이드 -> 지금 맵을 새로 읽어 기본 자리에서 시작 (명세 9.5, 12c).
-                // 새 필드라 HP·MP·스태미나가 가득 차고, 쓰러뜨린 몬스터도 다시 나와요.
-                world::MapExit home;
-                home.to_map = current_map;
-                home.to_spawn = std::string(kRespawnSpawn);
-                home.transition = world::ScreenTransition::Fade;
-                travel.begin(std::move(home), {true, kRespawnFadeSeconds});
-            }
-        }
-        travel.update(static_cast<float>(frame_seconds), enter_map);
+        session.field().frame_update(frame_seconds, clock.alpha(), game_clock.hour());
+        // 출구·쉬기·부활(Enter 또는 2.5초) 요청을 보고 맵 옮기기를 진행해요. 다 가려지면 새 필드로 바뀌어요.
+        session.update(static_cast<float>(frame_seconds), field_ui.fallen_ready(),
+                       bindings.pressed(game::Action::Confirm, game_input));
         // HUD 바에 지금 값(0~1)과 최대값(바 길이용)을 알려 줘요. 위에서부터 HP·MP·스태미나.
         HudInfo hud;
-        hud.hp = field->health().fraction();
-        hud.hp_max = static_cast<float>(field->health().max());
-        hud.stamina = field->stamina().fraction();
-        hud.stamina_max = field->stamina().max();
-        hud.exhausted = field->stamina().exhausted();
-        hud.mana = field->mana().fraction();
-        hud.mana_max = field->mana().max();
-        hud.mana_denied = field->mana_denied_count();
-        hud.fallen = field->hero_down();  // 쓰러지면 "쓰러졌다" 화면 (12b), 부활 안내 (12c)
+        hud.hp = session.field().health().fraction();
+        hud.hp_max = static_cast<float>(session.field().health().max());
+        hud.stamina = session.field().stamina().fraction();
+        hud.stamina_max = session.field().stamina().max();
+        hud.exhausted = session.field().stamina().exhausted();
+        hud.mana = session.field().mana().fraction();
+        hud.mana_max = session.field().mana().max();
+        hud.mana_denied = session.field().mana_denied_count();
+        hud.fallen = session.field().hero_down();  // 쓰러지면 "쓰러졌다" 화면 (12b), 부활 안내 (12c)
+        hud.rest_prompt = session.field().rest_prompt();        // 쿠션 가까이면 "[E] 쉬기" (13b)
+        hud.rest_denied = session.field().rest_denied_count();  // 못 쉬면 "주변이 너무 소란스럽다" (13b)
         field_ui.update(static_cast<float>(frame_seconds), hud);
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();
-        field->render(queue);
+        session.field().render(queue);
         queue.sort();
         renderer.begin_frame(kClearColor);  // 바탕색으로 화면 지우기
         platform->text().begin_frame();
@@ -268,26 +225,26 @@ int ClientApp::run() {
         // 월드(땅 ~ 공중 효과)를 먼저 그리고, 그 위에 조명(어둠과 빛)을 입힌 다음,
         // 조명의 영향을 받으면 안 되는 것(스스로 빛나는 것, 전경, 충돌 표시)을 그려요.
         renderer.submit(queue, engine::DrawLayer::Ground, engine::DrawLayer::WorldFx);
-        renderer.apply_lighting(field->lighting());
+        renderer.apply_lighting(session.field().lighting());
         renderer.submit(queue, engine::DrawLayer::Glow, engine::DrawLayer::DebugOverlay);
         // 피해 숫자: 조명 뒤라 밤에도 잘 보이고, HUD보다 아래예요 (10b)
-        draw_damage_numbers(painter, field->camera(), field->damage_numbers());
+        draw_damage_numbers(painter, session.field().camera(), session.field().damage_numbers());
         // 쓰러졌으면 지금까지 그린 월드를 흑백으로 (12b). HUD와 "쓰러졌다" 글자는 이 뒤라 색이 남아요.
-        renderer.apply_desaturation(field->desaturation());
+        renderer.apply_desaturation(session.field().desaturation());
         // 7. HUD(스태미나 바)와 지역 이름 배너. 화면 가리기보다 아래라서 맵과 함께 어두워져요.
         const engine::Vec2 screen = renderer.logical_size();
         field_ui.draw_hud(painter, screen);
         // 8. 맵을 옮기는 중이면 화면을 검게 가려요 (디버그 정보판은 그 위에 보여요).
         //    아이리스는 주인공을 가운데 두고 오므라들어요. 못 간 출구가 있으면 잠깐 알려 줘요.
-        draw_transition(renderer, travel.fade(), field->focus_on_screen());
-        draw_notice(painter, travel.notice());
+        draw_transition(renderer, session.fade(), session.field().focus_on_screen());
+        draw_notice(painter, session.notice());
         field_ui.draw_panels(painter, screen);  // UI 시험판 (F7)
         // 9. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
         overlay.record_frame(frame_seconds);
         const std::string ui_line =
             std::format("ui text draws {}  cached {}  clipped {}", platform->text().draws_this_frame(),
                         platform->text().cached(), painter.clipped_this_frame());
-        overlay.draw(renderer, field->debug_info(), resources.stats(), clock.dropped_frames(),
+        overlay.draw(renderer, session.field().debug_info(), resources.stats(), clock.dropped_frames(),
                      game_clock.text(), ui_line);
         // 지난번 "찰칵" 효과가 아직 남아 있으면 맨 위에 그려요.
         screenshot_flash.update(static_cast<float>(frame_seconds));
@@ -309,7 +266,7 @@ int ClientApp::run() {
     }
 
     log::info("Client stopping after {} frames", frames_rendered_);
-    field.reset();  // 필드 화면부터 정리
+    session.shutdown();  // 필드 화면부터 정리
     log::info("Client stopped cleanly");
     return 0;
 }

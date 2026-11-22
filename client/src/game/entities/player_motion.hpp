@@ -24,6 +24,7 @@
 //   8) 경직 중에는 상태가 hit이라 표가 모든 행동을 막고, 다리도 멈추고, 넉백만큼 밀려나요 (벽 미끄러짐, 11c)
 //   9) HP가 0이면 쓰러짐(dead, 12b): 버튼·다리·스태미나·MP가 모두 멈추고 맞지도 않아요.
 //      마지막 한 방의 넉백만 끝까지 밀려나요. 일어나기(부활)는 맵을 새로 여는 것으로 해요 (12c).
+//  10) 쿠션에서 쉬는 중(resting, 13b)이면 버튼이 안 먹고 다리가 멈추고 맞지 않아요. 방향키를 누르면 기지개 켜고 일어나요.
 // 어떤 상태에서 무엇을 시작할 수 있는지는 상태 전이 표(character_state)를 따라요.
 // SDL을 몰라서 창 없이 테스트할 수 있어요.
 
@@ -33,6 +34,7 @@
 #include "game/entities/character_state.hpp"
 #include "game/entities/health.hpp"
 #include "game/entities/hero_vitals.hpp"
+#include "game/entities/hero_rest.hpp"
 #include "game/entities/hit_reaction.hpp"
 #include "game/entities/mana.hpp"
 #include "game/entities/mover.hpp"
@@ -46,6 +48,9 @@
 #include <optional>
 
 namespace wind::game {
+
+// "한 번도 맞지 않음"을 나타내는 아주 긴 시간 (초). 쉬기 조건(3초)을 늘 통과해요.
+inline constexpr float kNeverHitSeconds = 1.0e9f;
 
 class PlayerMotion {
 public:
@@ -86,6 +91,16 @@ public:
     [[nodiscard]] HeroVitals vitals() const;
     // 들고 온 HP·MP·스태미나로 맞춰요 (12c). 각 통이 범위 안으로 잘라요.
     void restore(const HeroVitals& vitals);
+    // 캣닢 쿠션에서 쉬기 시작 (13b): HP·MP·스태미나를 가득 채우고, seat(쿠션 자리)로 옮겨 가 앉아요.
+    // 서 있거나 걷는 중에만 돼요 (공격·구르기·경직·쓰러짐이면 false). 쉬는 동안은 맞지 않아요.
+    bool begin_rest(engine::Vec2 seat);
+    // 쿠션 위에서 앉은 채 시작해요 (쉬기·부활로 새 맵을 연 직후, 13b)
+    void sit_on(engine::Vec2 seat);
+    // 앉아 있으면 기지개 켜고 일어나요 (E, 13b). 방향키는 step이 알아서 일으켜요.
+    bool stand_up() { return rest_.stand_up(); }
+    [[nodiscard]] const HeroRest& rest() const { return rest_; }
+    // 마지막으로 맞은 뒤 지난 시간 (쉬기 조건: 3초, 13b). 한 번도 안 맞았으면 아주 큰 값이에요.
+    [[nodiscard]] float seconds_since_hit() const { return seconds_since_hit_; }
     // 맵 위의 맞는 상자 (픽셀)
     [[nodiscard]] engine::RectF hurtbox() const;
     // 밖에서 밀어요 (11c: 몸끼리 밀어내기). 벽에 닿으면 벽을 따라 미끄러져요.
@@ -116,6 +131,8 @@ private:
     void try_cast(engine::Vec2 move);
     // 쓰러져 있는 한 박자: 다리를 세우고 마지막 넉백만 이어가요 (12b)
     void step_dead(double dt_seconds, const world::MapData& map);
+    // 쿠션에서 쉬는 한 박자: 방향키면 일어나고, 쿠션 가운데로 옮겨 가요 (13b)
+    void step_resting(double dt_seconds, engine::Vec2 move, const world::MapData& map);
 
     Mover mover_;
     Stamina stamina_;
@@ -125,6 +142,8 @@ private:
     InputBuffer buffer_;
     Health health_;
     HitReaction hit_;
+    HeroRest rest_;                        // 쿠션 쉬기 시간표 (13b)
+    float seconds_since_hit_ = kNeverHitSeconds;  // 마지막으로 맞은 뒤 지난 시간 (13b)
     bool attack_started_ = false;
     bool spell_released_ = false;
     world::Direction cast_facing_ = world::Direction::Down;

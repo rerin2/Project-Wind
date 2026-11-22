@@ -303,7 +303,7 @@ Code: `client/src/game/entities/player_motion.*` (`dead`, `step_dead`, `vitals`,
 - **Slow motion:** the step after the fatal hit, the simulation time scale drops to **0.3** and returns to **1** over **1.5 s** of real step time with `InQuad` (stays slow for most of the time, then catches up). It is a time scale like hitstop (spec 3.2): `sim_dt = step × hitstop_scale × slow_scale` (`SimTimeScale`). If the fatal hit also has hitstop, the freeze comes first and the slow motion continues after it. Knockback distance and projectile paths are the same as at normal speed, only slower (tested).
 - **A fallen body never leaves the map:** exits are not checked while the hero is dead, so knockback that pushes the body onto an exit tile does not start a map change.
 - **When to respawn (12c, agreed 2026-11-22):** `RespawnTrigger` starts counting once the fallen screen is fully shown (2.0 s after falling). **Enter** respawns at once; otherwise it respawns by itself after **2.5 s**. If the map cannot be opened the hero stays down and the trigger fires again 2.5 s later.
-- **Where:** the current map's `default` spawn (agreed; from phase 13 the last cat-nip cushion). The map is read again, so HP, MP and stamina start full and defeated monsters are back (spec 9.5). Rune loss: see "Stats, runes and levels" (13a).
+- **Where:** the last cat-nip cushion rested at (13b, may be on another map; the hero wakes up sitting on it), or the current map's `default` spawn if she has not rested yet. The map is read again, so HP, MP and stamina start full and defeated monsters are back (spec 9.5). Rune loss: see "Stats, runes and levels" (13a).
 - **Carrying HP between maps (12c, agreed):** a normal exit no longer refills the hero. Before the new field replaces the old one, `HeroVitals` (HP, MP, stamina, exhausted) is read from the old hero and given to the new one (`PlayerMotion::restore`, every value clamped to its range). Only a respawn starts full. This closes the "walk between maps to heal" hole noted in 12a; phase 16 can save the same values.
 
 | Falling and respawning | Value | Why |
@@ -325,6 +325,27 @@ Code: `shared/include/wind/progression/*` (`Stats`, `StatCurve`, `derive_stats`,
 - **Runes:** wallet 0–999,999,999 (extra is dropped). A monster gives its `rune_reward` once, on the fixed step its HP reaches 0 (sword or shard). The green slime gives **12** (spec 14.2 example), so level 2 takes 9 slimes.
 - **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. Lost runes cannot be recovered (spec 23.2). If a kill and the fall land on the same step, the runes are added first, then halved.
 - **Owner:** `HeroProgress` lives in `ClientApp`, outside the field, so stats and runes survive map travel and respawn (agreed 2026-11-22). The field borrows it. Phase 16 saves only the five stats and runes.
+
+## Cat-nip cushions (phase 13b, spec 8.7)
+
+Code: `client/src/game/world/rest_rules.*`, `cushion.hpp`, `travel_targets.*`, `client/src/game/entities/hero_rest.*`, `PlayerMotion::begin_rest`/`sit_on`/`stand_up`, `client/src/game/states/field_rest.*`, `FieldCombat::monster_engaged`, `HeroProgress::rest_at`, `client/src/app/field_session.*`. Tested in `rest_rules_tests.cpp`, `hero_rest_tests.cpp`, `field_rest_tests.cpp`, `player_motion_tests.cpp`, `travel_targets_tests.cpp`, `hero_progress_tests.cpp`, `field_combat_tests.cpp`, `entity_loader_tests.cpp`, `map_loader_tests.cpp`.
+
+- **Placement:** map entity `save_point` (see `docs/ENGINE.md`). The meadow cushion "초원 입구" is at (5, 10), up and left of the start, more than 7 tiles from every slime; the forest cushion "숲 그늘" is at (6, 11) near the entrance.
+- **Rest:** stand within **24 px** of the cushion seat (tile feet point) and press **E**. "[E] 쉬기" shows while close enough and able to rest.
+- **Too noisy:** if any monster is engaged (Notice, Chase, Windup, Attack, Recover or Hurt; not Return) or the hero was hit less than **3 s** ago, nothing happens except the notice "주변이 너무 소란스럽다". Far from every cushion, E does nothing.
+- **Order (simulation):** 1) the hero must be idle/moving/running (state table); her move force stops, buffered presses are dropped, **HP, MP and stamina refill and exhaustion clears** at once, she faces down and slides to the seat in 0.25 s, then sits (`resting`: no actions, cannot be hit, exits ignored). 2) 0.6 s after sitting the field asks for a rest trip: 0.5 s fade, the same map is read again (monsters back, spec 9.5), the hero starts sitting on the cushion. 3) The cushion becomes the respawn point (`last_cushion`), the cushion is remembered as found. 4) Autosave: logged only until phase 16. 5) The cushion menu comes in 13c.
+- **Leaving (13b, temporary until the 13c menu):** E or any direction key while sitting: a 0.6 s stretch, then idle. Agreed 2026-11-22.
+- **Falling** respawns on the last cushion (another map if needed), sitting. Before any rest it is the current map's `default` spawn as in 12c.
+- **First discovery:** a found cushion is drawn bloomed; the first rest at a withered cushion makes it bloom and shows "캣닢 쿠션을 찾았다 — (이름)" (the name defaults to the area name).
+
+| Cushion | Value | Why |
+|---|---|---|
+| reach | 24 px | Spec 8.7; about the hero's body width, so she must really stand at it |
+| calm after a hit | 3 s | Spec 8.7; stops "rest to heal" in the middle of a fight |
+| settle | 0.25 s | Quick enough to feel responsive, long enough to see her step onto it |
+| wait before the rest fade | 0.6 s | Shows her sitting down and the hearts before the screen darkens |
+| rest fade | 0.5 s out + 0.5 s in | "Briefly dark" (agreed), shorter than the 0.8 s respawn fade |
+| stretch | 0.6 s | Long enough for the stretch frames; short so leaving feels snappy |
 
 ## Bodies pushing apart (phase 11c, spec 7.3)
 
@@ -351,7 +372,7 @@ Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `charact
 | dead | transitioning, idle (respawn) |
 | transitioning | idle |
 
-For now the hero uses idle, moving, running, attacking, casting, dodging, hit (11c) and dead (12b); F3 shows the state and the combo hit (`attacking 2`).
+For now the hero uses idle, moving, running, attacking, casting, dodging, hit (11c), dead (12b) and resting (13b); F3 shows the state and the combo hit (`attacking 2`).
 
 ## Time
 

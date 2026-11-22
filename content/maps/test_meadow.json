@@ -16,6 +16,7 @@
     { "area": { "x": 39, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_forest.json", "to_spawn": "from_meadow", "transition": "fade" }
   ],
   "entities": [
+    { "type": "save_point", "id": "meadow_cushion", "x": 5, "y": 10, "display_name": "초원 입구" },
     { "type": "training_dummy", "id": "meadow_dummy_1", "x": 10, "y": 14, "data": "props/training_dummy.json" },
     { "type": "training_dummy", "id": "meadow_dummy_2", "x": 13, "y": 14, "data": "props/training_dummy.json" },
     { "type": "monster", "id": "meadow_slime_1", "x": 11, "y": 19, "data": "monsters/slime_green.json" },

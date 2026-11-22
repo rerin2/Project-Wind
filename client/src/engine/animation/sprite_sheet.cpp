@@ -17,4 +17,10 @@ RectI SpriteSheet::frame_rect(world::Direction dir, int column) const {
     return {column * frame_width, row * frame_height, frame_width, frame_height};
 }
 
+// 클립에 정해진 행이 있으면 그 행, 없으면 방향의 행 (13b)
+RectI SpriteSheet::frame_rect(const AnimationClip* clip, world::Direction dir, int column) const {
+    if (clip == nullptr || !clip->row) return frame_rect(dir, column);
+    return {column * frame_width, *clip->row * frame_height, frame_width, frame_height};
+}
+
 }  // namespace wind::engine

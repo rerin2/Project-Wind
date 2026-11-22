@@ -61,6 +61,11 @@ std::optional<AnimationClip> parse_clip(JsonReader& reader) {
         clip.seconds.push_back(static_cast<double>(ms.get<std::int64_t>()) / 1000.0);
     }
     clip.loop = *loop;
+    if (reader.has("row")) {  // 정해진 행 (선택, 13b): 방향과 상관없이 늘 이 행의 그림을 써요
+        const auto row = reader.integer("row", 0, kMaxSheetIndex);
+        if (!row) return std::nullopt;  // 범위 밖이면 공책에 적혔어요
+        clip.row = static_cast<int>(*row);
+    }
     return ok ? std::optional<AnimationClip>(std::move(clip)) : std::nullopt;
 }
 

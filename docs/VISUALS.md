@@ -322,6 +322,17 @@ Code: `client/src/game/presentation/death_fx.cpp` (timers), `player_sprite.cpp` 
 | Fallen screen | after **1.2 s**, a full-width black band (alpha 150, 48 px high, centred at **68 %** of the screen height) and the bold red text "쓰러졌다" (`#d64840`, same red as the HP bar) fade in over **0.8 s** (`OutCubic`) while rising 6 px; then "Enter: 바로 부활" (12c) fades in over 0.4 s (`OutQuad`) | The delay lets the slow motion and grayscale land first. The band sits below the centre because the camera keeps the fallen hero in the middle; the first try (centred band) covered the body |
 | Respawn fade (12c) | full-screen black fade, **0.8 s** out (`InQuad`) and **0.8 s** in (`OutQuad`), more than twice the 0.35 s map fade; the new map opens in colour with the area banner and a full HP bar that fills up | A slow "waking up" instead of a quick door change; the gray world fades to black and comes back in colour (agreed) |
 
+## Cat-nip cushion (phase 13b)
+
+Code: `client/src/game/presentation/cushion_view.*`, `player_sprite.*` (rest clips), `client/src/app/rest_hud.*`. Art: `content/props/catnip_cushion.bmp` and row 4 of `content/sprites/test_hero.bmp`, both drawn by `tools/test_content/generate_test_content.ps1`.
+
+- **Cushion sheet** 128×32, 32×32 cells, seat (feet) at (16, 28): 0 withered (grey-mauve cushion, drooping brown leaves), 1 bloomed (lavender cushion, three upright catnip sprigs with lilac buds), 2 a cream "z" with a dark outline, 3 a pink heart. Cushions are Y-sorted 0.5 px before the hero so she always sits on top.
+- **Hero poses** (row 4, front view): 0 sit, 1 curled up dozing (eyes closed, head on knees), 2 stretch (arms up, on tiptoe, ^ ^ eyes), 3 sit with ^ ^ eyes. Clips: `sit` = 3 for 0.5 s then 0; `curl` = 1; `stretch` = 2 then 3. She sits during settling and for 1.4 s, then curls up.
+- **Bloom:** the sprite switches to bloomed and pops 1 → 1.3 → 1 over 0.45 s (half a sine, scaled around the seat), `fx/catnip_bloom.json` bursts 18 lilac-to-mint additive motes, and a lilac light (radius 72) flashes and fades over 0.8 s.
+- **Resting:** a mint light `#78e8a0` (radius 60, intensity 0.85) fades in over 0.6 s and breathes at 0.5 Hz (depth 0.25). Two hearts pop sideways when she sits (0.9 s, rise 12 px); while dozing a "z" rises every 0.8 s (1.6 s, rise 16 px, ±3 px sine sway). Floaters fade over the last 40 % of their life, at most 12 at once, drawn in `WorldFx` above leaves.
+- **Text:** "[E] 쉬기" in cream on a translucent band, 64 px above the bottom edge, fades in/out in about 0.17 s and rises 4 px as it appears. "주변이 너무 소란스럽다" in soft orange `#ec9c60` at 62 % screen height for 1.8 s, fading over the last 0.3 s. The discovery banner reuses the area banner.
+- Screen check (13b): at night the green light makes the sitting hero look strongly mint; acceptable for now, may be softened when real art arrives.
+
 ## Dodge afterimages
 
 Code: `client/src/game/presentation/afterimage_trail.cpp`.

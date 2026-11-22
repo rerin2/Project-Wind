@@ -83,12 +83,9 @@ TEST(MapChecks, ShippedMeadowHasBlockingDummies) {
     ASSERT_FALSE(map.entities.empty());
     int monsters = 0;  // 슬라임 수
     for (const auto& entity : map.entities) {
-        if (entity.type == wind::world::EntityType::Monster) {
-            ++monsters;
-            EXPECT_TRUE(map.is_walkable(entity.tile)) << entity.id;
-        } else {
-            EXPECT_FALSE(map.is_walkable(entity.tile)) << entity.id;
-        }
+        if (entity.type == wind::world::EntityType::Monster) ++monsters;
+        // 막는 물건(허수아비)의 칸만 못 지나가요. 몬스터·쿠션(13b) 칸은 걸을 수 있어요.
+        EXPECT_EQ(map.is_walkable(entity.tile), !wind::world::blocks_movement(entity.type)) << entity.id;
     }
     EXPECT_GE(monsters, 1);
 }

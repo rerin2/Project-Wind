@@ -10,7 +10,8 @@
 #   content/props/training_dummy.bmp  훈련용 허수아비 (96x48: 서 있음 / 쓰러짐, 칸 48x48)
 #   content/monsters/slime_green.bmp  초록 슬라임 (48x24: 보통 / 공격 예고, 칸 24x24)
 #   content/fx/slash_arc.bmp          칼자국 반달 (32x32, 흰색)
-#   content/sprites/test_hero.bmp     주인공(고양이 귀 은발 소녀) 그림 판: 32x48 칸, 가로 4개(걸음) x 세로 4줄(아래·왼쪽·오른쪽·위)
+#   content/sprites/test_hero.bmp     주인공(고양이 귀 은발 소녀) 그림 판: 32x48 칸, 가로 4개(걸음) x 세로 5줄(아래·왼쪽·오른쪽·위 + 13b 쿠션 동작)
+#   content/props/catnip_cushion.bmp  캣닢 쿠션 (128x32: 시든 / 피어난 / z / 하트, 칸 32x32, 13b)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
 #   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
 #   content/maps/test_forest.json     가로 36칸 x 세로 24칸 시험 숲 (키 큰 풀·나뭇잎이 바람에 흔들려요)
@@ -328,8 +329,9 @@ $g.Dispose(); $bmp.Dispose()
 # 줄(행): 0 아래 보기, 1 왼쪽 보기, 2 오른쪽 보기, 3 위 보기(뒷모습)
 # 칸(열): 0 서기, 1 왼발 앞으로, 2 서기, 3 오른발 앞으로
 # 이 칸들을 차례로 넘기면 걷는 것처럼 보여요.
+# 4번 줄(13b): 캣닢 쿠션 동작, 모두 정면. 0 앉기, 1 웅크리기(졸음), 2 기지개, 3 앉기(웃는 눈)
 $fw = 32; $fh = 48
-$canvas = New-Canvas (4 * $fw) (4 * $fh)
+$canvas = New-Canvas (4 * $fw) (5 * $fh)
 $bmp = $canvas[0]; $g = $canvas[1]
 
 # 주인공: 고양이 귀가 달린 은발 긴 생머리 소녀.
@@ -393,6 +395,58 @@ function Draw-Ears([int]$x, [int]$y, [int]$b, [bool]$inner) {
     }
 }
 
+# 정면 뒷머리: 등 뒤로 허리까지 내려오는 긴 머리 (몸보다 먼저 = 뒤에 그려요). sway: 머리 끝 살랑임
+function Draw-FrontBackHair([int]$x, [int]$y, [int]$b, [int]$sway) {
+    $g.FillRectangle($hairShade, $x + 7, $y + 12 + $b, 18, 20)
+    $g.FillRectangle($hairShade, $x + 8 + $sway, $y + 32 + $b, 4, 2)
+    $g.FillRectangle($hairShade, $x + 20 + $sway, $y + 32 + $b, 4, 2)
+}
+
+# 정면 얼굴·머리·귀·눈. b: 위아래로 옮기는 양, eyes: 'open'(보통) / 'closed'(감음) / 'happy'(^ ^, 13b)
+function Draw-FrontHead([int]$x, [int]$y, [int]$b, [string]$eyes) {
+    # 3) 얼굴
+    $g.FillEllipse($skin, $x + 9, $y + 8 + $b, 14, 15)
+    # 4) 정수리 머리와 앞머리 (삐죽삐죽한 끝)
+    $g.FillRectangle($hair, $x + 9, $y + 6 + $b, 14, 6)
+    $g.FillRectangle($hair, $x + 8, $y + 8 + $b, 16, 3)
+    $g.FillRectangle($hair, $x + 11, $y + 12 + $b, 2, 2)
+    $g.FillRectangle($hair, $x + 15, $y + 12 + $b, 2, 1)
+    $g.FillRectangle($hair, $x + 19, $y + 12 + $b, 2, 2)
+    $g.FillRectangle($hairLight, $x + 12, $y + 7 + $b, 5, 1)
+    # 5) 얼굴 옆으로 내려오는 옆머리 (어깨 앞까지, 손은 가리지 않게)
+    $g.FillRectangle($hair, $x + 7, $y + 11 + $b, 3, 15)
+    $g.FillRectangle($hair, $x + 22, $y + 11 + $b, 3, 15)
+    $g.FillRectangle($hairLight, $x + 8, $y + 13 + $b, 1, 9)
+    # 6) 고양이 귀
+    Draw-Ears $x $y $b $true
+    # 7) 눈: 보통은 속눈썹(진한 줄) + 보라색 눈동자 + 반짝이는 점. 그다음 볼 터치, 입
+    switch ($eyes) {
+        'closed' {  # 감은 눈: 아래로 처진 짧은 줄 (졸려요)
+            $g.FillRectangle($lash, $x + 11, $y + 16 + $b, 3, 1)
+            $g.FillRectangle($lash, $x + 18, $y + 16 + $b, 3, 1)
+        }
+        'happy' {   # 웃는 눈: ^ ^ 모양 (가운데가 1픽셀 위)
+            $g.FillRectangle($lash, $x + 11, $y + 16 + $b, 1, 1)
+            $g.FillRectangle($lash, $x + 12, $y + 15 + $b, 1, 1)
+            $g.FillRectangle($lash, $x + 13, $y + 16 + $b, 1, 1)
+            $g.FillRectangle($lash, $x + 18, $y + 16 + $b, 1, 1)
+            $g.FillRectangle($lash, $x + 19, $y + 15 + $b, 1, 1)
+            $g.FillRectangle($lash, $x + 20, $y + 16 + $b, 1, 1)
+        }
+        default {
+            $g.FillRectangle($lash, $x + 11, $y + 14 + $b, 3, 1)
+            $g.FillRectangle($lash, $x + 18, $y + 14 + $b, 3, 1)
+            $g.FillRectangle($iris, $x + 12, $y + 15 + $b, 2, 3)
+            $g.FillRectangle($iris, $x + 18, $y + 15 + $b, 2, 3)
+            $g.FillRectangle($shine, $x + 12, $y + 15 + $b, 1, 1)
+            $g.FillRectangle($shine, $x + 18, $y + 15 + $b, 1, 1)
+        }
+    }
+    $g.FillRectangle($blush, $x + 10, $y + 19 + $b, 2, 1)
+    $g.FillRectangle($blush, $x + 20, $y + 19 + $b, 2, 1)
+    $g.FillRectangle($skinShade, $x + 15, $y + 20 + $b, 2, 1)
+}
+
 for ($row = 0; $row -lt 4; $row++) {
     if ($row -eq 2) { continue }   # 오른쪽 보기는 아래에서 왼쪽 보기를 거울처럼 뒤집어 만들어요
     for ($col = 0; $col -lt 4; $col++) {
@@ -405,41 +459,14 @@ for ($row = 0; $row -lt 4; $row++) {
 
         switch ($row) {
             0 { # 아래(정면)
-                # 1) 뒷머리: 등 뒤로 허리까지 내려오는 긴 머리 (몸보다 먼저 = 뒤에 그려요)
-                $g.FillRectangle($hairShade, $x + 7, $y + 12 + $b, 18, 20)
-                $g.FillRectangle($hairShade, $x + 8 + $sway, $y + 32 + $b, 4, 2)
-                $g.FillRectangle($hairShade, $x + 20 + $sway, $y + 32 + $b, 4, 2)
+                Draw-FrontBackHair $x $y $b $sway   # 1) 뒷머리
                 Draw-Body $x $y $b $leftLeg $rightLeg $true
                 # 2) 팔: 소매(남색) + 손(살색), 걸을 때 앞뒤로 흔들려요
                 $g.FillRectangle($dress, $x + 8, $y + 22 + $b, 3, 4)
                 $g.FillRectangle($dress, $x + 21, $y + 22 + $b, 3, 4)
                 $g.FillRectangle($skin, $x + 8, $y + 26 + $b - $leftLeg, 3, 6)
                 $g.FillRectangle($skin, $x + 21, $y + 26 + $b - $rightLeg, 3, 6)
-                # 3) 얼굴
-                $g.FillEllipse($skin, $x + 9, $y + 8 + $b, 14, 15)
-                # 4) 정수리 머리와 앞머리 (삐죽삐죽한 끝)
-                $g.FillRectangle($hair, $x + 9, $y + 6 + $b, 14, 6)
-                $g.FillRectangle($hair, $x + 8, $y + 8 + $b, 16, 3)
-                $g.FillRectangle($hair, $x + 11, $y + 12 + $b, 2, 2)
-                $g.FillRectangle($hair, $x + 15, $y + 12 + $b, 2, 1)
-                $g.FillRectangle($hair, $x + 19, $y + 12 + $b, 2, 2)
-                $g.FillRectangle($hairLight, $x + 12, $y + 7 + $b, 5, 1)
-                # 5) 얼굴 옆으로 내려오는 옆머리 (어깨 앞까지, 손은 가리지 않게)
-                $g.FillRectangle($hair, $x + 7, $y + 11 + $b, 3, 15)
-                $g.FillRectangle($hair, $x + 22, $y + 11 + $b, 3, 15)
-                $g.FillRectangle($hairLight, $x + 8, $y + 13 + $b, 1, 9)
-                # 6) 고양이 귀
-                Draw-Ears $x $y $b $true
-                # 7) 눈: 속눈썹(진한 줄) + 보라색 눈동자 + 반짝이는 점, 볼 터치, 입
-                $g.FillRectangle($lash, $x + 11, $y + 14 + $b, 3, 1)
-                $g.FillRectangle($lash, $x + 18, $y + 14 + $b, 3, 1)
-                $g.FillRectangle($iris, $x + 12, $y + 15 + $b, 2, 3)
-                $g.FillRectangle($iris, $x + 18, $y + 15 + $b, 2, 3)
-                $g.FillRectangle($shine, $x + 12, $y + 15 + $b, 1, 1)
-                $g.FillRectangle($shine, $x + 18, $y + 15 + $b, 1, 1)
-                $g.FillRectangle($blush, $x + 10, $y + 19 + $b, 2, 1)
-                $g.FillRectangle($blush, $x + 20, $y + 19 + $b, 2, 1)
-                $g.FillRectangle($skinShade, $x + 15, $y + 20 + $b, 2, 1)
+                Draw-FrontHead $x $y $b 'open'      # 3)~7) 얼굴·머리·귀·눈
             }
             1 { # 왼쪽 보기 (옆모습)
                 # 1) 뒷머리: 등 뒤(오른쪽)로 길게
@@ -499,6 +526,55 @@ for ($col = 0; $col -lt 4; $col++) {
     }
 }
 
+# 4번 줄: 캣닢 쿠션 동작 (13b). 쿠션 위에 앉으니까 발 자리(y=46)보다 조금 위에 엉덩이가 와요.
+# 앉기: 몸 전체가 8픽셀 내려가고, 치마가 넓게 퍼지고, 부츠 끝이 앞으로 살짝 보여요. 손은 무릎 위.
+function Draw-Sitting([int]$x, [int]$y, [string]$eyes) {
+    $s = 8                                                         # 앉아서 내려간 만큼
+    Draw-FrontBackHair $x $y $s 0
+    $g.FillEllipse($dress, $x + 6, $y + 34, 20, 11)                # 넓게 퍼진 치마
+    $g.FillRectangle($dressDark, $x + 19, $y + 37, 4, 5)           # 치마 그늘
+    $g.FillRectangle($trim, $x + 8, $y + 43, 16, 1)                # 흰 밑단
+    $g.FillRectangle($boots, $x + 10, $y + 43, 5, 3)               # 앞으로 나온 부츠 끝
+    $g.FillRectangle($boots, $x + 17, $y + 43, 5, 3)
+    $g.FillRectangle($dress, $x + 11, $y + 22 + $s, 10, 6)         # 윗몸
+    $g.FillRectangle($trim, $x + 12, $y + 22 + $s, 8, 1)           # 흰 깃
+    $g.FillRectangle($ribbon, $x + 15, $y + 23 + $s, 2, 2)         # 빨간 리본
+    $g.FillRectangle($dress, $x + 9, $y + 22 + $s, 3, 5)           # 소매 (몸 옆)
+    $g.FillRectangle($dress, $x + 20, $y + 22 + $s, 3, 5)
+    $g.FillRectangle($skin, $x + 11, $y + 36, 3, 2)                # 무릎 위에 모은 손
+    $g.FillRectangle($skin, $x + 18, $y + 36, 3, 2)
+    Draw-FrontHead $x $y $s $eyes
+}
+# 웅크리기: 무릎을 끌어안고 머리를 무릎에 기댄 채 졸아요. 머리가 더 내려오고 눈을 감아요.
+function Draw-Curled([int]$x, [int]$y) {
+    $s = 13                                                        # 머리가 내려온 만큼
+    Draw-FrontBackHair $x $y ($s - 2) 0
+    $g.FillEllipse($dress, $x + 6, $y + 33, 20, 12)                # 동그랗게 모은 무릎과 치마
+    $g.FillRectangle($dressDark, $x + 18, $y + 37, 5, 5)
+    $g.FillRectangle($trim, $x + 8, $y + 43, 16, 1)
+    $g.FillRectangle($boots, $x + 11, $y + 43, 4, 3)
+    $g.FillRectangle($boots, $x + 17, $y + 43, 4, 3)
+    $g.FillRectangle($dress, $x + 7, $y + 34, 4, 5)                # 무릎을 감싼 팔 (소매)
+    $g.FillRectangle($dress, $x + 21, $y + 34, 4, 5)
+    $g.FillRectangle($skin, $x + 11, $y + 37, 10, 2)               # 무릎 앞에서 깍지 낀 손
+    Draw-FrontHead $x $y $s 'closed'
+}
+# 기지개: 까치발로 서서 두 팔을 머리 위로 쭉 뻗고, 눈을 웃듯 감아요.
+function Draw-Stretching([int]$x, [int]$y) {
+    $b = -1                                                        # 까치발로 1픽셀 올라가요
+    Draw-FrontBackHair $x $y $b 0
+    Draw-Body $x $y $b 0 0 $true
+    $g.FillRectangle($dress, $x + 5, $y + 10 + $b, 3, 13)          # 위로 뻗은 팔 (소매)
+    $g.FillRectangle($dress, $x + 24, $y + 10 + $b, 3, 13)
+    $g.FillRectangle($skin, $x + 5, $y + 5 + $b, 3, 5)             # 머리 위의 손
+    $g.FillRectangle($skin, $x + 24, $y + 5 + $b, 3, 5)
+    Draw-FrontHead $x $y $b 'happy'
+}
+Draw-Sitting (0 * $fw) (4 * $fh) 'open'
+Draw-Curled (1 * $fw) (4 * $fh)
+Draw-Stretching (2 * $fw) (4 * $fh)
+Draw-Sitting (3 * $fw) (4 * $fh) 'happy'
+
 # 바깥 테두리: 투명(분홍) 칸 중에서 바로 옆(위·아래·왼쪽·오른쪽)에 그림이 있는 칸을 진한 색으로 칠해요.
 # 테두리가 있으면 풀밭 위에서도 캐릭터가 또렷하게 보여요. (명세 6.1)
 # 다른 칸(프레임)의 그림이 넘어와 붙지 않게, 칸 안에서만 이웃을 봐요.
@@ -520,6 +596,62 @@ for ($py = 0; $py -lt $bmp.Height; $py++) {
 foreach ($p in $outline) { $bmp.SetPixel($p[0], $p[1], $ink) }
 
 Save-Bmp $bmp (Join-Path $content 'sprites\test_hero.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ------------------------------------------------------------ 캣닢 쿠션 ----
+# 쿠션 그림 판 (128x32, 칸 32x32, 13b). 0 = 시든 쿠션, 1 = 피어난 쿠션, 2 = "z" (졸음), 3 = 하트.
+# 발 위치(주인공이 앉는 자리)는 칸의 (16, 28). 게임 코드(cushion_view)의 칸 크기·발 위치와 같아요.
+# 쿠션은 동그랗고 폭신한 방석이고, 위에 캣닢 잎이 꽂혀 있어요. 시들면 색이 바래고 잎이 축 처져요.
+$canvas = New-Canvas 128 32
+$bmp = $canvas[0]; $g = $canvas[1]
+
+# 쿠션 하나. ox: 칸 왼쪽, bloom: 피었나 (색과 잎 모양이 달라요)
+function Draw-Cushion([int]$ox, [bool]$bloom) {
+    if ($bloom) {
+        $edge = Brush 92 58 108; $side = Brush 170 112 178; $top = Brush 214 160 216; $shine = Brush 244 214 240
+        $leaf = Brush 92 170 96; $leafLight = Brush 150 214 128; $flower = Brush 196 160 244
+    } else {
+        $edge = Brush 70 62 72; $side = Brush 126 112 122; $top = Brush 158 144 152; $shine = Brush 182 170 176
+        $leaf = Brush 120 108 70; $leafLight = Brush 148 134 90; $flower = $null
+    }
+    $g.FillEllipse($edge, $ox + 3, 14, 26, 16)                 # 짙은 테두리 (바닥 그늘 포함)
+    $g.FillEllipse($side, $ox + 4, 15, 24, 13)                 # 옆면
+    $g.FillEllipse($top, $ox + 5, 14, 22, 10)                  # 폭신한 윗면
+    $g.FillRectangle($shine, $ox + 9, 16, 6, 1)                # 윗면 반짝임
+    $g.FillRectangle($edge, $ox + 15, 18, 2, 2)                # 가운데 단추 (방석 바느질)
+    $g.FillRectangle($edge, $ox + 6, 19, 1, 1); $g.FillRectangle($edge, $ox + 25, 19, 1, 1)  # 양옆 술
+    if ($bloom) {  # 피어난 캣닢: 위로 선 잎 세 갈래와 연보라 꽃송이
+        Poly $leaf @(($ox + 10), 17, ($ox + 8), 7, ($ox + 12), 15)
+        Poly $leaf @(($ox + 16), 16, ($ox + 16), 4, ($ox + 18), 15)
+        Poly $leaf @(($ox + 21), 17, ($ox + 24), 8, ($ox + 22), 16)
+        $g.FillRectangle($leafLight, $ox + 9, 9, 1, 4); $g.FillRectangle($leafLight, $ox + 16, 6, 1, 6)
+        $g.FillRectangle($leafLight, $ox + 23, 10, 1, 4)
+        $g.FillRectangle($flower, $ox + 15, 3, 3, 3); $g.FillRectangle($flower, $ox + 7, 6, 2, 2)
+        $g.FillRectangle($flower, $ox + 23, 7, 2, 2)
+        $g.FillRectangle((Brush 240 226 255), $ox + 16, 3, 1, 1)  # 꽃 가운데 반짝
+    } else {       # 시든 캣닢: 옆으로 축 처진 잎
+        Poly $leaf @(($ox + 12), 16, ($ox + 6), 13, ($ox + 11), 14)
+        Poly $leaf @(($ox + 16), 15, ($ox + 15), 9, ($ox + 18), 14)
+        Poly $leaf @(($ox + 20), 16, ($ox + 26), 14, ($ox + 21), 14)
+        $g.FillRectangle($leafLight, $ox + 15, 10, 1, 3)
+    }
+}
+Draw-Cushion 0 $false
+Draw-Cushion 32 $true
+# 2번 칸: 작은 "z" (6x6, 크림색 + 진한 테두리). 쉬는 동안 머리 위로 둥실 떠올라요.
+$zInk = Brush 60 52 84; $zFill = Brush 244 238 214
+# 먼저 진한 색으로 한 픽셀 두껍게 (테두리), 그 위에 크림색 한 픽셀 선
+$g.FillRectangle($zInk, 75, 12, 8, 3); $g.FillRectangle($zInk, 75, 17, 8, 3)  # 위·아래 가로줄
+$g.FillRectangle($zInk, 79, 13, 3, 3); $g.FillRectangle($zInk, 78, 14, 3, 3)  # 사선
+$g.FillRectangle($zInk, 77, 15, 3, 3); $g.FillRectangle($zInk, 76, 16, 3, 3)
+$g.FillRectangle($zFill, 76, 13, 6, 1); $g.FillRectangle($zFill, 80, 14, 1, 1); $g.FillRectangle($zFill, 79, 15, 1, 1)
+$g.FillRectangle($zFill, 78, 16, 1, 1); $g.FillRectangle($zFill, 77, 17, 1, 1); $g.FillRectangle($zFill, 76, 18, 6, 1)
+# 3번 칸: 하트 (7x6, 분홍 + 진한 테두리). 앉는 순간 퐁 하고 떠올라요.
+$hInk = Brush 96 36 64; $hFill = Brush 244 120 160; $hShine = Brush 255 214 226
+Poly $hInk @(108, 12, 112, 11, 116, 12, 116, 15, 112, 20, 108, 15)
+Poly $hFill @(109, 13, 111, 12, 112, 13, 113, 12, 115, 13, 115, 15, 112, 18, 109, 15)
+$g.FillRectangle($hShine, 110, 13, 1, 1)
+Save-Bmp $bmp (Join-Path $content 'props\catnip_cushion.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # --------------------------------------------------------------- 시험 맵 ----

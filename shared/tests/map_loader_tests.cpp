@@ -7,6 +7,10 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <filesystem>
+#include <map>
+#include <set>
+#include <string>
 
 namespace {
 
@@ -216,3 +220,23 @@ TEST(MapLoader, ParsesAmbienceAndRejectsBadPaths) {
 }
 
 }  // namespace
+
+// 13b: 저장소의 모든 맵이 열리고, 캣닢 쿠션 id는 게임 전체에서 하나뿐이에요 (명세 8.7).
+// 초원(첫 지역)과 숲에는 쿠션이 있어요.
+TEST(MapLoader, RepositoryCushionIdsAreUniqueAcrossMaps) {
+    std::set<std::string> ids;
+    std::map<std::string, int> per_map;
+    for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::path(WIND_TEST_CONTENT_DIR) / "maps")) {
+        if (entry.path().extension() != ".json") continue;
+        const std::string path = "maps/" + entry.path().filename().string();
+        const auto result = wind::content::load_map_file(WIND_TEST_CONTENT_DIR, path);
+        ASSERT_TRUE(result.ok()) << path << ": " << wind::content::to_string(result.errors.front());
+        for (const auto& entity : result.value->map.entities) {
+            if (entity.type != wind::world::EntityType::SavePoint) continue;
+            EXPECT_TRUE(ids.insert(entity.id).second) << "duplicate cushion id " << entity.id << " in " << path;
+            ++per_map[path];
+        }
+    }
+    EXPECT_GE(per_map["maps/test_meadow.json"], 1);
+    EXPECT_GE(per_map["maps/test_forest.json"], 1);
+}
