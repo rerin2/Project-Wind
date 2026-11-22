@@ -187,3 +187,23 @@ TEST(MonsterLoader, ShippedSlimeIsValid) {
 }
 
 }  // namespace
+
+// 13c: 저장소의 새 몬스터 세 종류가 열리고, keep_away는 공격 거리보다 짧아야 해요
+TEST(MonsterLoader, RepositoryMonstersLoad) {
+    for (const char* path : {"monsters/slime_green.json", "monsters/bat.json", "monsters/mushroom.json",
+                             "monsters/frog.json"}) {
+        const auto result = wind::content::load_monster_file(WIND_TEST_CONTENT_DIR, path);
+        ASSERT_TRUE(result.ok()) << path << ": " << wind::content::to_string(result.errors.front());
+    }
+    const auto frog = wind::content::load_monster_file(WIND_TEST_CONTENT_DIR, "monsters/frog.json");
+    EXPECT_FLOAT_EQ(frog.value->keep_away, 70.0f);
+    EXPECT_TRUE(frog.value->attacks.front().projectile.has_value());  // 침
+}
+
+TEST(MonsterLoader, KeepAwayMustBeShorterThanAttackRange) {
+    auto doc = make_monster();
+    doc["keep_away"] = 28;  // 공격 거리 28과 같으면 늘 물러나기만 해요
+    EXPECT_TRUE(has_error_at(parse(doc).errors, "keep_away"));
+    doc["keep_away"] = 10;
+    EXPECT_TRUE(parse(doc).ok());
+}

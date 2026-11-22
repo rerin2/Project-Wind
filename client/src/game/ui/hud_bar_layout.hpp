@@ -26,4 +26,8 @@ inline constexpr float kHudBarInnerMax = 200.0f;      // 이상한 값이 와도
 // 최대값으로 바 안쪽 길이(픽셀, 정수)를 구해요. 8~200으로 잘라요. 음수·NaN이면 가장 짧게.
 [[nodiscard]] float hud_bar_inner_width(float max_points);
 
+// 바 길이(최대값)가 바뀌면 단번에 바뀌지 않고 서서히 따라가요 (13c 레벨업: "바가 늘어나는 트윈").
+// shown: 지금 보여 주는 최대값, target: 진짜 최대값. 약 0.4초면 거의 다 따라가요. 이상한 값이면 target 그대로.
+[[nodiscard]] float smooth_bar_max(float shown, float target, float dt_seconds);
+
 }  // namespace wind::game

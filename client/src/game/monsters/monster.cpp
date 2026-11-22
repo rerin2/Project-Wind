@@ -8,6 +8,7 @@
 #include "game/combat/hitbox_placement.hpp"
 #include "game/entities/facing.hpp"
 #include "game/monsters/monster_moves.hpp"
+#include "game/monsters/monster_senses.hpp"
 
 #include <algorithm>
 #include <utility>
@@ -53,7 +54,7 @@ void Monster::step(float dt_seconds, const world::MapData& map, CombatRandom& ra
     switch (state_) {
         case MonsterState::Idle:
         case MonsterState::Wander:
-            if (notices(hero)) {           // 쉬거나 걷다가 주인공을 봤어요!
+            if (monster_notices(data_, feet_, hero)) {  // 쉬거나 걷다가 주인공을 봤어요!
                 enter(MonsterState::Notice);
                 return;
             }
@@ -119,12 +120,15 @@ const combat::AttackData* Monster::attack() const {
 std::optional<engine::Vec2> Monster::lunge_end() const {
     const combat::AttackData* move = attack();
     if (state_ != MonsterState::Windup || move == nullptr) return std::nullopt;
-    return feet_ + attack_direction_ * move->lunge;  // 지금 자리에서 덮치기 거리만큼 앞
+    // 지금 자리에서 덮치기 거리만큼 앞. 침(13c)이면 침이 날아갈 거리 끝까지 보여 줘요.
+    const float reach = move->projectile ? move->projectile->range : move->lunge;
+    return feet_ + attack_direction_ * reach;
 }
 
 std::optional<engine::RectF> Monster::attack_hitbox() const {
     const combat::AttackData* move = attack();
-    if (state_ != MonsterState::Attack || move == nullptr) return std::nullopt;
+    // 침을 쏘는 공격(13c)은 몸으로 부딪히지 않아요: 판정은 날아가는 침이 해요 (FieldCombat)
+    if (state_ != MonsterState::Attack || move == nullptr || move->projectile) return std::nullopt;
     // 히트박스는 4방향 기준이라, 덮칠 방향에 가장 가까운 방향으로 놓아요
     const world::Direction facing = facing_from_vector(attack_direction_, world::Direction::Down);
     return place_hitbox(move->hitbox, feet_, facing);
@@ -164,6 +168,8 @@ void Monster::enter(MonsterState state) {
     state_ = state;
     state_seconds_ = 0.0f;
     stuck_seconds_ = 0.0f;
+    // 날아가는 공격(침)이면 공격을 시작하는 순간 한 방을 쏠 준비 (13c). 그 밖에는 쏠 것이 없어요.
+    shot_ready_ = state == MonsterState::Attack && attack() != nullptr && attack()->projectile.has_value();
 }
 
 void Monster::start_idle(CombatRandom& random) {
@@ -220,11 +226,14 @@ void Monster::step_wander(float dt_seconds, const world::MapData& map, CombatRan
 }
 
 void Monster::step_chase(float dt_seconds, const world::MapData& map, std::optional<engine::Vec2> hero) {
-    if (!can_keep_chasing(hero)) {             // 너무 멀어졌으면 포기하고 돌아가요
+    if (!monster_can_keep_chasing(data_, feet_, home_, hero)) {  // 너무 멀어졌으면 포기하고 돌아가요
         enter(MonsterState::Return);
         return;
     }
-    if (attack() != nullptr && distance(*hero, feet_) <= data_.attack_range) {
+    const float to_hero = distance(*hero, feet_);
+    // 너무 가까우면 물러나요 (keep_away, 개구리 13c). 벽에 막혀 못 물러나면 그 자리에서 공격해요.
+    if (to_hero < data_.keep_away && step_back(dt_seconds, map, *hero)) return;
+    if (attack() != nullptr && to_hero <= data_.attack_range) {
         start_windup(*hero);                   // 공격 거리 안: 멈춰서 예고
         return;
     }
@@ -252,7 +261,7 @@ void Monster::step_attack(float dt_seconds, const world::MapData& map) {
 
 void Monster::step_return(float dt_seconds, const world::MapData& map, CombatRandom& random,
                           std::optional<engine::Vec2> hero) {
-    if (notices_while_returning(hero)) {       // 주인공이 영역 안으로 다시 왔어요
+    if (monster_notices_while_returning(data_, feet_, home_, hero)) {  // 주인공이 영역 안으로 다시 왔어요
         enter(MonsterState::Notice);
         return;
     }
@@ -267,22 +276,20 @@ void Monster::step_return(float dt_seconds, const world::MapData& map, CombatRan
 }
 
 void Monster::after_recover(std::optional<engine::Vec2> hero) {
-    enter(can_keep_chasing(hero) ? MonsterState::Chase : MonsterState::Return);
+    enter(monster_can_keep_chasing(data_, feet_, home_, hero) ? MonsterState::Chase : MonsterState::Return);
 }
 
-bool Monster::notices(std::optional<engine::Vec2> hero) const {
-    return hero.has_value() && distance(*hero, feet_) <= data_.detect_range;
+bool Monster::take_shot() {
+    return std::exchange(shot_ready_, false);  // 한 번만 (FieldCombat이 침 한 방을 만들어요)
 }
 
-bool Monster::notices_while_returning(std::optional<engine::Vec2> hero) const {
-    // 영역 = 제자리에서 (추적 한계 - 공격 거리) 안. 경계선에서 알아챘다 포기했다를 되풀이하지 않게 여유를 둬요.
-    const float territory = data_.leash_range - data_.attack_range;
-    return notices(hero) && distance(*hero, home_) <= territory;
-}
-
-bool Monster::can_keep_chasing(std::optional<engine::Vec2> hero) const {
-    return hero.has_value() && distance(feet_, home_) <= data_.leash_range &&
-           distance(*hero, feet_) <= data_.leash_range;
+// 너무 가까우면 주인공 반대쪽으로 한 걸음 물러나요 (개구리, 13c). 막혀서 못 물러나면 false
+bool Monster::step_back(float dt_seconds, const world::MapData& map, engine::Vec2 hero) {
+    const engine::Vec2 away = engine::normalized(feet_ - hero);
+    if (!(engine::length(away) > 0.0f)) return false;  // 딱 겹쳐 있으면 방향이 없어요
+    const MonsterStep step = step_along(map, body(), feet_, away, data_.move_speed * dt_seconds);
+    apply_move(step.feet, step.travelled, dt_seconds);
+    return !step.blocked;
 }
 
 }  // namespace wind::game

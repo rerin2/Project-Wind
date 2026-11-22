@@ -51,6 +51,12 @@ constexpr float kCushionLift = 10.0f;       // 빛 가운데: 발보다 조금 �
 // 피어나는 순간의 빛: 연보라
 constexpr engine::Color kBloomLightColor{214, 170, 255, 255};
 constexpr float kBloomLightRadius = 72.0f;
+// 레벨업 (13c): 0.5초 동안 0.08초마다 빛 알갱이 묶음, 금빛 빛 (반지름 80)이 1초 동안 사그라들어요
+constexpr float kLevelUpEmitSeconds = 0.5f;
+constexpr float kLevelUpEmitEvery = 0.08f;
+constexpr float kLevelUpLightSeconds = 1.0f;
+constexpr float kLevelUpLightRadius = 80.0f;
+constexpr engine::Color kLevelUpLightColor{255, 220, 140, 255};
 
 // 0~1 수명 비율에서 투명도: 처음엔 또렷, 끝 40%에서 흐려져요
 float fade(float t) {
@@ -60,8 +66,10 @@ float fade(float t) {
 }  // namespace
 
 CushionView::CushionView(std::vector<Cushion> cushions, const std::function<bool(std::string_view)>& discovered,
-                         engine::TextureHandle texture, const engine::ParticleEffect* bloom_fx)
-    : cushions_(std::move(cushions)), looks_(cushions_.size()), texture_(texture), bloom_fx_(bloom_fx) {
+                         engine::TextureHandle texture, const engine::ParticleEffect* bloom_fx,
+                         const engine::ParticleEffect* level_up_fx)
+    : cushions_(std::move(cushions)), looks_(cushions_.size()), texture_(texture), bloom_fx_(bloom_fx),
+      level_up_fx_(level_up_fx) {
     for (std::size_t i = 0; i < looks_.size(); ++i) looks_[i].bloomed = discovered(cushions_[i].id);  // 찾은 쿠션은 피어난 모습
 }
 
@@ -72,6 +80,12 @@ void CushionView::bloom(std::string_view cushion_id) {
         looks_[i].bloom_age = 0.0f;    // 퐁 연출 시작
         burst_queue_.push_back(i);     // 꽃잎은 다음 update에서 (주사위가 필요해요)
     }
+}
+
+void CushionView::celebrate_level_up(engine::Vec2 feet) {
+    level_up_at_ = feet;
+    level_up_age_ = 0.0f;   // 다음 update부터 빛기둥이 솟아요
+    level_up_emit_ = 0.0f;  // 첫 묶음은 바로
 }
 
 void CushionView::spawn(FloaterKind kind, engine::Vec2 seat, float drift) {
@@ -93,6 +107,16 @@ void CushionView::update(float dt_seconds, const Cushion* resting, const HeroRes
         }
     }
     burst_queue_.clear();
+    // 1-2) 레벨업 빛기둥 (13c): 0.5초 동안 0.08초마다 빛 알갱이 묶음을 위로
+    if (level_up_age_ >= 0.0f) {
+        level_up_age_ += dt_seconds;
+        level_up_emit_ -= dt_seconds;
+        while (level_up_emit_ <= 0.0f && level_up_age_ <= kLevelUpEmitSeconds) {
+            level_up_emit_ += kLevelUpEmitEvery;
+            if (level_up_fx_ != nullptr) (void)engine::emit_burst(*level_up_fx_, level_up_at_, 0.0f, random, air_fx);
+        }
+        if (level_up_age_ > kLevelUpLightSeconds) level_up_age_ = -1.0f;  // 연출 끝
+    }
     // 2) 쉬기: 앉는 순간 하트, 졸면 z
     resting_ = resting;
     const HeroRest::Phase phase = resting != nullptr ? rest.phase() : HeroRest::Phase::None;
@@ -165,6 +189,14 @@ std::vector<engine::Light> CushionView::lights() const {
         light.intensity = kRestLightIntensity * std::min(1.0f, glow_clock_ / kRestLightFadeIn);
         light.pulse_frequency = kRestLightPulseHz;
         light.pulse_depth = kRestLightPulseDepth;
+        lights.push_back(light);
+    }
+    if (level_up_age_ >= 0.0f) {  // 레벨업 (13c): 금빛이 번쩍했다 1초 동안 사그라들어요
+        engine::Light light;
+        light.position = {level_up_at_.x, level_up_at_.y - kHeadHeight * 0.5f};
+        light.radius = kLevelUpLightRadius;
+        light.color = kLevelUpLightColor;
+        light.intensity = 1.0f - level_up_age_ / kLevelUpLightSeconds;
         lights.push_back(light);
     }
     for (std::size_t i = 0; i < cushions_.size(); ++i) {  // 피어나는 순간: 연보라 빛이 번쩍했다 사그라들어요

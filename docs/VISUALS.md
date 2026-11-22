@@ -333,6 +333,27 @@ Code: `client/src/game/presentation/cushion_view.*`, `player_sprite.*` (rest cli
 - **Text:** "[E] 쉬기" in cream on a translucent band, 64 px above the bottom edge, fades in/out in about 0.17 s and rises 4 px as it appears. "주변이 너무 소란스럽다" in soft orange `#ec9c60` at 62 % screen height for 1.8 s, fading over the last 0.3 s. The discovery banner reuses the area banner.
 - Screen check (13b): at night the green light makes the sitting hero look strongly mint; acceptable for now, may be softened when real art arrives.
 
+## Cushion menu and level-up (phase 13c)
+
+Code: `client/src/app/cushion_menu_view.*`, `CushionView::celebrate_level_up`, `fx/level_up.json`.
+
+- Menu: a 168 px panel 24 px from the right edge (the hero stays visible at the centre), title "캣닢 쿠션", four buttons (dimmed ones at 40 % alpha), level and runes below. Panels pop in over 0.2 s (OutBack from 90 %), again when switching menu ↔ level-up.
+- Level-up sheet: 300×236 panel; focused row on a faint gold band `#ffe9a8` 16 %; raised values in green `#8edc80`, preview in dim text, short runes in red `#e66054`; a refused confirm shakes the cost line ±4 px for 0.3 s.
+- Level-up: `fx/level_up.json` (additive cream-to-gold streaks rising at the hero's feet, a burst every 0.08 s for 0.5 s) and a gold light `#ffdc8c` (radius 80) fading over 1 s (visible only where lighting is on, i.e. at night or indoors). HUD bars follow the new max with an exponential ease (rate 8/s).
+
+## Runes (phase 13c)
+
+Code: `client/src/game/presentation/rune_orbs.*`, `client/src/app/field_ui.cpp` (`draw_runes`).
+
+- Counter at the bottom right (12 px margins): a 5 px gold diamond `#ffd678` with a dark outline, then the number in bold. Gains float "+N" in light gold 10 px up over 1.2 s; losses turn the number and "-N" red `#e66054`.
+- Orbs: gold `#ffd678` additive glows 10 px, drawn on the Glow layer (above lighting, so they read at night). Burst 40–90 px/s with drag 5 for 0.3 s, then pulled at 900 px/s² up to 420 px/s toward the hero's body (18 px above the feet); caught within 8 px; at most 64 alive, 2 s life.
+
+## New monsters (phase 13c)
+
+Art by `tools/test_content/generate_test_content.ps1`: `monsters/bat.bmp` 48×24 (open wings / folded windup, feet 10 px below the body because it flies), `mushroom.bmp` 64×32 (red cap with white dots and a face on the stem / windup with white spikes and a frown; the side spikes are mostly clipped by the cell, the top three show), `frog.bmp` 48×24 (sitting / puffed cheeks and open mouth). Death bursts: `fx/bat_burst.json` (violet), `fx/spore_burst.json` (slowly rising cream spores), frog reuses `slime_burst`.
+- Spit: a 12 px green glob `#78c846` with a 6 px additive core `#dcffaa` (Glow layer), interpolated between steps; `fx/spit_splash.json` (10 green droplets) where it ends. The windup warning is the usual red ground path, as long as the spit flies.
+- The mushroom warning has no lunge, so the red ground mark becomes a circle as wide as its 52 px spike box.
+
 ## Dodge afterimages
 
 Code: `client/src/game/presentation/afterimage_trail.cpp`.

@@ -14,7 +14,14 @@
     { "area": { "x": 0, "y": 12, "w": 1, "h": 1 }, "to_map": "maps/test_meadow.json", "to_spawn": "from_forest", "transition": "fade" }
   ],
   "entities": [
-    { "type": "save_point", "id": "forest_cushion", "x": 6, "y": 11, "display_name": "숲 그늘" }
+    { "type": "save_point", "id": "forest_cushion", "x": 6, "y": 11, "display_name": "숲 그늘" },
+    { "type": "monster", "id": "forest_bat_1", "x": 15, "y": 8, "data": "monsters/bat.json" },
+    { "type": "monster", "id": "forest_bat_2", "x": 19, "y": 15, "data": "monsters/bat.json" },
+    { "type": "monster", "id": "forest_bat_3", "x": 25, "y": 10, "data": "monsters/bat.json" },
+    { "type": "monster", "id": "forest_mushroom_1", "x": 21, "y": 8, "data": "monsters/mushroom.json" },
+    { "type": "monster", "id": "forest_mushroom_2", "x": 28, "y": 16, "data": "monsters/mushroom.json" },
+    { "type": "monster", "id": "forest_frog_1", "x": 13, "y": 18, "data": "monsters/frog.json" },
+    { "type": "monster", "id": "forest_frog_2", "x": 26, "y": 19, "data": "monsters/frog.json" }
   ],
   "ambience": {
     "ambient_fx": ["fx/leaves.json"],

@@ -89,6 +89,8 @@ public:
     [[nodiscard]] std::optional<engine::RectF> attack_hitbox() const;
     // 덮치기 한 번에 한 번만 맞히게: 이번 덮치기에서 처음이면 true를 돌려주고 기억해요 (11c)
     bool claim_hit();
+    // 침을 쏠 때인가요? (날아가는 공격이 막 시작된 박자에 한 번만 true, 13c). FieldCombat이 침 한 방을 만들어요.
+    bool take_shot();
     // 밖에서 밀어요 (11c: 몸끼리 밀어내기). 벽에 닿으면 벽을 따라 미끄러져요. 상태는 바꾸지 않아요.
     void shove(engine::Vec2 delta, const world::MapData& map);
 
@@ -114,12 +116,9 @@ private:
     // 후딜이 끝났을 때: 계속 쫓을지, 돌아갈지
     void after_recover(std::optional<engine::Vec2> hero);
 
-    // 쉬거나 걷다가 주인공을 알아채나요? (감지 거리 안)
-    [[nodiscard]] bool notices(std::optional<engine::Vec2> hero) const;
-    // 돌아가다가 다시 알아채나요? (감지 거리 안 + 주인공이 슬라임 영역 안)
-    [[nodiscard]] bool notices_while_returning(std::optional<engine::Vec2> hero) const;
-    // 계속 쫓아도 되나요? (제자리에서도, 주인공에게서도 추적 한계 안)
-    [[nodiscard]] bool can_keep_chasing(std::optional<engine::Vec2> hero) const;
+    // 너무 가까우면 한 걸음 물러나요 (keep_away, 13c). 막혀서 못 물러나면 false
+    bool step_back(float dt_seconds, const world::MapData& map, engine::Vec2 hero);
+    // (알아채기·다시 알아채기·계속 쫓기 거리 규칙은 monster_senses에 있어요, 13c)
 
     std::string name_;              // 맵 안 이름 ("meadow_slime_1")
     combat::MonsterData data_;      // HP·빠르기·거리·그림·공격 설명
@@ -135,6 +134,7 @@ private:
     float stuck_seconds_ = 0.0f;    // 거의 못 가고 있는 시간 (초, 배회·복귀)
     float distance_moved_ = 0.0f;   // 걸은 거리의 합 (픽셀)
     bool hit_landed_ = false;       // 이번 덮치기에서 이미 맞혔나 (예고를 시작할 때 지워요)
+    bool shot_ready_ = false;       // 이번 공격의 침을 아직 안 쐈나 (13c)
     TargetId id_ = 0;               // 맞는 대상 번호 (11d)
     int hp_;                        // 지금 HP (11d)
     HitReaction hit_;               // 맞으면 움찔·넉백 (무적은 없어요: 휘두르기마다 한 번만 맞으니까요)

@@ -89,8 +89,11 @@ add_library(wind_game_core STATIC
     src/game/combat/slow_motion.cpp
     src/game/combat/sim_time_scale.cpp
     src/game/combat/hit_resolution.cpp
+    src/game/combat/hero_strike.cpp
+    src/game/combat/enemy_shots.cpp
     src/game/monsters/monster.cpp
     src/game/monsters/monster_moves.cpp
+    src/game/monsters/monster_senses.cpp
     src/game/presentation/dust_emitter.cpp
     src/game/presentation/afterimage_trail.cpp
     src/game/presentation/player_sprite.cpp
@@ -113,6 +116,8 @@ add_library(wind_game_core STATIC
     src/game/presentation/damage_numbers.cpp
     src/game/presentation/field_combat_fx.cpp
     src/game/presentation/cushion_view.cpp
+    src/game/presentation/debug_boxes.cpp
+    src/game/presentation/rune_orbs.cpp
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
@@ -126,6 +131,9 @@ add_library(wind_game_core STATIC
     src/game/ui/delayed_bar.cpp
     src/game/ui/hud_bar_layout.cpp
     src/game/ui/fallen_screen.cpp
+    src/game/ui/level_up_sheet.cpp
+    src/game/ui/cushion_menu.cpp
+    src/game/ui/rune_counter.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp
     src/game/states/field_rest.cpp
@@ -144,6 +152,8 @@ add_executable(wind_client
     src/app/field_ui.cpp
     src/app/field_session.cpp
     src/app/rest_hud.cpp
+    src/app/cushion_menu_view.cpp
+    src/app/cushion_menu_panel.cpp
     src/app/damage_number_drawing.cpp
     src/app/ui_test_panel.cpp
     src/app/ui_resources.cpp
@@ -210,6 +220,12 @@ if(WIND_BUILD_TESTS)
         tests/travel_targets_tests.cpp
         tests/field_rest_tests.cpp
         tests/cushion_view_tests.cpp
+        tests/level_up_sheet_tests.cpp
+        tests/cushion_menu_tests.cpp
+        tests/rune_counter_tests.cpp
+        tests/rune_orbs_tests.cpp
+        tests/enemy_shots_tests.cpp
+        tests/monster_senses_tests.cpp
         tests/monster_tests.cpp
         tests/monster_pose_tests.cpp
         tests/monster_view_tests.cpp

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "bat",
+  "name": "숲 박쥐",
+  "max_hp": 18,
+  "attack_power": 18,
+  "defense": 0,
+  "rune_reward": 8,
+  "move_speed": 70,
+  "detect_range": 140,
+  "attack_range": 56,
+  "leash_range": 300,
+  "notice_seconds": 0.25,
+  "wander": { "radius": 50, "speed": 30, "pause": [0.3, 1.0] },
+  "body": [10, 6],
+  "hurtbox": { "offset": [-8, -22], "size": [16, 12] },
+  "sprite": { "image": "monsters/bat.bmp", "frame": [24, 24], "origin": [12, 22] },
+  "attacks": ["attacks/bat_dive.json"],
+  "stagger_seconds": 0.2,
+  "death_fx": "fx/bat_burst.json"
+}

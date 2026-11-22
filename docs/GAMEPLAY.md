@@ -334,7 +334,7 @@ Code: `client/src/game/world/rest_rules.*`, `cushion.hpp`, `travel_targets.*`, `
 - **Rest:** stand within **24 px** of the cushion seat (tile feet point) and press **E**. "[E] 쉬기" shows while close enough and able to rest.
 - **Too noisy:** if any monster is engaged (Notice, Chase, Windup, Attack, Recover or Hurt; not Return) or the hero was hit less than **3 s** ago, nothing happens except the notice "주변이 너무 소란스럽다". Far from every cushion, E does nothing.
 - **Order (simulation):** 1) the hero must be idle/moving/running (state table); her move force stops, buffered presses are dropped, **HP, MP and stamina refill and exhaustion clears** at once, she faces down and slides to the seat in 0.25 s, then sits (`resting`: no actions, cannot be hit, exits ignored). 2) 0.6 s after sitting the field asks for a rest trip: 0.5 s fade, the same map is read again (monsters back, spec 9.5), the hero starts sitting on the cushion. 3) The cushion becomes the respawn point (`last_cushion`), the cushion is remembered as found. 4) Autosave: logged only until phase 16. 5) The cushion menu comes in 13c.
-- **Leaving (13b, temporary until the 13c menu):** E or any direction key while sitting: a 0.6 s stretch, then idle. Agreed 2026-11-22.
+- **Leaving:** after a rest the cushion menu opens (13c); "떠나기" or Esc makes her stretch (0.6 s) and stand. When she wakes on a cushion after falling there is no menu: E or any direction key makes her stand (13b rule).
 - **Falling** respawns on the last cushion (another map if needed), sitting. Before any rest it is the current map's `default` spawn as in 12c.
 - **First discovery:** a found cushion is drawn bloomed; the first rest at a withered cushion makes it bloom and shows "캣닢 쿠션을 찾았다 — (이름)" (the name defaults to the area name).
 
@@ -346,6 +346,32 @@ Code: `client/src/game/world/rest_rules.*`, `cushion.hpp`, `travel_targets.*`, `
 | wait before the rest fade | 0.6 s | Shows her sitting down and the hearts before the screen darkens |
 | rest fade | 0.5 s out + 0.5 s in | "Briefly dark" (agreed), shorter than the 0.8 s respawn fade |
 | stretch | 0.6 s | Long enough for the stretch frames; short so leaving feels snappy |
+
+## Cushion menu and level-up (phase 13c, spec 8.3, 8.7, 13.1)
+
+Code: `client/src/game/ui/cushion_menu.*`, `level_up_sheet.*`, `client/src/app/cushion_menu_panel.*`, `cushion_menu_view.*`, `FieldState::refresh_hero_stats`, `PlayerMotion::raise_maximums`. Tested in `cushion_menu_tests.cpp`, `level_up_sheet_tests.cpp`, `health_tests.cpp`, `hud_bar_layout_tests.cpp`.
+
+- Opens by itself after the rest fade. Items: 레벨업, 마술 칸 (dimmed until 15), 저장 (dimmed until 16), 떠나기. Up/Down skip dimmed items; Enter, E or J confirm; Esc leaves. **Game time stops** while it is open.
+- **Level-up screen:** five stat rows and a 확정 row. Left/Right (or Enter on a stat row) lower/raise the target between the current value and 60; lowering below the current value is impossible. Each changed row previews its derived value ("최대 HP 100 → 118", weight with one decimal, magic attack). Cost = the sum of each level step (13a); shown red when short. 확정 is all-or-nothing (`HeroProgress::try_raise`); a refusal shakes the cost line. Esc returns to the menu and drops the unconfirmed change.
+- **After a level-up:** new max HP/MP/stamina apply at once and refill (she is resting), the sword and spell bonuses update, a "레벨 N" banner shows, the bars grow over about 0.4 s.
+
+## Runes on screen (phase 13c, spec 8.3, 13.2)
+
+Code: `client/src/game/ui/rune_counter.*`, `client/src/game/presentation/rune_orbs.*`, `FieldCombat::rune_drops`, `HeroProgress::last_lost`. Tested in `rune_counter_tests.cpp`, `rune_orbs_tests.cpp`.
+
+- Bottom right: rune count. A gain shows "+N" (gains in a row add up) and rolls up in 0.6 s; a loss rolls down red in 0.8 s with "-N". The first value shows at once.
+- A falling monster drops 3–10 gold motes (about one per 4 runes) that scatter for 0.3 s, then fly into the hero; the wallet already has the runes.
+- The fallen screen hint reads "잃은 룬 N   Enter: 바로 부활".
+
+## New monsters (phase 13c)
+
+Data: `content/monsters/bat.json`, `mushroom.json`, `frog.json` and their attacks. Tested in `enemy_shots_tests.cpp`, `monster_tests.cpp`, `monster_senses_tests.cpp`, `monster_loader_tests.cpp`.
+
+| Monster | HP | Attack | Def | Speed | Runes | Behaviour |
+|---|---|---|---|---|---|---|
+| 숲 박쥐 `bat` (forest ×3) | 18 | 18 | 0 | 70 | 8 | Notices at 140 px after 0.25 s, short 0.35 s warning, 64 px dive. Weak but quick |
+| 가시 버섯 `mushroom` (forest ×2) | 70 | 30 × 1.2 | 4 | 22 | 20 | Barely moves (wander 16 px). Within 34 px: 0.9 s warning, then spikes in a 52×52 box around it (hits from any side), long 1.0 s recovery to punish |
+| 침 뱉는 개구리 `frog` (forest ×2, meadow ×2) | 26 | 20 | 0 | 45 | 14 | Keeps distance: closer than 70 px it hops back; within 130 px a 0.7 s warning (puffed cheeks, red line 200 px long) then one spit (170 px/s, 200 px). Rolling through the spit avoids it |
 
 ## Bodies pushing apart (phase 11c, spec 7.3)
 

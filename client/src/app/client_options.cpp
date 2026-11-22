@@ -170,6 +170,16 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
             }
             options.start_hour = hour;
         }
+        else if (arg == "--runes") {
+            // 시험용 시작 룬 (13c 레벨업 화면 확인용): 0 ~ 999,999,999 정수
+            const std::string text(value);
+            char* end = nullptr;
+            const long long runes = std::strtoll(text.c_str(), &end, 10);
+            if (text.empty() || end != text.c_str() + text.size() || runes < 0 || runes > 999'999'999LL) {
+                return fail("--runes must be an integer from 0 to 999999999");
+            }
+            options.start_runes = runes;
+        }
         else if (arg == "--shake" || arg == "--flash") {
             // 접근성: 화면 흔들림 / 맞을 때 번쩍임 세기 0~1 (0이면 끔)
             const auto strength = parse_unit(value);
@@ -229,6 +239,7 @@ std::string_view client_usage() {
            "  --press <key@frame>  tap a key at a frame, e.g. f6@60; may repeat (for checks)\n"
            "  --hold <key@a-b>     hold a key from frame a to b, e.g. shift@30-200; may repeat\n"
            "  --time <hours>       start time of day, 0 to below 24 (default 9)\n"
+           "  --runes <n>          test only: start with n runes (0-999999999, default 0)\n"
            "  --weather <id>       start weather from the map's table, e.g. rain\n"
            "  --shake <0-1>        screen shake strength (default 1, 0 = off)\n"
            "  --flash <0-1>        hit flash strength (default 1, 0 = off)\n"

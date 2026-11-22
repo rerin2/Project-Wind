@@ -12,6 +12,9 @@
 #   content/fx/slash_arc.bmp          칼자국 반달 (32x32, 흰색)
 #   content/sprites/test_hero.bmp     주인공(고양이 귀 은발 소녀) 그림 판: 32x48 칸, 가로 4개(걸음) x 세로 5줄(아래·왼쪽·오른쪽·위 + 13b 쿠션 동작)
 #   content/props/catnip_cushion.bmp  캣닢 쿠션 (128x32: 시든 / 피어난 / z / 하트, 칸 32x32, 13b)
+#   content/monsters/bat.bmp          숲 박쥐 (48x24: 보통 / 공격 예고, 13c)
+#   content/monsters/mushroom.bmp     가시 버섯 (64x32: 보통 / 공격 예고 가시, 13c)
+#   content/monsters/frog.bmp         침 뱉는 개구리 (48x24: 보통 / 공격 예고 볼 부풀림, 13c)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
 #   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
 #   content/maps/test_forest.json     가로 36칸 x 세로 24칸 시험 숲 (키 큰 풀·나뭇잎이 바람에 흔들려요)
@@ -652,6 +655,105 @@ Poly $hInk @(108, 12, 112, 11, 116, 12, 116, 15, 112, 20, 108, 15)
 Poly $hFill @(109, 13, 111, 12, 112, 13, 113, 12, 115, 13, 115, 15, 112, 18, 109, 15)
 $g.FillRectangle($hShine, 110, 13, 1, 1)
 Save-Bmp $bmp (Join-Path $content 'props\catnip_cushion.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ------------------------------------------------------------ 숲 박쥐 (13c) ----
+# 박쥐 그림 판 (48x24, 칸 24x24): 0 = 날개를 편 보통, 1 = 공격 예고(날개를 접고 몸을 웅크림).
+# 발 위치는 칸의 (12, 22): 박쥐는 떠 있어서 몸은 발보다 한참 위(y 8~16)에 그려요. monsters/bat.json의 "origin"과 같아요.
+$canvas = New-Canvas 48 24
+$bmp = $canvas[0]; $g = $canvas[1]
+$batInk = Brush 34 24 52; $batBody = Brush 86 66 120; $batWing = Brush 64 48 96; $batBelly = Brush 128 104 156
+$batEye = Brush 255 210 90
+function Draw-Bat([int]$ox, [bool]$folded) {
+    if ($folded) {  # 예고: 날개를 몸에 붙이고 작게 웅크려요
+        Poly $batInk @(($ox + 6), 10, ($ox + 12), 6, ($ox + 18), 10, ($ox + 16), 18, ($ox + 8), 18)
+        Poly $batWing @(($ox + 7), 10, ($ox + 12), 7, ($ox + 17), 10, ($ox + 15), 17, ($ox + 9), 17)
+    } else {        # 보통: 양옆으로 뾰족뾰족한 날개를 활짝
+        Poly $batInk @(($ox + 1), 8, ($ox + 9), 9, ($ox + 9), 15, ($ox + 5), 13, ($ox + 3), 15)
+        Poly $batInk @(($ox + 23), 8, ($ox + 15), 9, ($ox + 15), 15, ($ox + 19), 13, ($ox + 21), 15)
+        Poly $batWing @(($ox + 2), 9, ($ox + 9), 10, ($ox + 9), 14, ($ox + 5), 12, ($ox + 3), 13)
+        Poly $batWing @(($ox + 22), 9, ($ox + 15), 10, ($ox + 15), 14, ($ox + 19), 12, ($ox + 21), 13)
+    }
+    $g.FillEllipse($batInk, $ox + 8, 7, 9, 10)                 # 몸 테두리
+    $g.FillEllipse($batBody, $ox + 9, 8, 7, 8)                 # 몸
+    $g.FillRectangle($batBelly, $ox + 11, 12, 3, 3)            # 배
+    Poly $batInk @(($ox + 9), 8, ($ox + 9), 4, ($ox + 11), 7)  # 뾰족 귀
+    Poly $batInk @(($ox + 15), 8, ($ox + 16), 4, ($ox + 14), 7)
+    $g.FillRectangle($batEye, $ox + 10, 10, 1, 1)              # 노란 눈
+    $g.FillRectangle($batEye, $ox + 14, 10, 1, 1)
+    $g.FillRectangle((Brush 240 240 240), $ox + 12, 13, 1, 1)  # 송곳니
+}
+Draw-Bat 0 $false
+Draw-Bat 24 $true
+Save-Bmp $bmp (Join-Path $content 'monsters\bat.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ---------------------------------------------------------- 가시 버섯 (13c) ----
+# 버섯 그림 판 (64x32, 칸 32x32): 0 = 보통(동그란 갓), 1 = 공격 예고(갓이 부풀고 가시가 삐죽).
+# 발 위치는 칸의 (16, 29). monsters/mushroom.json의 "origin"과 같아요.
+$canvas = New-Canvas 64 32
+$bmp = $canvas[0]; $g = $canvas[1]
+$shInk = Brush 52 30 30; $shCap = Brush 196 74 64; $shCapLight = Brush 232 120 96; $shDot = Brush 248 236 210
+$shStem = Brush 236 222 190; $shStemShade = Brush 196 180 150; $shSpike = Brush 250 246 230
+function Draw-Mushroom([int]$ox, [bool]$angry) {
+    $puff = 0                                                   # 갓 크기는 그대로 (예고 때는 둘레에 가시가 나와요)
+    $g.FillRectangle($shInk, $ox + 11, 18, 10, 12)              # 기둥 테두리
+    $g.FillRectangle($shStem, $ox + 12, 18, 8, 11)              # 기둥
+    $g.FillRectangle($shStemShade, $ox + 17, 19, 3, 10)         # 기둥 그늘
+    $g.FillRectangle($shInk, $ox + 13, 23, 2, 3)                # 눈 (기둥에 있어요)
+    $g.FillRectangle($shInk, $ox + 17, 23, 2, 3)
+    if ($angry) {
+        $g.FillRectangle($shInk, $ox + 12, 22, 3, 1)            # 찡그린 눈썹
+        $g.FillRectangle($shInk, $ox + 17, 22, 3, 1)
+    }
+    $g.FillEllipse($shInk, $ox + 3 - $puff, 4 - $puff, 26 + $puff * 2, 17 + $puff)   # 갓 테두리
+    $g.FillEllipse($shCap, $ox + 4 - $puff, 5 - $puff, 24 + $puff * 2, 15 + $puff)   # 빨간 갓
+    $g.FillEllipse($shCapLight, $ox + 8, 6 - $puff, 10, 5)                           # 갓 반짝임
+    $g.FillEllipse($shDot, $ox + 7, 11, 4, 3); $g.FillEllipse($shDot, $ox + 15, 8, 5, 3)   # 흰 점
+    $g.FillEllipse($shDot, $ox + 22, 12, 4, 3)
+    $g.FillRectangle($shInk, $ox + 6, 18, 20, 1)                # 갓 밑 그늘선
+    if ($angry) {  # 갓 가장자리에서 바깥으로 삐죽 나온 흰 가시 다섯 개 (갓 위에 그려야 보여요)
+        # 갓(x 3~29, y 4~21) 가장자리 안쪽에 밑변, 칸 끝(0·31, 위 0)에 뾰족한 끝
+        foreach ($s in @(@(5, 10, 5, 15, 0, 12), @(8, 6, 11, 4, 4, 1), @(14, 5, 18, 5, 16, 0),
+                         @(21, 4, 24, 6, 28, 1), @(27, 10, 27, 15, 31, 12))) {
+            Poly $shInk @(($ox + $s[0] - 1), $s[1], ($ox + $s[2] + 1), $s[3], ($ox + $s[4]), $s[5])  # 테두리
+            Poly $shSpike @(($ox + $s[0]), $s[1], ($ox + $s[2]), $s[3], ($ox + $s[4]), $s[5])      # 흰 가시
+        }
+    }
+}
+Draw-Mushroom 0 $false
+Draw-Mushroom 32 $true
+Save-Bmp $bmp (Join-Path $content 'monsters\mushroom.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ----------------------------------------------------- 침 뱉는 개구리 (13c) ----
+# 개구리 그림 판 (48x24, 칸 24x24): 0 = 보통(앉음), 1 = 공격 예고(볼을 부풀리고 입을 벌림).
+# 발 위치는 칸의 (12, 21). monsters/frog.json의 "origin"과 같아요.
+$canvas = New-Canvas 48 24
+$bmp = $canvas[0]; $g = $canvas[1]
+$frInk = Brush 24 52 36; $frBody = Brush 90 168 96; $frBelly = Brush 214 226 150; $frEye = Brush 250 250 240
+$frPupil = Brush 20 24 30; $frCheek = Brush 230 140 120
+function Draw-Frog([int]$ox, [bool]$puffed) {
+    $g.FillEllipse($frInk, $ox + 3, 9, 18, 13)                  # 몸 테두리
+    $g.FillEllipse($frBody, $ox + 4, 10, 16, 11)                # 몸
+    $g.FillEllipse($frBelly, $ox + 8, 14, 8, 6)                 # 배
+    $g.FillRectangle($frInk, $ox + 3, 19, 5, 2); $g.FillRectangle($frInk, $ox + 16, 19, 5, 2)   # 발
+    foreach ($ex in @(6, 14)) {                                 # 툭 튀어나온 두 눈
+        $g.FillEllipse($frInk, $ox + $ex - 1, 5, 6, 6)
+        $g.FillEllipse($frEye, $ox + $ex, 6, 4, 4)
+        $g.FillRectangle($frPupil, $ox + $ex + 1, 7, 2, 2)
+    }
+    if ($puffed) {  # 예고: 볼이 부풀고 입을 벌려요 (곧 침이 날아와요)
+        $g.FillEllipse($frCheek, $ox + 3, 13, 4, 4); $g.FillEllipse($frCheek, $ox + 17, 13, 4, 4)
+        $g.FillEllipse($frInk, $ox + 9, 12, 6, 4)
+        $g.FillEllipse((Brush 200 70 80), $ox + 10, 13, 4, 2)
+    } else {
+        $g.FillRectangle($frInk, $ox + 9, 13, 6, 1)             # 다문 입
+    }
+}
+Draw-Frog 0 $false
+Draw-Frog 24 $true
+Save-Bmp $bmp (Join-Path $content 'monsters\frog.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # --------------------------------------------------------------- 시험 맵 ----

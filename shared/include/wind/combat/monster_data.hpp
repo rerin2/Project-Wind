@@ -43,6 +43,7 @@ struct MonsterData {
     float stagger_seconds = 0.25f;    // 칼·마술에 맞으면 움찔하는 시간 (초, 11d). 넉백도 이 시간 동안 줄어들어요
     std::optional<std::string> death_fx;  // 쓰러져 사라질 때 터지는 파티클 효과 (선택, 11d)
     int rune_reward = 0;                  // 쓰러뜨리면 주인공이 받는 룬 (13a)
+    float keep_away = 0.0f;               // 주인공이 이보다 가까우면 물러나요 (픽셀, 선택, 0이면 안 물러남, 13c 개구리)
 };
 
 }  // namespace wind::combat

@@ -60,6 +60,8 @@ public:
     std::int64_t earn(std::int64_t runes);
     // 주인공이 쓰러졌어요: 룬 절반(소수점 버림)을 잃어요. 잃은 양을 돌려줘요. 레벨·능력치는 그대로예요.
     std::int64_t fall();
+    // 마지막으로 쓰러졌을 때 잃은 룬 ("쓰러졌다" 화면에 보여 줘요, 13c). 아직 안 쓰러졌으면 0
+    [[nodiscard]] std::int64_t last_lost() const { return last_lost_; }
 
     // 캣닢 쿠션에서 쉬었어요 (13b): 부활 자리를 이 쿠션으로 정하고, 찾은 쿠션 목록에 넣어요.
     // 처음 찾은 쿠션이면 true (쿠션이 피어나고 배너가 떠요).
@@ -73,6 +75,7 @@ private:
     progression::ProgressionRules rules_;  // 곡선과 비용 계수
     progression::Stats stats_;             // 다섯 능력치
     progression::RuneWallet wallet_;       // 룬
+    std::int64_t last_lost_ = 0;           // 마지막으로 쓰러질 때 잃은 룬 (13c)
     std::optional<CushionRef> last_cushion_;           // 부활 자리 (13b)
     std::set<std::string, std::less<>> discovered_;   // 찾은 쿠션 id (쿠션 id는 게임 전체에서 하나뿐이에요)
 };

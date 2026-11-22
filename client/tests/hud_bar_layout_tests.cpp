@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <limits>
 
 using wind::game::HudBarRow;
@@ -38,4 +39,15 @@ TEST(HudBarLayout, WidthIsClampedForOddValues) {
 TEST(HudBarLayout, WidthIsWholePixels) {
     EXPECT_FLOAT_EQ(hud_bar_inner_width(51.0f), 41.0f);  // 40.8 → 41
     EXPECT_FLOAT_EQ(hud_bar_inner_width(52.0f), 42.0f);  // 41.6 → 42
+}
+
+// 13c: 레벨업으로 최대값이 바뀌면 바 길이가 서서히 따라가요
+TEST(HudBarLayout, SmoothBarMaxFollowsTarget) {
+    float shown = 100.0f;
+    shown = wind::game::smooth_bar_max(shown, 118.0f, 1.0f / 60.0f);
+    EXPECT_GT(shown, 100.0f);   // 조금 늘고
+    EXPECT_LT(shown, 118.0f);   // 아직 다 안 갔어요
+    for (int i = 0; i < 60; ++i) shown = wind::game::smooth_bar_max(shown, 118.0f, 1.0f / 60.0f);
+    EXPECT_FLOAT_EQ(shown, 118.0f);  // 1초면 딱 맞춰요
+    EXPECT_FLOAT_EQ(wind::game::smooth_bar_max(std::nanf(""), 50.0f, 0.1f), 50.0f);  // 이상한 값이면 바로
 }

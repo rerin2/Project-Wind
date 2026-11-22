@@ -54,3 +54,15 @@ TEST(Health, IgnoresNonPositiveDamageAndRefills) {
 }
 
 }  // namespace
+
+// 13c: 레벨업으로 최대 HP가 바뀌어요 (넘치면 잘라요, 1 미만은 1)
+TEST(Health, SetMaxClampsCurrent) {
+    wind::game::Health health({100, 0});
+    health.set_max(118);
+    EXPECT_EQ(health.max(), 118);
+    EXPECT_EQ(health.current(), 100);  // 채우는 건 따로 (refill)
+    health.set_max(50);
+    EXPECT_EQ(health.current(), 50);
+    health.set_max(0);
+    EXPECT_EQ(health.max(), 1);
+}

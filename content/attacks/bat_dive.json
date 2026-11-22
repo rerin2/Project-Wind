@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "bat_dive",
+  "windup": 0.35,
+  "active": 0.2,
+  "recovery": 0.5,
+  "cancel_window": [0, 0],
+  "hitbox": { "offset": [6, -10], "size": [16, 12] },
+  "power": 1.0,
+  "knockback": 120,
+  "hitstop": 0.04,
+  "shake": 0.15,
+  "lunge": 64
+}

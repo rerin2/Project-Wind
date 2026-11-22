@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace wind::game {
 class FieldState;
@@ -49,6 +50,8 @@ public:
     [[nodiscard]] bool busy() const { return travel_.busy(); }
     [[nodiscard]] const engine::ScreenFade& fade() const { return travel_.fade(); }
     [[nodiscard]] const std::string& notice() const { return travel_.notice(); }
+    // 쉬기 이동이 끝나 쿠션 메뉴를 열 때인가요? (한 번만 true, 13c. 부활로 깨어날 때는 열지 않아요)
+    [[nodiscard]] bool take_menu_request() { return std::exchange(menu_request_, false); }
     // 필드를 정리해요 (게임을 끝낼 때, 그림 관리자보다 먼저)
     void shutdown() { field_.reset(); }
 
@@ -63,6 +66,7 @@ private:
     game::MapTravel travel_;         // 화면 가리기 -> 새 맵 -> 보여 주기
     game::RespawnTrigger respawn_;   // 쓰러진 뒤 언제 부활할지 (Enter 또는 2.5초, 12c)
     std::string current_map_;        // 지금 맵 파일 (부활·쉬기에 써요)
+    bool menu_request_ = false;      // 쿠션 메뉴를 열어 달라는 요청 (13c)
 };
 
 }  // namespace wind::client

@@ -69,6 +69,7 @@ bool HeroProgress::discovered(std::string_view cushion_id) const {
 
 std::int64_t HeroProgress::fall() {
     const std::int64_t lost = wallet_.lose_half();
+    last_lost_ = lost;  // "쓰러졌다" 화면이 보여 줘요 (13c)
     log::info("Hero fell and lost {} runes (now {})", lost, wallet_.amount());
     return lost;
 }

@@ -94,6 +94,10 @@ void check_ranges(const combat::MonsterData& data, JsonReader& reader) {
     if (data.wander.radius + data.detect_range > data.leash_range) {
         reader.error("wander.radius", "wander.radius + detect_range must not be larger than leash_range");
     }
+    // 물러나는 거리는 공격 거리보다 짧아야 해요. 아니면 늘 물러나기만 하고 공격하지 못해요 (13c)
+    if (data.keep_away > 0.0f && data.keep_away >= data.attack_range) {
+        reader.error("keep_away", "must be smaller than attack_range");
+    }
 }
 
 }  // namespace
@@ -150,6 +154,9 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     data.attacks = std::move(attacks);
     data.stagger_seconds = static_cast<float>(*stagger);
     data.death_fx = std::move(death_fx);
+    if (reader.has("keep_away")) {  // 물러나는 거리 (선택, 13c). 틀리면 공책에 적혀서 아래에서 거절돼요
+        if (const auto keep = reader.number("keep_away", 0.0, kMaxRange)) data.keep_away = static_cast<float>(*keep);
+    }
     check_ranges(data, reader);  // 거리 순서
     if (!errors.empty()) {
         return {std::nullopt, errors.take()};

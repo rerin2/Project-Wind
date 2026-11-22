@@ -58,7 +58,9 @@
     { "type": "monster", "id": "meadow_slime_37", "x": 37, "y": 18, "data": "monsters/slime_green.json" },
     { "type": "monster", "id": "meadow_slime_38", "x": 36, "y": 25, "data": "monsters/slime_green.json" },
     { "type": "monster", "id": "meadow_slime_39", "x": 30, "y": 27, "data": "monsters/slime_green.json" },
-    { "type": "monster", "id": "meadow_slime_40", "x": 25, "y": 27, "data": "monsters/slime_green.json" }
+    { "type": "monster", "id": "meadow_slime_40", "x": 25, "y": 27, "data": "monsters/slime_green.json" },
+    { "type": "monster", "id": "meadow_frog_1", "x": 22, "y": 18, "data": "monsters/frog.json" },
+    { "type": "monster", "id": "meadow_frog_2", "x": 37, "y": 28, "data": "monsters/frog.json" }
   ],
   "ambience": {
     "ambient_fx": ["fx/petals.json"],

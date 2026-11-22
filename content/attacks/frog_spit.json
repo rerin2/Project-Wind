@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "frog_spit",
+  "windup": 0.7,
+  "active": 0.1,
+  "recovery": 0.9,
+  "cancel_window": [0, 0],
+  "hitbox": { "offset": [0, -8], "size": [8, 8] },
+  "power": 1.0,
+  "knockback": 120,
+  "hitstop": 0.05,
+  "shake": 0.2,
+  "lunge": 0,
+  "projectile": { "speed": 170, "range": 200, "size": [8, 8] }
+}

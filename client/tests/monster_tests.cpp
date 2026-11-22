@@ -399,3 +399,46 @@ TEST(MonsterHit, KnockbackSlidesAlongWall) {
 }
 
 }  // namespace
+
+// ---------------------------------------------------------------- 13c: 개구리 (물러나기·침) ----
+
+namespace {
+
+// 침 뱉는 개구리: 공격 거리 130, 물러나는 거리 70, 침 (빠르기 170, 거리 200)
+wind::combat::MonsterData frog_data() {
+    auto data = fighter_data();
+    data.detect_range = 160.0f;
+    data.attack_range = 130.0f;
+    data.keep_away = 70.0f;
+    data.leash_range = 300.0f;
+    data.attacks.front().lunge = 0.0f;
+    data.attacks.front().projectile = wind::combat::ProjectileData{170.0f, 200.0f, 8.0f, 8.0f};
+    return data;
+}
+
+}  // namespace
+
+TEST(MonsterAi, FrogBacksAwayWhenHeroIsClose) {
+    const auto map = wide_map();
+    CombatRandom random(1);
+    Monster frog("f", frog_data(), wide_center());
+    const auto hero = wide_center() + wind::engine::Vec2{40.0f, 0.0f};  // 70보다 가까워요
+    ASSERT_TRUE(run_until(frog, MonsterState::Chase, map, random, hero));
+    const float before = frog.feet().x;
+    for (int i = 0; i < 30; ++i) frog.step(kDt, map, random, hero);
+    EXPECT_LT(frog.feet().x, before);  // 주인공 반대쪽(왼쪽)으로 물러났어요
+}
+
+TEST(MonsterAi, FrogShootsOncePerAttackWithoutContactHitbox) {
+    const auto map = wide_map();
+    CombatRandom random(1);
+    Monster frog("f", frog_data(), wide_center());
+    const auto hero = wide_center() + wind::engine::Vec2{100.0f, 0.0f};  // 70~130 사이: 물러나지 않고 예고
+    ASSERT_TRUE(run_until(frog, MonsterState::Windup, map, random, hero));
+    ASSERT_TRUE(frog.lunge_end().has_value());
+    EXPECT_NEAR(frog.lunge_end()->x - frog.feet().x, 200.0f, 0.5f);  // 예고 길은 침이 날아갈 거리만큼
+    ASSERT_TRUE(run_until(frog, MonsterState::Attack, map, random, hero));
+    EXPECT_FALSE(frog.attack_hitbox().has_value());  // 몸으로는 안 부딪혀요
+    EXPECT_TRUE(frog.take_shot());                   // 한 방
+    EXPECT_FALSE(frog.take_shot());                  // 두 번은 안 쏴요
+}

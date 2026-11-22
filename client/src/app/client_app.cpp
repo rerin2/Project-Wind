@@ -22,6 +22,7 @@
 #include "game/input/input_bindings.hpp"
 #include "game/progression/hero_progress.hpp"
 #include "game/world/game_clock.hpp"
+#include "app/cushion_menu_panel.hpp"
 #include "app/field_session.hpp"
 #include "game/states/field_state.hpp"
 
@@ -108,7 +109,8 @@ int ClientApp::run() {
     FieldUi field_ui;  // HUD 스태미나 바, 지역 이름 배너, UI 시험판(F7)
     // 주인공 진행 상태(능력치·룬): 필드 밖에 하나만 두어 맵을 옮기거나 부활해도 남아요 (13a)
     auto progress = game::HeroProgress::load(options_.content_dir);  // 능력치 모두 10, 룬 0
-    if (!progress) return 1;  // 성장 규칙 파일이 틀리면 최대 HP 같은 값을 정할 수 없어요 (이유는 로그에)
+    if (!progress) return 1;
+    if (options_.start_runes > 0) progress->earn(options_.start_runes);  // 시험용 --runes (13c)  // 성장 규칙 파일이 틀리면 최대 HP 같은 값을 정할 수 없어요 (이유는 로그에)
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
@@ -138,6 +140,7 @@ int ClientApp::run() {
     // 게임 시계: 맵을 옮겨도 이어지도록 필드 화면 밖에 둬요.
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
+    CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.
@@ -153,6 +156,11 @@ int ClientApp::run() {
         // UI가 먼저 키를 봐요. 시험판이 열려 있으면 Esc는 게임을 끄지 않고 시험판만 닫아요.
         bool ui_used_quit = false;
         const UiCommand command = field_ui.handle_input(input, bindings, ui_used_quit);
+        // 쿠션 메뉴 (13c): 열려 있으면 키를 메뉴가 써요 (Esc = 떠나기). 이번 장은 게임 입력도 막아요.
+        const bool menu_open = cushion_menu.is_open();
+        if (menu_open && cushion_menu.handle_input(input, bindings, *progress, session.field(), field_ui)) {
+            ui_used_quit = true;
+        }
         if (!ui_used_quit && bindings.pressed(game::Action::Quit, input)) {
             log::info("Quit requested");
             break;  // Esc
@@ -182,14 +190,16 @@ int ClientApp::run() {
             input.set_key(move_key(*options_.auto_move), true);
         }
         // 맵을 옮기는 중(페이드)이거나 UI 창이 열려 있으면 캐릭터가 움직이지 않게 키를 막아요.
-        const bool blocked = session.busy() || field_ui.captures_input();
+        const bool blocked = session.busy() || field_ui.captures_input() || menu_open;
         const engine::InputState& game_input = blocked ? no_input : input;
 
         // 3. 누른 키를 필드에 알려 줘요 (구르기 버튼은 메모장에 적어 둬요).
         session.field().handle_input(game_input, bindings);
         // 4. 박자 시계가 "몇 번 계산해"라고 알려 준 만큼 게임 규칙을 계산해요.
         //    (보통 1번, 컴퓨터가 느려졌으면 2~5번, 아주 빠르면 0번일 수도 있어요)
-        const int steps = clock.advance(frame_seconds);
+        //    쿠션 메뉴가 열려 있으면 게임 시간이 멈춰요: 시계는 흘려보내고 박자는 돌리지 않아요 (명세 8.7)
+        const int ticks = clock.advance(frame_seconds);
+        const int steps = cushion_menu.is_open() ? 0 : ticks;
         for (int i = 0; i < steps; ++i) {
             session.field().fixed_update(clock.step_seconds(), game_input, bindings);
             game_clock.advance(clock.step_seconds());
@@ -200,6 +210,8 @@ int ClientApp::run() {
         // 출구·쉬기·부활(Enter 또는 2.5초) 요청을 보고 맵 옮기기를 진행해요. 다 가려지면 새 필드로 바뀌어요.
         session.update(static_cast<float>(frame_seconds), field_ui.fallen_ready(),
                        bindings.pressed(game::Action::Confirm, game_input));
+        if (!session.busy() && session.take_menu_request()) cushion_menu.open();  // 쉬기가 끝나면 쿠션 메뉴 (13c)
+        cushion_menu.update(static_cast<float>(frame_seconds));
         // HUD 바에 지금 값(0~1)과 최대값(바 길이용)을 알려 줘요. 위에서부터 HP·MP·스태미나.
         HudInfo hud;
         hud.hp = session.field().health().fraction();
@@ -213,6 +225,8 @@ int ClientApp::run() {
         hud.fallen = session.field().hero_down();  // 쓰러지면 "쓰러졌다" 화면 (12b), 부활 안내 (12c)
         hud.rest_prompt = session.field().rest_prompt();        // 쿠션 가까이면 "[E] 쉬기" (13b)
         hud.rest_denied = session.field().rest_denied_count();  // 못 쉬면 "주변이 너무 소란스럽다" (13b)
+        hud.runes = progress->runes();            // 오른쪽 아래 룬 숫자 (13c)
+        hud.lost_runes = progress->last_lost();   // "쓰러졌다" 화면의 잃은 룬 (13c)
         field_ui.update(static_cast<float>(frame_seconds), hud);
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
@@ -238,6 +252,7 @@ int ClientApp::run() {
         //    아이리스는 주인공을 가운데 두고 오므라들어요. 못 간 출구가 있으면 잠깐 알려 줘요.
         draw_transition(renderer, session.fade(), session.field().focus_on_screen());
         draw_notice(painter, session.notice());
+        cushion_menu.draw(painter, screen, *progress);  // 쿠션 메뉴·레벨업 화면 (13c)
         field_ui.draw_panels(painter, screen);  // UI 시험판 (F7)
         // 9. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
         overlay.record_frame(frame_seconds);

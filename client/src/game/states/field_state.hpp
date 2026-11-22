@@ -138,6 +138,10 @@ public:
     [[nodiscard]] std::string cushion_name(std::string_view cushion_id) const { return rest_.name_of(cushion_id); }
     // 처음 찾은 쿠션을 피어나게 해요 (퐁, 꽃잎, 빛, 13b. 연출만)
     void bloom_cushion(std::string_view cushion_id) { cushion_view_.bloom(cushion_id); }
+    // 쿠션 메뉴 "떠나기" (13c): 앉아 있으면 기지개 켜고 일어나요
+    bool stand_up() { return player_.stand_up(); }
+    // 레벨업 뒤 새 능력치를 바로 적용하고 빛기둥 연출을 틀어요 (13c)
+    void refresh_hero_stats();
     // "[E] 쉬기" 안내를 보여 줄 때인가요? (쿠션 가까이 서 있고 쉴 수 있는 상태, 13b)
     [[nodiscard]] bool rest_prompt() const { return rest_.prompt_cushion(player_) != nullptr; }
     // 소란스러워서 못 쉰 횟수 (UI가 바뀐 걸 보고 "주변이 너무 소란스럽다"를 띄워요, 13b)
@@ -191,7 +195,6 @@ private:
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
-    void queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) const;
 
     content::LoadedMap map_;                 // 맵과 타일셋 정보
     PlayerSprite sprite_;                    // 캐릭터 그림: 동작 넘기기, 구르기 잔상, 그리기

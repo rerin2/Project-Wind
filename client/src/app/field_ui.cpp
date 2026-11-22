@@ -9,8 +9,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <numbers>
 #include <optional>
+#include <string>
 
 namespace wind::client {
 namespace {
@@ -44,6 +46,14 @@ constexpr engine::Color kFallenBand{0, 0, 0, 150};            // 띠 색 (흑백
 constexpr engine::Color kFallenColor{214, 72, 64, 255};       // 글자 (HP 바와 같은 빨강 #d64840)
 constexpr float kFallenHintGap = 4.0f;                        // 글자와 안내 사이
 constexpr float kFallenTextTop = 8.0f;                        // 띠 위쪽에서 글자까지
+
+// 룬 (13c, 명세 13.2): 오른쪽 아래, 금빛 마름모 + 숫자
+constexpr float kRuneMargin = 12.0f;                         // 화면 오른쪽·아래 끝에서
+constexpr float kRuneIconSize = 5.0f;                        // 마름모 크기
+constexpr float kRuneIconGap = 4.0f;                         // 마름모와 숫자 사이
+constexpr engine::Color kRuneColor{255, 214, 120, 255};      // 금빛 (룬 알갱이와 같은 색)
+constexpr engine::Color kRuneGainColor{255, 226, 150, 255};  // "+12" (밝은 금빛)
+constexpr engine::Color kRuneLossColor{230, 96, 84, 255};    // 잃을 때 (빨강)
 
 game::DelayedBarTuning stamina_tuning() {
     game::DelayedBarTuning tuning;
@@ -104,14 +114,14 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     clock_ += dt_seconds;
     health_.set(hud.hp);
     health_.update(dt_seconds);
-    hp_max_ = hud.hp_max;
+    hp_max_ = game::smooth_bar_max(hp_max_, hud.hp_max, dt_seconds);  // 레벨업하면 바가 서서히 늘어나요 (13c)
     stamina_.set(hud.stamina);
     stamina_.update(dt_seconds);
-    stamina_max_ = hud.stamina_max;
+    stamina_max_ = game::smooth_bar_max(stamina_max_, hud.stamina_max, dt_seconds);
     exhausted_ = hud.exhausted;
     mana_.set(hud.mana);
     mana_.update(dt_seconds);
-    mana_max_ = hud.mana_max;
+    mana_max_ = game::smooth_bar_max(mana_max_, hud.mana_max, dt_seconds);
     // "MP 모자람" 횟수가 늘었으면 깜빡이기 시작. 처음 본 값과, 맵을 옮겨 0으로 돌아간 값은 깜빡이지 않아요.
     if (mana_denied_seen_ && hud.mana_denied > *mana_denied_seen_) {
         mana_blink_ = kManaBlinkSeconds;
@@ -121,6 +131,8 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     banner_.update(dt_seconds);
     fallen_.update(dt_seconds, hud.fallen);
     rest_hud_.update(dt_seconds, hud.rest_prompt && !hud.fallen, hud.rest_denied);
+    runes_.update(dt_seconds, hud.runes);  // 룬 숫자 굴리기 (13c)
+    lost_runes_ = hud.lost_runes;
     panel_.update(dt_seconds);
 }
 
@@ -129,6 +141,7 @@ void FieldUi::draw_hud(engine::UiPainter& painter, engine::Vec2 screen) {
     draw_stamina(painter);
     draw_mana(painter);
     rest_hud_.draw(painter, screen);  // 쿠션 안내·알림 (배너 아래, 13b)
+    draw_runes(painter, screen);      // 오른쪽 아래 룬 숫자 (13c)
     draw_banner(painter, screen);
     draw_fallen(painter, screen);  // HUD 위, 화면 전환 가림막 아래 (부활 페이드와 함께 어두워져요)
 }
@@ -221,8 +234,42 @@ void FieldUi::draw_fallen(engine::UiPainter& painter, engine::Vec2 screen) {
     }
     style.font = engine::FontStyle::Regular;
     style.color = painter.theme().text;
-    painter.text({0.0f, text_y + line + kFallenHintGap, screen.x, painter.line_height(style.font)}, kFallenHint, style,
+    // 잃은 룬 (13c, 명세 13.1)과 부활 안내를 한 줄에
+    const std::string hint_line = std::format("잃은 룬 {}   {}", lost_runes_, kFallenHint);
+    painter.text({0.0f, text_y + line + kFallenHintGap, screen.x, painter.line_height(style.font)}, hint_line, style,
                  hint);
+}
+
+// 오른쪽 아래 룬 (13c, 명세 13.2): 작은 금빛 마름모 + 숫자. 늘면 "+N"이 위로 떠오르고, 잃으면 빨갛게 내려가요.
+void FieldUi::draw_runes(engine::UiPainter& painter, engine::Vec2 screen) {
+    const auto font = engine::FontStyle::Bold;
+    const float line = painter.line_height(font);
+    const std::string text = std::to_string(runes_.shown());
+    const float text_w = painter.measure(font, text);
+    const float x = std::round(screen.x - kRuneMargin - text_w);   // 숫자 왼쪽 끝 (오른쪽 맞춤)
+    const float y = std::round(screen.y - kRuneMargin - line);
+    // 마름모 아이콘: 가운데가 넓은 가로줄 다섯 개 (진한 테두리 위에 금빛)
+    const float icon_x = x - kRuneIconGap - kRuneIconSize;
+    const float icon_mid = y + std::floor(line * 0.5f);
+    for (int row = -2; row <= 2; ++row) {
+        const float half = static_cast<float>(2 - std::abs(row));    // 0,1,2,1,0
+        painter.renderer().fill_rect({icon_x + 2.0f - half - 1.0f, icon_mid + row, half * 2.0f + 3.0f, 1.0f},
+                                     kBarOutline);
+        painter.renderer().fill_rect({icon_x + 2.0f - half, icon_mid + row, half * 2.0f + 1.0f, 1.0f}, kRuneColor);
+    }
+    engine::TextStyle style;
+    style.font = font;
+    style.color = runes_.losing() ? kRuneLossColor : painter.theme().text;  // 잃는 중이면 빨강
+    style.max_lines = 1;
+    style.wrap = false;
+    painter.text({x, y, text_w + 1.0f, line}, text, style);
+    if (runes_.popup() == 0) return;
+    // "+12" / "-6": 숫자 위에서 떠오르며 흐려져요
+    const std::string popup = runes_.popup() > 0 ? std::format("+{}", runes_.popup()) : std::format("{}", runes_.popup());
+    const float popup_w = painter.measure(font, popup);
+    style.color = runes_.popup() > 0 ? kRuneGainColor : kRuneLossColor;
+    painter.text({std::round(screen.x - kRuneMargin - popup_w), std::round(y - line - runes_.popup_rise()),
+                  popup_w + 1.0f, line}, popup, style, runes_.popup_alpha());
 }
 
 }  // namespace wind::client

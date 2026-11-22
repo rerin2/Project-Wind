@@ -12,6 +12,7 @@
 #include "game/physics/tile_collision.hpp"
 #include "game/progression/hero_progress.hpp"
 #include "game/progression/hero_tuning.hpp"
+#include "game/presentation/debug_boxes.hpp"
 #include "game/presentation/hero_blink.hpp"
 #include "game/presentation/shadow_drawing.hpp"
 
@@ -108,10 +109,10 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                                effect_ptr(effects_.star_trail),
                                effect_ptr(effects_.star_burst), effect_ptr(effects_.hit_spark),
                                assets.spell ? assets.spell->light : std::nullopt, textures_.vignette(),
-                               &effects_.monster_fx}),
+                               &effects_.monster_fx, effect_ptr(effects_.spit_splash)}),
       // 쿠션 연출: 찾은 쿠션은 피어난 모습, 처음 찾으면 꽃잎 (13b)
       cushion_view_(rest_.cushions(), [&progress](std::string_view id) { return progress.discovered(id); },
-                    sprites.cushion, effect_ptr(effects_.catnip_bloom)),
+                    sprites.cushion, effect_ptr(effects_.catnip_bloom), effect_ptr(effects_.level_up)),
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -234,27 +235,26 @@ void FieldState::render(engine::RenderQueue& queue) {
     combat_fx_.queue(camera_rig_.camera(), combat_, player_, static_cast<float>(alpha_), show_collision_, queue);
     cushion_view_.queue(camera_rig_.camera(), queue);  // 쿠션과 떠오르는 하트·z (13b)
     engine::queue_particles(ground_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::YSorted, queue);
-    // 공중 효과는 나뭇잎보다도 위에 그려요.
     engine::queue_particles(air_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::WorldFx, queue,
-                            engine::DrawLayer::Glow);
+                            engine::DrawLayer::Glow);  // 공중 효과는 나뭇잎보다도 위에
 
     // 4) F4를 켰으면 못 가는 칸을 빨갛게, 발 상자를 하늘색으로 덮어요.
     if (show_collision_) {
         engine::queue_collision_overlay(map_.map, camera_rig_.camera(), queue);
-        queue_body_box(queue, feet);
+        queue_debug_box(camera_rig_.camera(), body_box(feet, player_.mover().tuning().body), kBodyBoxColor, queue);
     }
 
-    // 5) 조명 준비물: 화면에 보이는 빛만 골라요. 실제로 입히는 건 렌더러가 해요.
-    // 안개는 공중 효과의 맨 위에 (조명보다는 먼저 그려져서 밤에는 안개도 어두워요).
+    // 5) 안개(공중 효과 맨 위, 조명보다 먼저라 밤에는 어두워요)와 조명 준비물(보이는 빛만, 입히는 건 렌더러)
     atmosphere_.queue(camera_rig_.camera(), textures_.light(), queue);
     lighting_frame_ = &lighting_.build(camera_rig_.camera(), textures_.light());
 }
 
-void FieldState::queue_body_box(engine::RenderQueue& queue, engine::Vec2 feet) const {
-    const engine::RectF box = body_box(feet, player_.mover().tuning().body);
-    const engine::Vec2 top_left = camera_rig_.camera().world_to_screen({box.x, box.y});
-    queue.push_fill(engine::DrawLayer::DebugOverlay, 0.0f, {top_left.x, top_left.y, box.w, box.h},
-                    kBodyBoxColor);
+// 쿠션에서 레벨업한 뒤 (13c): 새 능력치의 최대 HP·MP·스태미나(가득 채움)와 공격 보너스를 바로 적용해요.
+void FieldState::refresh_hero_stats() {
+    const auto derived = progress_.derived();  // 한 곳의 계산 함수
+    player_.raise_maximums(derived.max_hp, static_cast<float>(derived.max_mp), static_cast<float>(derived.max_stamina));
+    combat_.set_hero_stats(derived);
+    cushion_view_.celebrate_level_up(player_.mover().feet());  // 빛기둥 파티클과 번쩍임
 }
 
 engine::Vec2 FieldState::drawn_feet() const {

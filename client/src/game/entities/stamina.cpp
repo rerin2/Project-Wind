@@ -55,6 +55,12 @@ void Stamina::refill() {
     exhausted_ = false;
 }
 
+void Stamina::set_max(float max) {
+    if (!std::isfinite(max) || max < 0.0f) return;  // 이상한 값은 무시
+    tuning_.max = max;
+    current_ = std::min(current_, tuning_.max);     // 넘치면 새 최대로
+}
+
 void Stamina::restore(float stamina, bool exhausted) {
     if (!std::isfinite(stamina)) {
         return;  // 이상한 값은 무시

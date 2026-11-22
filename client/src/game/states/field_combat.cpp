@@ -4,6 +4,7 @@
 #include "game/states/field_combat.hpp"
 
 #include "game/entities/facing.hpp"
+#include "game/combat/hero_strike.hpp"
 #include "game/physics/body_separation.hpp"
 
 #include "wind/log.hpp"
@@ -15,16 +16,12 @@
 namespace wind::game {
 namespace {
 
-// 기본 마력 (명세 8.2). 마법 공격력 = 12 × (1 + 지능 보너스). 지팡이(확장)가 생기면 장비 값이 돼요.
-constexpr float kBaseMagic = 12.0f;
 // 빛 탄이 나오는 곳: 발에서 앞으로 10픽셀, 화면 위로 14픽셀(가슴 높이)
 // 이유는 docs/GAMEPLAY.md "Casting" 절에 있어요.
 constexpr float kSpellSpawnForward = 10.0f;
 constexpr float kSpellLift = 14.0f;
 // 몬스터 주사위 씨앗 = 싸움 씨앗 XOR 이 값. 같은 씨앗에서 치명타와 다른 줄의 수가 나와요 (0이 아닌 아무 수나 괜찮아요).
 constexpr std::uint64_t kMonsterStream = 0xD1B54A32D192ED03ULL;
-// 주인공 방어력 (명세 8.2·10.3). 장비가 생기는 15단계 전까지는 0이에요.
-constexpr float kHeroDefense = 0.0f;
 // 몸끼리 밀어내기 (명세 7.3, 11c). 이유는 docs/GAMEPLAY.md "Bodies pushing apart" 절에 있어요.
 constexpr float kSeparationSpeed = 120.0f;  // 한 쌍을 1초에 떼어 놓는 최대 거리 (픽셀/초, 힘 제한)
 constexpr float kHeroPushWeight = 1.0f;     // 주인공이 밀리는 몫 (몬스터의 1/3)
@@ -52,6 +49,7 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
     hero_hits_.clear();
     vanished_.clear();
     runes_earned_ = 0;
+    rune_drops_.clear();
     const auto dt = static_cast<float>(dt_seconds);
     resolve_sword(player);         // 1) 칼
     spawn_spell(player);           // 2) 시전이 끝났으면 빛 탄 하나
@@ -67,8 +65,12 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
         const bool was_gone = monster.gone();  // 이번 박자에 다 사라졌는지 보려고 (11d)
         monster.step(dt, map, monster_random_, hero);  // 주인공 발 위치를 보고 알아채요 (11b)
         if (!was_gone && monster.gone()) vanished_.push_back({i, monster.feet()});  // 사라짐 연출용 (11d)
+        if (monster.take_shot()) enemy_shots_.fire(monster);  // 침 공격이 시작됐으면 한 방 (13c 개구리)
     }
     resolve_monster_attacks(player);  // 6) 덮치기가 주인공에게 닿았나 (11c)
+    enemy_shots_.step(dt, map, player);  // 6-2) 날아가는 침이 주인공에게 닿았나 (13c)
+    const auto& shot_hits = enemy_shots_.hero_hits();
+    hero_hits_.insert(hero_hits_.end(), shot_hits.begin(), shot_hits.end());  // 멈칫·쓰러짐·연출을 같이
     separate(player, map, dt);         // 7) 겹친 몸 떼어 놓기 (11c)
     collect_runes();                   // 8) 이번 박자에 쓰러진 몬스터의 룬 (13a)
 }
@@ -84,6 +86,7 @@ void FieldCombat::collect_runes() {
         if (!monsters_[i].defeated() || rewarded_[i]) continue;  // 살아 있거나 이미 받았어요
         rewarded_[i] = true;
         runes_earned_ += monsters_[i].data().rune_reward;
+        rune_drops_.push_back({monsters_[i].feet(), monsters_[i].data().rune_reward});  // 연출: 룬이 빨려 들어요 (13c)
     }
 }
 
@@ -121,7 +124,7 @@ void FieldCombat::spawn_spell(const PlayerMotion& player) {
     shot.ground = player.mover().feet() + shot.direction * kSpellSpawnForward;     // 발 조금 앞
     shot.lift = kSpellLift;                                                        // 가슴 높이
     shot.data = *spell->projectile;                                                // 빠르기·거리·크기
-    shot.attack_power = combat::magic_attack_power(kBaseMagic, intelligence_bonus_);  // 마법 공격력 (13a)
+    shot.attack_power = combat::magic_attack_power(combat::kBaseMagicPower, intelligence_bonus_);  // 마법 공격력 (13a)
     shot.power = spell->power;                                                     // 마술 위력
     shot.crit_chance = base_crit_chance_;                                          // 마술도 기본 5%
     shot.knockback = spell->knockback;                                             // 타격감 (마술 데이터)
@@ -180,23 +183,10 @@ void FieldCombat::resolve_monster_attacks(PlayerMotion& player) {
         // 무적이 끝났는데 아직 덮치는 중이면 그때 맞을 수 있어요.
         if (!player.can_be_hit()) continue;
         if (!monster.claim_hit()) continue;                      // 이번 덮치기에서 이미 맞혔어요
-        combat::DamageInput input;                               // 피해 계산 (명세 9.3)
-        input.attack_power = monster.data().attack_power;        // 슬라임 공격력 4
-        input.power = attack->power;                             // 공격 위력 1.0
-        input.defense = kHeroDefense;
-        const combat::DamageResult damage = combat::compute_damage(input);
-        const engine::Vec2 direction = monster.attack_direction();  // 덮친 쪽으로 밀려나요
-        HeroHitEvent hit;
-        hit.amount = player.take_hit(damage.amount, direction, attack->knockback);  // HP·경직·무적·넉백
-        hit.fatal = player.dead();                               // 이 한 방에 쓰러졌나 (12b)
-        hit.at = {hurtbox.x + hurtbox.w * 0.5f, hurtbox.y + hurtbox.h * 0.5f};
-        hit.direction = direction;
-        hit.knockback = attack->knockback;
-        hit.hitstop = attack->hitstop;
-        hit.shake = attack->shake;
-        hero_hits_.push_back(hit);
-        log::debug("Hero hit by {} for {} (hp {}/{})", monster.name(), hit.amount, player.health().current(),
-                   player.health().max());
+        // 피해·경직·넉백 (덮친 쪽으로 밀려나요). 침과 같은 규칙 (hero_strike, 13c)
+        hero_hits_.push_back(strike_hero(player, monster.data().attack_power, *attack, monster.attack_direction()));
+        log::debug("Hero hit by {} for {} (hp {}/{})", monster.name(), hero_hits_.back().amount,
+                   player.health().current(), player.health().max());
     }
 }
 

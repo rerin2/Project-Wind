@@ -211,6 +211,15 @@ void PlayerMotion::sit_on(engine::Vec2 seat) {
     rest_.sit_now(seat);
 }
 
+void PlayerMotion::raise_maximums(int max_hp, float max_mp, float max_stamina) {
+    health_.set_max(max_hp);         // 새 최대로 바꾸고
+    mana_.set_max(max_mp);
+    stamina_.set_max(max_stamina);
+    health_.refill();                // 쿠션에서 쉬는 중이라 모두 가득 채워요 (바가 길어진 만큼 차올라요)
+    mana_.refill();
+    stamina_.refill();
+}
+
 bool PlayerMotion::can_be_hit() const {
     // 쓰러져 있지 않고(12b), 쉬는 중도 아니고(13b), 피격 무적도, 구르기 무적도 아니면 (11c)
     return !dead() && !rest_.active() && !hit_.invulnerable() && !mover_.invulnerable();

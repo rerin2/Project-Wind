@@ -49,6 +49,12 @@ void Mana::restore(float mana) {
     current_ = std::clamp(mana, 0.0f, tuning_.max);
 }
 
+void Mana::set_max(float max) {
+    if (!std::isfinite(max) || max < 0.0f) return;  // 이상한 값은 무시
+    tuning_.max = max;
+    current_ = std::min(current_, tuning_.max);     // 넘치면 새 최대로
+}
+
 // 최대가 0이면 나누지 않고 0이에요.
 float Mana::fraction() const {
     return tuning_.max > 0.0f ? current_ / tuning_.max : 0.0f;

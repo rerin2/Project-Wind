@@ -7,6 +7,7 @@
 //   - MP 바: 마술이 MP가 모자라 안 나가면 테두리가 빨갛게 깜빡여요. 늘 보여요.
 //   - 스태미나 바: 가득 차면 흐려지고, 지치면 빨갛게 깜빡여요.
 // - 지역 이름 배너 (새 맵에 들어가면 위에서 내려와 잠깐 보였다가 사라짐)
+// - 오른쪽 아래 룬 숫자 (13c): 늘면 "+N"이 뜨고 굴러 올라가요, 쓰러져 잃으면 빨갛게 내려가요
 // - "쓰러졌다" 화면 (12b): 주인공이 쓰러지면 주인공 아래쪽 띠와 글자, 그다음 "Enter: 바로 부활" 안내 (12c)
 // - 캣닢 쿠션 "[E] 쉬기" 안내와 "주변이 너무 소란스럽다" 알림 (13b)
 // - UI 시험판 (F7)
@@ -18,7 +19,9 @@
 #include "game/ui/area_banner.hpp"
 #include "game/ui/delayed_bar.hpp"
 #include "game/ui/fallen_screen.hpp"
+#include "game/ui/rune_counter.hpp"
 
+#include <cstdint>
 #include <optional>
 #include <string_view>
 
@@ -37,6 +40,8 @@ struct HudInfo {
     bool fallen = false;       // 주인공이 쓰러져 있나 (12b: "쓰러졌다" 화면)
     bool rest_prompt = false;  // 쿠션 가까이라 "[E] 쉬기"를 보여 줄 때인가 (13b)
     unsigned rest_denied = 0;  // 소란스러워 못 쉰 횟수. 늘면 "주변이 너무 소란스럽다" (13b)
+    std::int64_t runes = 0;       // 가진 룬 (오른쪽 아래 숫자, 13c)
+    std::int64_t lost_runes = 0;  // 마지막으로 쓰러질 때 잃은 룬 ("쓰러졌다" 화면, 13c)
 };
 
 class FieldUi {
@@ -67,10 +72,13 @@ private:
     void draw_mana(engine::UiPainter& painter);
     void draw_banner(engine::UiPainter& painter, engine::Vec2 screen);
     void draw_fallen(engine::UiPainter& painter, engine::Vec2 screen);
+    void draw_runes(engine::UiPainter& painter, engine::Vec2 screen);  // 오른쪽 아래 룬 (13c)
 
     game::AreaBanner banner_;
     game::FallenScreen fallen_;  // "쓰러졌다" 화면 시간표 (12b)
     RestHud rest_hud_;           // "[E] 쉬기" 안내와 "주변이 너무 소란스럽다" 알림 (13b)
+    game::RuneCounter runes_;    // 룬 숫자 굴리기와 "+N" (13c)
+    std::int64_t lost_runes_ = 0;  // "쓰러졌다" 화면에 보여 줄 잃은 룬 (13c)
     game::DelayedBar health_;
     game::DelayedBar stamina_;
     game::DelayedBar mana_;

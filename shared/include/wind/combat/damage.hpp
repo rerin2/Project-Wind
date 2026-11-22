@@ -40,6 +40,9 @@ struct DamageResult {
 [[nodiscard]] float physical_attack_power(float base_power, float strength_scaling,
                                           float strength_bonus);
 
+// 기본 마력 (명세 8.2). 지팡이(확장 버전)가 생기면 장비 값이 돼요. 13c: 레벨업 미리 보기도 같은 값을 써요.
+inline constexpr float kBaseMagicPower = 12.0f;
+
 // 마법 공격력 = 기본 마력(12) × (1 + 지능 보너스)  (명세 8.2). 마술 위력을 곱해서 써요.
 // 이상한 숫자(음수, NaN)는 0으로 봐요.
 [[nodiscard]] float magic_attack_power(float base_magic, float intelligence_bonus);

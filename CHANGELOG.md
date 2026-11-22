@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Phase 13c — cushion menu, level-up, runes on screen, three new monsters
+- Cushion menu (`game::CushionMenu`, `LevelUpSheet`; `CushionMenuPanel`, `CushionMenuView`): opens after a rest,
+  pauses the simulation, items 레벨업 / 마술 칸 (dimmed) / 저장 (dimmed) / 떠나기. Level-up screen with [−][+],
+  derived-value preview, all-or-nothing confirm (refusal shakes the cost line).
+- Level-up applies at once: `FieldState::refresh_hero_stats` → `PlayerMotion::raise_maximums`
+  (`Health`/`Mana`/`Stamina::set_max`), new attack bonuses, `fx/level_up.json` pillar + gold light, "레벨 N" banner,
+  HUD bars grow (`smooth_bar_max`).
+- Runes: `RuneDropEvent` from `FieldCombat`, `RuneOrbs` fly into the hero, HUD counter (`RuneCounter`: "+N",
+  rolling, red on loss), lost runes on the fallen screen (`HeroProgress::last_lost`).
+- New monsters: 숲 박쥐 `bat`, 가시 버섯 `mushroom` (52×52 spike box around it), 침 뱉는 개구리 `frog`
+  (`keep_away` retreat, ranged spit via `EnemyShots`). Monster data gains optional `keep_away`; monster attacks
+  with `projectile` fire one shot instead of a contact hitbox. Forest: 3 bats, 2 mushrooms, 2 frogs; meadow: 2 frogs.
+- New fx: `level_up`, `spit_splash`, `bat_burst`, `spore_burst`. Generator draws bat, mushroom and frog.
+- Test-only option `--runes N`.
+- Cleanups (no behavior change): `monster_senses`, `hero_strike`, `debug_boxes` split out;
+  `combat::kBaseMagicPower` shared.
+- 604 CTest tests.
+
 ### Phase 13b — cat-nip cushions
 - Map entity `save_point` (no data file, optional `display_name`, walkable, id may not equal a spawn id; ids unique
   across `content/maps`, tested). Meadow cushion at (5, 10), forest cushion at (6, 11).

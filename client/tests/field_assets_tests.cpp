@@ -60,10 +60,14 @@ TEST(FieldAssets, MeadowHasSlimesAtHome) {
     ASSERT_TRUE(assets.has_value());
     // 마릿수는 맵 데이터에서 자유롭게 바꾸는 값이라 정확한 수는 보지 않아요 (2 → 40으로 늘렸음)
     ASSERT_FALSE(assets->monsters.empty());
+    int slimes = 0;
     for (const auto& monster : assets->monsters) {
-        EXPECT_EQ(monster.data().id, "slime_green");
+        const auto& id = monster.data().id;
+        EXPECT_TRUE(id == "slime_green" || id == "frog") << id;  // 13c: 초원에는 개구리도 있어요
+        if (id == "slime_green") ++slimes;
         EXPECT_EQ(monster.feet(), monster.home());  // 처음에는 제자리
     }
+    EXPECT_GE(slimes, 1);
 }
 
 // 맵에 다시 들어오면 슬라임이 다시 나타나요 (11d, 명세 9.5: 13단계 캣닢 쿠션 전까지의 규칙).

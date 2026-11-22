@@ -11,6 +11,7 @@
 //   4) 허수아비 시간을 흘려요 (쓰러졌다 다시 서기).
 //   5) 몬스터를 움직여요 (11a·11b). 몬스터 주사위는 치명타 주사위와 따로 굴려요.
 //   6) 덮치는 몬스터의 판정이 주인공 맞는 상자에 닿으면 주인공이 맞아요 (덮치기 한 번에 한 번, 무적이면 안 맞음, 11c).
+//      침을 쏘는 몬스터(13c)는 공격이 시작될 때 침을 쏘고, 침이 주인공에게 닿으면 같은 규칙으로 맞아요 (EnemyShots).
 //   7) 겹친 몸(주인공·몬스터, 몬스터끼리)을 부드럽게 떼어 놓아요 (명세 7.3, 11c).
 //   8) 이번 박자에 쓰러진 몬스터의 룬(rune_reward)을 세요 (13a). 지갑에 넣는 일은 필드(HeroProgress)가 해요.
 // - 주인공이 쓰러지면(12b) 몬스터에게는 주인공이 "없음"으로 보여서 포기하고 제자리로 돌아가요.
@@ -18,9 +19,11 @@
 // - 이번 박자에 맞은 일, 사라진 빛 탄, 마지막으로 맞은 일을 기억해요 (연출과 F3 정보판이 봐요).
 // 게임 규칙이라 SDL을 몰라요.
 
+#include "game/combat/enemy_shots.hpp"
 #include "game/combat/hero_hit_event.hpp"
 #include "game/combat/hit_resolution.hpp"
 #include "game/combat/projectile.hpp"
+#include "game/combat/rune_drop_event.hpp"
 #include "game/combat/training_dummy.hpp"
 #include "game/monsters/monster.hpp"
 #include "game/monsters/monster_vanish_event.hpp"
@@ -54,6 +57,8 @@ public:
     [[nodiscard]] const std::vector<Monster>& monsters() const { return monsters_; }
     // 날고 있는 빛 탄들
     [[nodiscard]] const std::vector<Projectile>& projectiles() const { return projectiles_; }
+    // 몬스터가 쏜 침들 (13c, 그리기용)
+    [[nodiscard]] const EnemyShots& enemy_shots() const { return enemy_shots_; }
     // 이번 박자에 맞은 일들 (다음 박자에 지워져요)
     [[nodiscard]] const std::vector<HitEvent>& hits() const { return hits_; }
     // 이번 박자에 사라진 빛 탄들 (다음 박자에 지워져요)
@@ -73,6 +78,8 @@ public:
     [[nodiscard]] bool monster_engaged() const;
     // 이번 박자에 쓰러뜨린 몬스터들이 주는 룬 합 (다음 박자에 0, 13a). 한 마리는 한 번만 세요.
     [[nodiscard]] std::int64_t runes_earned() const { return runes_earned_; }
+    // 이번 박자에 룬이 나온 자리와 양 (다음 박자에 지워져요, 13c 연출용)
+    [[nodiscard]] const std::vector<RuneDropEvent>& rune_drops() const { return rune_drops_; }
     // 주인공 능력치에서 나온 공격 보너스를 알려 줘요 (13a). 칼은 힘 보너스, 빛 탄은 지능 보너스를 써요.
     // 부르지 않으면 둘 다 0 (시작 능력치 10과 같아요).
     void set_hero_stats(const progression::DerivedStats& derived);
@@ -98,6 +105,7 @@ private:
     std::vector<TrainingDummy> dummies_;      // 맵의 허수아비들
     std::vector<Monster> monsters_;           // 맵의 몬스터들 (11a)
     std::vector<Projectile> projectiles_;     // 날고 있는 빛 탄들
+    EnemyShots enemy_shots_;                  // 몬스터가 쏜 침 (13c)
     std::vector<HitEvent> hits_;              // 이번 박자에 맞은 일
     std::vector<ProjectileEndEvent> ended_;   // 이번 박자에 사라진 빛 탄
     std::vector<HeroHitEvent> hero_hits_;     // 이번 박자에 주인공이 맞은 일 (11c)
@@ -108,6 +116,7 @@ private:
     float base_crit_chance_;                  // 기본 치명타 확률
     std::vector<bool> rewarded_;              // 몬스터마다 룬을 이미 셌나 (monsters_와 같은 순서, 13a)
     std::int64_t runes_earned_ = 0;           // 이번 박자에 받은 룬 (13a)
+    std::vector<RuneDropEvent> rune_drops_;  // 이번 박자에 룬이 나온 자리 (13c)
     float strength_bonus_ = 0.0f;             // 힘 보너스 (13a, 주인공 능력치에서)
     float intelligence_bonus_ = 0.0f;         // 지능 보너스 (13a)
 };

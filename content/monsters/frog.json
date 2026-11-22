@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "frog",
+  "name": "침 뱉는 개구리",
+  "max_hp": 26,
+  "attack_power": 20,
+  "defense": 0,
+  "rune_reward": 14,
+  "move_speed": 45,
+  "detect_range": 160,
+  "attack_range": 130,
+  "keep_away": 70,
+  "leash_range": 300,
+  "notice_seconds": 0.4,
+  "wander": { "radius": 30, "speed": 20, "pause": [1.0, 2.5] },
+  "body": [12, 6],
+  "hurtbox": { "offset": [-9, -14], "size": [18, 14] },
+  "sprite": { "image": "monsters/frog.bmp", "frame": [24, 24], "origin": [12, 21] },
+  "attacks": ["attacks/frog_spit.json"],
+  "stagger_seconds": 0.25,
+  "death_fx": "fx/slime_burst.json"
+}

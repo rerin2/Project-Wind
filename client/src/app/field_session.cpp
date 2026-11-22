@@ -75,6 +75,7 @@ bool FieldSession::enter(const world::MapExit& exit, game::TravelKind kind) {
             ui_.announce("캣닢 쿠션을 찾았다 — " + field_->cushion_name(exit.to_spawn));
         }
         log::info("Autosave skipped: saves come in phase 16");
+        menu_request_ = true;  // 명세 8.7 쉬기 6번: 쿠션 메뉴를 열어요 (13c)
         return true;  // 같은 맵이라 지역 이름 배너는 띄우지 않아요
     }
     ui_.enter_area(field_->display_name());  // 새 지역 이름 배너 (출구·부활)

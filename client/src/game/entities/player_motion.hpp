@@ -99,6 +99,8 @@ public:
     // 앉아 있으면 기지개 켜고 일어나요 (E, 13b). 방향키는 step이 알아서 일으켜요.
     bool stand_up() { return rest_.stand_up(); }
     [[nodiscard]] const HeroRest& rest() const { return rest_; }
+    // 레벨업으로 최대 HP·MP·스태미나가 바뀌었어요 (13c): 새 최대로 바꾸고 모두 가득 채워요.
+    void raise_maximums(int max_hp, float max_mp, float max_stamina);
     // 마지막으로 맞은 뒤 지난 시간 (쉬기 조건: 3초, 13b). 한 번도 안 맞았으면 아주 큰 값이에요.
     [[nodiscard]] float seconds_since_hit() const { return seconds_since_hit_; }
     // 맵 위의 맞는 상자 (픽셀)

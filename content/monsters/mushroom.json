@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "mushroom",
+  "name": "가시 버섯",
+  "max_hp": 70,
+  "attack_power": 30,
+  "defense": 4,
+  "rune_reward": 20,
+  "move_speed": 22,
+  "detect_range": 90,
+  "attack_range": 34,
+  "leash_range": 200,
+  "notice_seconds": 0.6,
+  "wander": { "radius": 16, "speed": 10, "pause": [2.0, 4.0] },
+  "body": [14, 8],
+  "hurtbox": { "offset": [-10, -22], "size": [20, 22] },
+  "sprite": { "image": "monsters/mushroom.bmp", "frame": [32, 32], "origin": [16, 29] },
+  "attacks": ["attacks/mushroom_spikes.json"],
+  "stagger_seconds": 0.15,
+  "death_fx": "fx/spore_burst.json"
+}

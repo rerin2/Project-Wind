@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "mushroom_spikes",
+  "windup": 0.9,
+  "active": 0.15,
+  "recovery": 1.0,
+  "cancel_window": [0, 0],
+  "hitbox": { "offset": [0, -6], "size": [52, 52] },
+  "power": 1.2,
+  "knockback": 200,
+  "hitstop": 0.08,
+  "shake": 0.35,
+  "lunge": 0
+}

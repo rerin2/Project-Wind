@@ -25,6 +25,8 @@ public:
     void refill() { current_ = tuning_.max; }
     // 맵을 옮길 때 들고 온 HP로 맞춰요 (12c). floor~최대로 잘라요.
     void restore(int hp);
+    // 최대 HP를 바꿔요 (13c 레벨업). 1 미만은 1로, 지금 HP는 새 최대를 넘지 않게 잘라요.
+    void set_max(int max);
 
     // HP가 0인가요? (12b: 주인공이 쓰러져요)
     [[nodiscard]] bool empty() const { return current_ <= 0; }

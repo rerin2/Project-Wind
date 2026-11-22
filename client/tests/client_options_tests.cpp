@@ -137,3 +137,14 @@ TEST(ClientOptions, ParsesFeelStrengths) {
 }
 
 }  // namespace
+
+// 13c: 시험용 시작 룬 (--runes). 범위 밖이나 숫자가 아니면 거절해요.
+TEST(ClientOptions, ParsesStartRunes) {
+    const auto result = parse({"--runes", "500"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->start_runes, 500);
+    EXPECT_FALSE(parse({"--runes", "-1"}).options.has_value());
+    EXPECT_FALSE(parse({"--runes", "1000000000"}).options.has_value());
+    EXPECT_FALSE(parse({"--runes", "lots"}).options.has_value());
+    EXPECT_EQ(parse({}).options->start_runes, 0);
+}

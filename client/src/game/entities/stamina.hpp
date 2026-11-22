@@ -40,6 +40,8 @@ public:
     // 맵을 옮길 때 들고 온 값으로 맞춰요 (12c). 0~최대로 자르고, 이상한 값(NaN)이면 그대로 둬요.
     // 지침도 그대로 이어져요 (0이면 늘 지침). 다시 차기 전 기다림은 없이 시작해요.
     void restore(float stamina, bool exhausted);
+    // 최대 스태미나를 바꿔요 (13c 레벨업). 이상한 값(음수·NaN)은 무시, 지금 값은 새 최대를 넘지 않게 잘라요.
+    void set_max(float max);
 
     [[nodiscard]] float current() const { return current_; }
     [[nodiscard]] float max() const { return tuning_.max; }

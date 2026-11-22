@@ -24,6 +24,11 @@ void Health::restore(int hp) {
     current_ = std::clamp(hp, tuning_.floor, tuning_.max);  // 이상한 값도 범위 안으로
 }
 
+void Health::set_max(int max) {
+    tuning_.max = std::max(max, 1);                          // 0으로 나누지 않게 최소 1
+    current_ = std::clamp(current_, tuning_.floor, tuning_.max);  // 넘치면 새 최대로
+}
+
 float Health::fraction() const {
     return static_cast<float>(current_) / static_cast<float>(tuning_.max);
 }

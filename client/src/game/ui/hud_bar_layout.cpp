@@ -23,4 +23,12 @@ float hud_bar_inner_width(float max_points) {
     return std::round(std::clamp(wanted, kHudBarInnerMin, kHudBarInnerMax));
 }
 
+float smooth_bar_max(float shown, float target, float dt_seconds) {
+    constexpr float kFollowRate = 8.0f;  // 1초에 남은 차이의 거의 전부를 따라가요 (0.4초면 약 96%)
+    constexpr float kSnap = 0.05f;       // 이만큼 가까우면 딱 맞춰요 (끝없이 조금씩 움직이지 않게)
+    if (!std::isfinite(shown) || !std::isfinite(dt_seconds) || dt_seconds < 0.0f) return target;
+    const float next = shown + (target - shown) * (1.0f - std::exp(-kFollowRate * dt_seconds));  // 지수 따라가기
+    return std::abs(target - next) < kSnap ? target : next;
+}
+
 }  // namespace wind::game

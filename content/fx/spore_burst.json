@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "spore_burst",
+  "shape": "soft",
+  "blend": "normal",
+  "lifetime": [0.6, 1.1],
+  "speed": [15, 45],
+  "direction": 270,
+  "spread": 360,
+  "gravity": -25,
+  "drag": 1.5,
+  "spawn_radius": 8,
+  "start_size": [2, 4],
+  "end_size": 1,
+  "start_color": "#f0dca0ff",
+  "end_color": "#a0784000",
+  "fade_out": 0.5,
+  "burst": 20
+}
