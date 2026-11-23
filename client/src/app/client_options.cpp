@@ -5,6 +5,8 @@
 
 #include "app/client_options.hpp"
 
+#include "app/option_values.hpp"
+
 #include "wind/cli.hpp"
 #include "wind/content/content_path.hpp"
 
@@ -27,10 +29,13 @@ constexpr std::size_t kMaxItemIdLength = 64;
 // --give 개수 상한 (가방 24칸, 15a)
 constexpr std::size_t kMaxGiveItems = 24;
 
+// --learn 개수 상한 (마술은 다섯 개, 넉넉히, 15b)
+constexpr std::size_t kMaxLearnSpells = 16;
+
 // --press로 누를 수 있는 키 이름인가요?
 bool is_scriptable_key(std::string_view name) {
     for (const std::string_view known :
-         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right", "j", "l", "e", "i", "r"}) {
+         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right", "j", "l", "e", "i", "r", "q"}) {
         if (name == known) {
             return true;
         }
@@ -196,6 +201,18 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
             if (options.give_items.size() >= kMaxGiveItems) return fail("too many --give options");
             options.give_items.emplace_back(value);
         }
+        else if (arg == "--learn") {
+            // 시험용 (15b): 이 마술(spells/<id>.json)을 배우고, 지능이 되면 빈 마술 칸에 넣어요 (여러 번)
+            if (!is_simple_id(value)) return fail("--learn needs a spell id (a-z, 0-9, _)");
+            if (options.learn_spells.size() >= kMaxLearnSpells) return fail("too many --learn options");
+            options.learn_spells.emplace_back(value);
+        }
+        else if (arg == "--stat") {
+            // 시험용 (15b): 시작 능력치 하나를 정해요. 예: --stat intelligence=20 (1~60)
+            if (!parse_stat(value, options.start_stats)) {
+                return fail("--stat needs name=value, name: vigor|mind|endurance|strength|intelligence, value 1-60");
+            }
+        }
         else if (arg == "--shake" || arg == "--flash") {
             // 접근성: 화면 흔들림 / 맞을 때 번쩍임 세기 0~1 (0이면 끔)
             const auto strength = parse_unit(value);
@@ -258,6 +275,8 @@ std::string_view client_usage() {
            "  --runes <n>          test only: start with n runes (0-999999999, default 0)\n"
            "  --fill-bag <item>    test only: start with every bag slot full of this item\n"
            "  --give <item>        test only: put one of this item in the bag (repeatable)\n"
+           "  --learn <spell>      test only: learn a spell and put it in a free slot (repeatable)\n"
+           "  --stat <name>=<n>    test only: start with this stat (e.g. intelligence=20, 1-60)\n"
            "  --weather <id>       start weather from the map's table, e.g. rain\n"
            "  --shake <0-1>        screen shake strength (default 1, 0 = off)\n"
            "  --flash <0-1>        hit flash strength (default 1, 0 = off)\n"

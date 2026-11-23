@@ -37,8 +37,8 @@ engine::Vec2 drawn_center(const Projectile& shot, float alpha) {
 }
 
 SpellView::SpellView(const engine::ParticleEffect* trail, const engine::ParticleEffect* burst,
-                     engine::TextureHandle glow, std::optional<combat::SpellLight> light)
-    : burst_(burst), glow_(glow), light_(light) {
+                     engine::TextureHandle glow)
+    : burst_(burst), glow_(glow) {
     if (trail != nullptr) {
         trail_.emplace(*trail);
     }
@@ -87,22 +87,20 @@ void SpellView::queue(const engine::Camera2D& camera, std::span<const Projectile
 
 std::vector<engine::Light> SpellView::lights(std::span<const Projectile> shots, float alpha) const {
     std::vector<engine::Light> result;
-    if (!light_) {
-        return result;  // 빛을 내지 않는 마술
-    }
-    engine::Light base;
-    base.radius = light_->radius;
-    base.color = to_color(light_->color);
-    base.intensity = light_->intensity;
+    // 빛은 마술마다 달라서 빛 탄·손끝 빛이 저마다 들고 다녀요 (15b: Q로 마술을 바꿔도 날아가는 탄은 제 빛 그대로)
+    auto make = [](const combat::SpellLight& light, engine::Vec2 at, float radius_scale, float intensity_scale) {
+        engine::Light out;
+        out.position = at;
+        out.radius = light.radius * radius_scale;
+        out.color = to_color(light.color);
+        out.intensity = light.intensity * intensity_scale;
+        return out;
+    };
     for (const auto& shot : shots) {
-        base.position = drawn_center(shot, alpha);
-        result.push_back(base);
+        if (shot.shot().light) result.push_back(make(*shot.shot().light, drawn_center(shot, alpha), 1.0f, 1.0f));
     }
-    if (cast_) {  // 손끝 빛: 모을수록 밝아져요
-        base.position = cast_->at;
-        base.radius = light_->radius * kCastLightScale;
-        base.intensity = light_->intensity * cast_->progress;
-        result.push_back(base);
+    if (cast_ && cast_->light) {  // 손끝 빛: 모을수록 밝아져요
+        result.push_back(make(*cast_->light, cast_->at, kCastLightScale, cast_->progress));
     }
     return result;
 }

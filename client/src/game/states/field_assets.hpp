@@ -15,7 +15,6 @@
 #include "game/presentation/field_effects.hpp"
 #include "game/world/cushion.hpp"
 
-#include "wind/combat/spell.hpp"
 #include "wind/content/map_loader.hpp"
 #include "wind/world/day_cycle.hpp"
 #include "wind/world/direction.hpp"
@@ -38,7 +37,6 @@ struct FieldAssets {
     std::optional<world::DayCycle> day_cycle;
     std::optional<world::WeatherTable> weather;
     std::vector<TrainingDummy> dummies;  // 맵에 놓인 훈련용 허수아비들 (9c)
-    std::optional<combat::Spell> spell;  // 고른 마술 (9e: 별빛 조각 고정, 실패면 마술 없음)
     std::vector<Monster> monsters;       // 맵의 몬스터들 (11a, 설명 파일이 잘못된 몬스터는 빠져요)
     std::vector<Cushion> cushions;       // 맵의 캣닢 쿠션들 (13b)
     std::optional<std::string> start_cushion;  // 쿠션 위에서 시작하면 그 쿠션 id (쉬기·부활, 13b)

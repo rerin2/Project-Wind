@@ -16,6 +16,7 @@
 #   content/monsters/mushroom.bmp     가시 버섯 (64x32: 보통 / 공격 예고 가시, 13c)
 #   content/monsters/frog.bmp         침 뱉는 개구리 (48x24: 보통 / 공격 예고 볼 부풀림, 13c)
 #   content/items/item_icons.bmp      아이템 아이콘 (160x16, 칸 16x16, 도감 icon 번호 순서, 14b)
+#   content/ui/spell_icons.bmp        마술 아이콘 (128x16, 칸 16x16, 마술 icon 번호 순서, 15b)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
 #   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
 #   content/maps/test_forest.json     가로 36칸 x 세로 24칸 시험 숲 (키 큰 풀·나뭇잎이 바람에 흔들려요)
@@ -823,6 +824,51 @@ $g.FillRectangle((Brush 140 70 60), 128 + 2, 9, 5, 1)           # 붉은 쇠 가
 $g.FillRectangle($icInk, 128 + 0, 12, 4, 4)
 $g.FillRectangle((Brush 96 64 44), 128 + 1, 13, 2, 2)           # 손잡이
 Save-Bmp $bmp (Join-Path $content 'items\item_icons.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ------------------------------------------------------- 마술 아이콘 (15b) ----
+# 마술 아이콘 그림 판 (128x16, 칸 16x16). 칸 번호는 spells/*.json의 "icon"과 같아요. HUD 마술 칸이 써요.
+#   0 별빛 조각  1 큰 별빛 조각  2 별무리  3 달빛 칼날  4 혜성 광선  5~7 (빈칸)
+# 모두 밤하늘 남색 동그라미 바탕 위에 하늘색·흰색 빛으로 그려서, 무기 아이콘(은빛 칼)과 한눈에 구별돼요.
+$canvas = New-Canvas 128 16
+$bmp = $canvas[0]; $g = $canvas[1]
+$spInk = Brush 20 18 44; $spSky = Brush 40 46 96; $spIce = Brush 150 210 246; $spWhite = Brush 255 255 255
+$spGold = Brush 255 228 150
+function Draw-SpellBack([int]$ox) {
+    $g.FillEllipse($spInk, $ox + 0, 0, 16, 16)                  # 테두리
+    $g.FillEllipse($spSky, $ox + 1, 1, 14, 14)                  # 밤하늘 바탕
+}
+function Draw-Star([int]$cx, [int]$cy, [int]$r, $brush) {
+    # 네 갈래 별: 가로·세로로 긴 마름모 두 개. 큰 별일수록 갈래가 두꺼워요 (얇으면 화살표처럼 보여요)
+    $w = [math]::Max(1, [int][math]::Floor($r / 2))
+    Poly $brush @($cx, ($cy - $r), ($cx + $w), $cy, $cx, ($cy + $r), ($cx - $w), $cy)
+    Poly $brush @(($cx - $r), $cy, $cx, ($cy - $w), ($cx + $r), $cy, $cx, ($cy + $w))
+}
+# 0 별빛 조각: 가운데 작은 별 하나
+Draw-SpellBack 0
+Draw-Star 8 8 4 $spIce
+$g.FillRectangle($spWhite, 7, 7, 2, 2)
+# 1 큰 별빛 조각: 칸을 거의 채우는 큰 별, 흰 심
+Draw-SpellBack 16
+Draw-Star (16 + 8) 8 7 $spIce
+Draw-Star (16 + 8) 8 3 $spWhite
+# 2 별무리: 작은 별 다섯 개가 둥글게
+Draw-SpellBack 32
+foreach ($p in @(@(8, 3), @(12, 6), @(11, 11), @(5, 11), @(4, 6))) {
+    Draw-Star (32 + $p[0]) $p[1] 2 $spIce
+    $g.FillRectangle($spWhite, 32 + $p[0], $p[1], 1, 1)
+}
+# 3 달빛 칼날: 하얀 초승달 (큰 원에서 바탕색 원을 비켜 덮어요)
+Draw-SpellBack 48
+$g.FillEllipse((Brush 236 242 255), 48 + 3, 2, 11, 12)
+$g.FillEllipse($spSky, 48 + 6, 1, 10, 11)
+$g.FillRectangle($spIce, 48 + 4, 7, 1, 2)                      # 날 끝 반짝
+# 4 혜성 광선: 오른쪽 위로 뻗는 굵은 빛줄기와 금빛 머리
+Draw-SpellBack 64
+Poly $spIce @((64 + 2), 13, (64 + 10), 4, (64 + 13), 7, (64 + 4), 14)
+Poly $spWhite @((64 + 4), 12, (64 + 10), 6, (64 + 11), 7, (64 + 5), 13)
+$g.FillEllipse($spGold, 64 + 9, 2, 5, 5)                        # 혜성 머리
+Save-Bmp $bmp (Join-Path $content 'ui\spell_icons.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # --------------------------------------------------------------- 시험 맵 ----

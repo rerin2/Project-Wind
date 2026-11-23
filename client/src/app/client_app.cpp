@@ -110,14 +110,14 @@ int ClientApp::run() {
     engine::UiPainter painter(renderer, platform->text(), ui_resources.theme, ui_resources.frames);
     FieldUi field_ui;  // HUD 스태미나 바, 지역 이름 배너, UI 시험판(F7)
     // 주인공 진행 상태(능력치·룬): 필드 밖에 하나만 두어 맵을 옮기거나 부활해도 남아요 (13a)
-    auto progress = game::HeroProgress::load(options_.content_dir);  // 능력치 모두 10, 룬 0
+    auto progress = game::HeroProgress::load(options_.content_dir, options_.start_stats);  // 보통 모두 10 (--stat)
     if (!progress) return 1;  // 성장 규칙 파일이 틀리면 최대 HP 같은 값을 정할 수 없어요 (이유는 로그에)
     if (options_.start_runes > 0) progress->earn(options_.start_runes);  // 시험용 --runes (13c)
     // 아이템 도감·가방·맵마다의 바닥 아이템: 필드 밖에 하나씩 (14b). 도감이 틀리면 시작할 수 없어요
-    const auto item_setup = load_item_setup(options_.content_dir, options_.fill_bag_item, options_.give_items);
+    const auto item_setup = load_item_setup(options_, *progress);  // 도감·장비·마술 (14b, 15a, 15b)
     if (!item_setup) return 1;
     const game::ItemWorld items{item_setup->bag, item_setup->catalog, item_setup->loot};
-    const game::GearWorld gear{item_setup->worn, item_setup->weapons};  // 장비·무기 선반 (15a)
+    const game::GearWorld gear{item_setup->worn, item_setup->weapons, item_setup->spells};  // 장비·무기·마술 선반
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
@@ -146,7 +146,8 @@ int ClientApp::run() {
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
-    ItemHud item_hud(*item_setup, *progress, resources.texture(game::kItemIconsTexture));  // 알림 줄·인벤토리 (14b·14c)
+    ItemHud item_hud(*item_setup, *progress, resources.texture(game::kItemIconsTexture),
+                     resources.texture(kSpellIconsTexture));  // 무기·마술 칸, 알림 줄, 인벤토리 (14b·14c·15b)
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.

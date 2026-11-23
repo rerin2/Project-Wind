@@ -3,6 +3,7 @@
   "id": "star_shard",
   "name": "별빛 조각",
   "intelligence_required": 10,
+  "icon": 0,
   "mp_cost": 6,
   "cast_seconds": 0.25,
   "power": 1.0,

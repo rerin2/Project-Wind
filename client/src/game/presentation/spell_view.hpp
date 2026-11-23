@@ -30,14 +30,15 @@ namespace wind::game {
 struct CastGlow {
     engine::Vec2 at;        // 손끝 (맵 위, 몸 높이)
     float progress = 0.0f;  // 모은 정도 0~1
+    std::optional<combat::SpellLight> light;  // 시전 중인 마술의 빛 (없으면 조명에 안 더해요, 15b)
 };
 
 class SpellView {
 public:
     // trail / burst: 꼬리·반짝 효과 (없으면 그 효과만 안 보여요). 이 물건보다 오래 살아 있어야 해요.
-    // glow: 둥근 빛 그림, light: 마술이 내는 빛 (없으면 조명에 안 더해요)
+    // glow: 둥근 빛 그림. 마술이 내는 빛은 빛 탄·손끝 빛이 저마다 들고 와요 (15b, 없으면 조명에 안 더해요)
     SpellView(const engine::ParticleEffect* trail, const engine::ParticleEffect* burst,
-              engine::TextureHandle glow, std::optional<combat::SpellLight> light);
+              engine::TextureHandle glow);
 
     // 화면 한 장마다: 꼬리를 뿜고, 사라진 탄 자리에서 반짝을 터뜨리고, 손끝 빛을 기억해요.
     void update(float dt_seconds, std::span<const Projectile> shots, float alpha,
@@ -57,7 +58,6 @@ private:
     std::optional<engine::ParticleEmitter> trail_;  // 꼬리 방출기 (빛 탄마다 같이 써요)
     const engine::ParticleEffect* burst_;           // 사라질 때 반짝
     engine::TextureHandle glow_;
-    std::optional<combat::SpellLight> light_;
     std::optional<CastGlow> cast_;                  // 이번 화면의 손끝 빛
     float clock_ = 0.0f;                            // 반짝임 시계
 };

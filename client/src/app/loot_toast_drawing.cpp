@@ -24,7 +24,7 @@ constexpr engine::Color kFullColor{240, 120, 96, 255};       // 붉은 주황 (�
 }  // namespace
 
 void draw_loot_toasts(engine::UiPainter& painter, engine::TextureHandle icons, engine::Vec2 screen,
-                      const game::LootToasts& toasts) {
+                      const game::LootToasts& toasts, float lift) {
     const auto& lines = toasts.lines();
     const auto font = engine::FontStyle::Regular;
     const float text_h = painter.line_height(font);
@@ -34,7 +34,7 @@ void draw_loot_toasts(engine::UiPainter& painter, engine::TextureHandle icons, e
         const std::size_t from_bottom = lines.size() - 1 - i;  // 새 줄(맨 뒤)이 맨 아래
         const float alpha = game::LootToasts::alpha(line);
         const float x = std::round(kLeft - kSlideFrom * (1.0f - game::LootToasts::slide(line)));
-        const float y = std::round(screen.y - kBottom - icon - static_cast<float>(from_bottom) * kLineHeight);
+        const float y = std::round(screen.y - kBottom - lift - icon - static_cast<float>(from_bottom) * kLineHeight);
         const float text_w = painter.measure(font, line.text);
         // 띠: 아이콘 + 글자를 감싸요
         painter.renderer().fill_rect({x - kPad, y - kPad, icon + kIconGap + text_w + kPad * 2.0f, icon + kPad * 2.0f},

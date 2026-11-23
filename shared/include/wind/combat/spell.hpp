@@ -37,7 +37,8 @@ enum class SpellMotion : unsigned char { Projectile, Melee, Beam };
 struct Spell {
     std::string id;                  // "star_shard"
     std::string name;                // 화면에 보일 이름 ("별빛 조각")
-    int intelligence_required = 1;   // 요구 지능 (낮으면 마술 칸에 못 넣어요, 15단계)
+    int intelligence_required = 1;   // 요구 지능 (낮으면 마술 칸에 못 넣어요, 15b)
+    int icon = 0;                    // 마술 아이콘 그림 판(ui/spell_icons.bmp)의 몇 번째 칸 (선택, 15b)
     int mp_cost = 0;                 // 한 번 쓸 때 MP (빛 탄·근접 마술)
     float mp_per_second = 0.0f;      // 유지하는 동안 1초에 쓰는 MP (광선만)
     float cast_seconds = 0.0f;       // 시전 시간: 누르고 이만큼 지나야 나가요

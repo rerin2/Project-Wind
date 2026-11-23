@@ -233,9 +233,11 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 | `projectile` **or** `melee` **or** `beam` | exactly one | the spell's motion (below) |
 | `knockback`, `hitstop`, `shake` | no (0) | 0–1000 px/s, 0–0.5 s, 0–1; same meaning as on an attack (phase 10a) |
 | `fx`, `sfx` | no | content paths |
-| `light` | no | `radius` 1–512 px, `color` `#rrggbb[aa]`, `intensity` 0–1 (presentation only) |
+| `light` | no | `radius` 1–512 px, `color` `#rrggbb[aa]`, `intensity` 0–1 (presentation only). Carried by each shard and by the casting hand glow, so switching spells never recolours a shard already in flight (15b) |
+| `icon` | no (0) | integer 0–255: cell in `ui/spell_icons.bmp` for the HUD spell slot (15b) |
 
-- **`projectile`** (shared with attacks): `speed` 1–2000 px/s, `range` 1–2000 px, `size` `[w, h]` 1–64 px; optional `count` integer 1–16 (default 1), `homing` 0–1 (default 0), `orbit_seconds` 0–10 (default 0). In phase 9 only one straight shard flies; `count`, `homing` and `orbit_seconds` are validated now and move in phase 15 (star swarm).
+- **File name = id (15b):** spells are found by id as `spells/<id>.json` (`game::SpellShelf`); a file whose `id` differs is rejected. Shipped: `star_shard`, `great_star_shard`, `star_swarm`, `moon_blade`, `comet_beam` (spec 8.6 table).
+- **`projectile`** (shared with attacks): `speed` 1–2000 px/s, `range` 1–2000 px, `size` `[w, h]` 1–64 px; optional `count` integer 1–16 (default 1), `homing` 0–1 (default 0), `orbit_seconds` 0–10 (default 0). Until 15c only one straight shard flies; `count`, `homing` and `orbit_seconds` are validated now and move in 15c (star swarm).
 - **`melee`**: same object as an attack `hitbox` (`offset`, `size`).
 - **`beam`**: `length` 1–640 px, `width` 1–128 px, `tick_seconds` 0.02–1.
 - Any bad field rejects the whole spell. Parsed by `wind/content/spell_loader`; `hitbox` and `projectile` objects are read by the shared helpers in `wind/content/combat_readers`.

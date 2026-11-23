@@ -7,7 +7,6 @@
 #include "engine/map/coordinates.hpp"
 
 #include "wind/content/day_cycle_loader.hpp"
-#include "wind/content/spell_loader.hpp"
 #include "wind/content/error_list.hpp"
 #include "wind/content/monster_loader.hpp"
 #include "wind/content/training_dummy_loader.hpp"
@@ -24,8 +23,6 @@ namespace {
 // 주인공 그림 묶음(스프라이트 시트)에 꼭 있어야 하는 동작 그림(클립) 이름
 constexpr std::string_view kIdleClip = "idle";  // 가만히 서 있기
 constexpr std::string_view kWalkClip = "walk";  // 걷기
-// 시작 마술 (명세 8.6). 마술 칸이 생기면(단계 15) 저장된 칸에서 골라요.
-constexpr std::string_view kStartSpell = "spells/star_shard.json";
 
 // 맵의 허수아비 자리마다 설명 파일을 읽어 허수아비를 만들어요.
 // 같은 파일은 한 번만 읽어요. 하나라도 잘못되면 이유를 기록하고 "없음"을 돌려줘요.
@@ -165,15 +162,7 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
         return std::nullopt;  // 이유는 이미 기록했어요
     }
 
-    // 8) 고른 마술 (잘못되면 기록하고 마술 없음: L/C만 안 되고 나머지는 그대로 돼요)
-    std::optional<combat::Spell> spell;
-    if (auto loaded = content::load_spell_file(content_root, kStartSpell); loaded.ok()) {
-        spell = std::move(*loaded.value);
-    } else {
-        content::log_content_errors("spell " + std::string(kStartSpell), loaded.errors);
-    }
-
-    // 9) 맵의 몬스터들 (11a). 아래에서 맵을 넘겨주기(move) 전에 읽어야 해요.
+    // 8) 맵의 몬스터들 (11a). 아래에서 맵을 넘겨주기(move) 전에 읽어야 해요.
     auto monsters = load_monsters(content_root, map.value->map);
     std::vector<std::string> monster_fx;  // 몬스터가 사라질 때 효과 파일들 (11d)
     for (const auto& monster : monsters) {
@@ -183,7 +172,7 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
 
     return FieldAssets{std::move(*map.value), std::move(*sheet.value), spawn_tile, std::move(effects),
                        std::move(day_cycle), std::move(weather),
-                       std::move(*dummies), std::move(spell),
+                       std::move(*dummies),
                        std::move(monsters), std::move(cushions), start->cushion};
 }
 

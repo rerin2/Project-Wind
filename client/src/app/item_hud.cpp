@@ -5,8 +5,12 @@
 
 #include "app/item_setup.hpp"
 #include "app/loot_toast_drawing.hpp"
+#include "game/progression/hero_progress.hpp"
 #include "game/states/field_state.hpp"
 
+#include "wind/items/equipment.hpp"
+
+#include <algorithm>
 #include <array>
 #include <utility>
 
@@ -28,8 +32,9 @@ constexpr std::array<std::pair<game::Action, game::BagInput>, 9> kKeys{{
 
 }  // namespace
 
-ItemHud::ItemHud(ItemSetup& items, const game::HeroProgress& progress, engine::TextureHandle icons)
-    : items_(items), icons_(icons), view_(icons) {
+ItemHud::ItemHud(ItemSetup& items, const game::HeroProgress& progress, engine::TextureHandle icons,
+                 engine::TextureHandle spell_icons)
+    : items_(items), progress_(progress), icons_(icons), hands_(icons, spell_icons), view_(icons) {
     screen_.set_use_available(true);  // 물약 마시기가 생겼어요 (14d): "사용"을 고를 수 있어요
     view_.set_weapon_info(&items_.weapons, &progress);  // 무기 무게·무거움 줄 (15a)
 }
@@ -74,11 +79,36 @@ void ItemHud::update(float dt_seconds, game::FieldState& field, bool can_open) {
     toasts_.update(dt_seconds);
     if (!can_open && screen_.is_open()) screen_.close();  // 쓰러짐·쉬기·맵 옮기기·쿠션 메뉴면 닫혀요
     view_.update(dt_seconds, screen_.is_open());
+    hands_.update(dt_seconds, hands_info(field));  // 무기·마술 칸 (15b)
 }
 
 void ItemHud::draw(engine::UiPainter& painter, engine::Vec2 screen) const {
-    draw_loot_toasts(painter, icons_, screen, toasts_);
+    hands_.draw(painter, screen);                                                   // 맨 아래: 무기·마술 칸 (15b)
+    draw_loot_toasts(painter, icons_, screen, toasts_, HandsHud::kReservedHeight);  // 그 위: 알림 줄
     view_.draw(painter, screen, screen_, items_.bag, items_.catalog);
+}
+
+// 무기 칸: 끼고 있는 무기의 아이콘. 마술 칸: 필드가 쥐여 준 마술, MP, 공책의 칸들 (15b)
+HandsInfo ItemHud::hands_info(const game::FieldState& field) const {
+    HandsInfo info;
+    const auto* weapon = items_.catalog.find(items_.worn.worn(items::EquipSlot::Weapon));
+    if (weapon != nullptr) info.weapon_icon = weapon->icon;
+    if (const combat::Spell* spell = field.spells().selected()) {
+        info.spell_icon = spell->icon;
+        info.spell_name = spell->name;
+        // 한 번 쓸 MP (광선은 1초 동안 쓸 MP)가 있어야 흐리지 않아요
+        const float cost = spell->mp_cost > 0 ? static_cast<float>(spell->mp_cost) : spell->mp_per_second;
+        info.spell_affordable = field.mana().current() >= cost;
+    }
+    const auto& book = progress_.spells();
+    info.open_slots = std::min<std::size_t>(static_cast<std::size_t>(progress_.derived().spell_slots),
+                                            progression::SpellBook::kMaxSlots);
+    for (std::size_t i = 0; i < info.open_slots; ++i) {
+        if (!book.in_slot(i, info.open_slots).empty()) info.filled_mask |= 1u << i;
+    }
+    info.selected_slot = book.selected_slot(info.open_slots);
+    info.switch_count = field.spells().switch_count();
+    return info;
 }
 
 }  // namespace wind::client

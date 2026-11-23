@@ -22,6 +22,7 @@ enum class Action : std::uint8_t {
     Interact,         // 살펴보기·쉬기 (E): 캣닢 쿠션에서 쉬고 일어나기 (13b)
     ToggleBag,        // 인벤토리 열기·닫기 (I, 14c)
     SortBag,          // 인벤토리 정렬 (R, 14c)
+    NextSpell,        // 다음 마술 칸 고르기 (Q, 15b)
     Confirm,          // UI에서 고른 버튼 누르기 (Enter)
     ToggleUiTest,     // UI 시험판 열기/닫기 (디버그 F7)
     ToggleDebug,      // 디버그 정보 표시 (개발자용 정보 화면 켜기/끄기)

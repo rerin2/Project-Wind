@@ -130,6 +130,7 @@ void FieldCombat::spawn_spell(const PlayerMotion& player) {
     shot.knockback = spell->knockback;                                             // 타격감 (마술 데이터)
     shot.hitstop = spell->hitstop;
     shot.shake = spell->shake;
+    shot.light = spell->light;  // 빛은 탄이 들고 다녀요 (연출, 15b)
     projectiles_.emplace_back(shot);
 }
 

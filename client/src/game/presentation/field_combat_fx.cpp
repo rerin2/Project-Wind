@@ -33,7 +33,7 @@ FieldCombatFx::FieldCombatFx(CombatFxSetup setup)
     : view_(setup.shadow, std::move(setup.dummies)),
       monster_view_(setup.shadow, setup.glow, std::move(setup.monsters)),
       slash_(setup.slash),
-      spell_(setup.star_trail, setup.star_burst, setup.glow, setup.spell_light),
+      spell_(setup.star_trail, setup.star_burst, setup.glow),
       vignette_texture_(setup.vignette),
       hit_spark_(setup.hit_spark),
       monster_fx_(setup.monster_fx),
@@ -88,7 +88,9 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
     // 2) 마술: 시전 중이면 손끝 빛, 빛 탄 꼬리, 사라진 자리 반짝
     std::optional<CastGlow> cast;
     if (player.caster().busy()) {
-        cast = CastGlow{FieldCombat::spell_hand(drawn_feet, player.cast_facing()), player.caster().progress()};
+        const auto* spell = player.caster().spell();  // 시전 중인 마술의 빛 (15b)
+        cast = CastGlow{FieldCombat::spell_hand(drawn_feet, player.cast_facing()), player.caster().progress(),
+                        spell != nullptr ? spell->light : std::nullopt};
     }
     spell_.update(dt_seconds, combat.projectiles(), alpha, pending_ends_, cast, random, air_fx);
     pending_ends_.clear();

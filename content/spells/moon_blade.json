@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "moon_blade",
+  "name": "달빛 칼날",
+  "intelligence_required": 14,
+  "icon": 3,
+  "mp_cost": 10,
+  "cast_seconds": 0.15,
+  "power": 1.4,
+  "knockback": 130,
+  "hitstop": 0.06,
+  "shake": 0.2,
+  "melee": { "offset": [20, -8], "size": [34, 40] },
+  "light": { "radius": 44, "color": "#dce8ff", "intensity": 0.8 }
+}

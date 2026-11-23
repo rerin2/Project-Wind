@@ -371,6 +371,17 @@ Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentati
 - Weapon detail line (15a): "무기 · 무게 N" in dim text, or "무기 · 무게 14 / 8 · 무거움" in red `#ec6060` when heavy for the current strength (the heavy check comes from `derive_stats`, not from the view).
 - Bottom hint: "R 정렬 · I 닫기" (dim). The first version also listed Enter and was clipped by the 166 px width, so it was shortened.
 
+## Hands HUD (phase 15b)
+
+Code: `client/src/app/hands_hud.*` (owned by `ItemHud`). Spell icons: `ui/spell_icons.bmp`, 128×16, cell = spell `icon` (generator section "마술 아이콘"): 0 star shard, 1 great star shard, 2 star swarm, 3 moon blade, 4 comet beam, each on a navy night-sky disc so they never read as item icons.
+
+- Bottom-left corner (8 px from the left and bottom edges, spec 13.2): a 24 px weapon cell, 4 px gap, a 24 px spell cell, then the spell name (regular text, 110 px wide) with one 4 px dot per open spell slot under it (7 px apart).
+- Cells: `#00000078` fill (same darkness as the notice band) with a 1 px `#5a6070c8` border; the 16 px icon is centred. An empty weapon cell means bare hands; no spell shows "마술 없음" in dim text.
+- Slot dots: selected slot in strong gold `#ffcc5c`, other filled slots `#9aa3b5`, empty slots outline only. The first try used the theme's focused gold for the selected dot, which was too close to the cream filled dots to tell apart on screen.
+- Not enough MP for one cast (beam: one second of MP): spell icon and name drop to 40 % (the same dimming as unavailable bag menu items).
+- Q: the spell icon pops to 1.3× and eases back over 0.18 s (OutCubic, spec 6.9 range).
+- The item notice line now sits 32 px higher so it stacks above these cells (decided with the developer).
+
 ## Drinking (phase 14d)
 
 Code: `client/src/game/presentation/drink_view.*`. There is no drinking frame in the hero sheet yet, so the potion's own 16 px icon shows the action.

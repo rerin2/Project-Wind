@@ -148,3 +148,21 @@ TEST(ClientOptions, ParsesStartRunes) {
     EXPECT_FALSE(parse({"--runes", "lots"}).options.has_value());
     EXPECT_EQ(parse({}).options->start_runes, 0);
 }
+
+// 시험용 --learn·--stat (15b): 안전한 id만, 능력치 이름=1~60만
+TEST(ClientOptions, ParsesLearnAndStat) {
+    const auto result = parse({"--learn", "moon_blade", "--learn", "star_swarm", "--stat", "intelligence=20",
+                               "--stat", "strength=14"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    ASSERT_EQ(result.options->learn_spells.size(), 2u);
+    EXPECT_EQ(result.options->learn_spells[1], "star_swarm");
+    using wind::progression::StatId;
+    EXPECT_EQ(result.options->start_stats[StatId::Intelligence], 20);
+    EXPECT_EQ(result.options->start_stats[StatId::Strength], 14);
+    EXPECT_EQ(result.options->start_stats[StatId::Vigor], 10);  // 나머지는 시작값
+    EXPECT_FALSE(parse({"--learn", "../maps/x"}).options.has_value());  // 폴더 밖으로 못 나가요
+    EXPECT_FALSE(parse({"--learn", "Moon"}).options.has_value());
+    EXPECT_FALSE(parse({"--stat", "intelligence=61"}).options.has_value());
+    EXPECT_FALSE(parse({"--stat", "luck=20"}).options.has_value());
+    EXPECT_FALSE(parse({"--stat", "intelligence"}).options.has_value());
+}

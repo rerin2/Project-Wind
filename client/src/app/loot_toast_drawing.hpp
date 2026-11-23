@@ -11,8 +11,8 @@
 
 namespace wind::client {
 
-// icons: 아이템 아이콘 그림 판, screen: 화면 크기 (논리 해상도)
+// icons: 아이템 아이콘 그림 판, screen: 화면 크기 (논리 해상도), lift: 아래 HUD(무기·마술 칸, 15b)만큼 위로 올리기
 void draw_loot_toasts(engine::UiPainter& painter, engine::TextureHandle icons, engine::Vec2 screen,
-                      const game::LootToasts& toasts);
+                      const game::LootToasts& toasts, float lift = 0.0f);
 
 }  // namespace wind::client

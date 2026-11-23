@@ -92,10 +92,20 @@ Code: `client/src/game/entities/mana.*`, owned by `PlayerMotion`; spec 8.2. Test
 Code: `client/src/game/combat/spell_caster.*`, `projectile.*`, `client/src/game/entities/player_motion.*`, `client/src/game/states/field_combat.*`; spec 8.6, 9.2. Tested in `spell_caster_tests.cpp`, `projectile_tests.cpp`, `player_motion_tests.cpp`, `field_combat_tests.cpp` (the last one with the real `star_shard.json`).
 
 - **Keys:** L or C. The press goes into the input buffer (0.15 s) like attack and dodge.
-- **Start:** allowed from idle, moving or running (state table). Not while attacking, dodging or already casting; the press then waits in the buffer and expires. One spell is fixed for now (star shard); Q and spell slots come in phase 15.
+- **Start:** allowed from idle, moving or running (state table). Not while attacking, dodging or already casting; the press then waits in the buffer and expires. The spell cast is the one in the selected spell slot (see "Spell slots and Q").
 - **MP is paid at the start, all or nothing.** With enough MP it is spent and the cast starts. With too little, nothing is spent, no cast starts, the press is used up (it does not fire later by itself), and a counter goes up so the HUD MP bar blinks.
 - **Cast time:** `cast_seconds` (0.25 s = 15 fixed steps). The spell goes off on the step the time is reached. The direction is fixed when the cast starts (the pressed direction, else the facing) and the hero keeps facing it while casting.
-- **While casting:** walk at 0.4 × speed, no running, no attack, no dodge (spec 8.5: only before a cast or while holding a beam; beams come later). Only projectile spells can be cast yet; melee and beam spells load but do nothing until phase 15.
+- **While casting:** walk at 0.4 × speed, no running, no attack, no dodge (spec 8.5: only before a cast or while holding a beam; beams come later). Only single straight-shot spells can be cast yet (star shard, great star shard). Moon blade, star swarm and comet beam can be learned and slotted, but L/C does nothing for them and spends no MP until 15c/15d.
+
+## Spell slots and Q (phase 15b, spec 8.2, 8.6)
+
+Code: `wind/progression/spell_book`, `game/states/field_spells`, `game/combat/spell_shelf`; tested in `spell_book_tests`, `field_spells_tests`.
+
+- **Spell book** (in `HeroProgress`): learned spells, up to 4 slots, and the selected slot. The number of open slots comes from intelligence (`spell_slots` curve: 2 at 10, 3 at 20, 4 at 40); slots past that count are locked and behave as empty until intelligence rises.
+- **Slotting:** only a learned spell, only if intelligence ≥ its `intelligence_required`, and never in two slots at once. A refused slotting changes nothing.
+- **Start:** star shard learned and in slot 1 (spec 8.1). Learning a spell puts it in the first free open slot if intelligence allows (decided with the developer); otherwise it is only learned (slot changes at the cushion come in 15f).
+- **Q:** selects the next filled slot, wrapping around and skipping empty or locked slots. A Q pressed while casting is dropped, not remembered (decided with the developer). If the selected slot becomes empty or locked, the first filled slot is used.
+- **Test options:** `--stat intelligence=20` (any stat, 1–60) and `--learn <spell id>` (repeatable). Where spells are found in the world is decided with the region design (phases 18–19).
 - **The shard** starts 10 px in front of the feet and flies at chest height (14 px above its ground point). Damage = magic attack 12 × (1 + intelligence bonus 0) × power, then spec 9.3 (`magic_attack_power`, `compute_damage`).
 
 | Spawn value | Number | Why |
@@ -473,4 +483,4 @@ For now the hero uses idle, moving, running, attacking, casting, drinking (14d),
 
 ## Not yet defined
 
-More spells, Q and spell slots (15b–15d), the pause menu and equipment screen (15e), quick item slots (15f), head/body/accessory gear (expansion), and saves (16) are defined later (spec section 19).
+Moving moon blade, star swarm (15c) and comet beam (15d), the pause menu and equipment screen (15e), quick item slots (15f), head/body/accessory gear (expansion), and saves (16) are defined later (spec section 19).

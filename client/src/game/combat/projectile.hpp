@@ -15,6 +15,7 @@
 #include "engine/core/math.hpp"
 
 #include "wind/combat/projectile_data.hpp"
+#include "wind/combat/spell.hpp"
 #include "wind/world/map.hpp"
 
 #include <functional>
@@ -33,6 +34,7 @@ struct ProjectileShot {
     float knockback = 0.0f;            // 타격감 (10a): 밀어내는 힘, 멈칫, 화면 흔들림
     float hitstop = 0.0f;
     float shake = 0.0f;
+    std::optional<combat::SpellLight> light;  // 마술 빛 (보여 주기 전용, 몬스터 침은 없음, 15b)
 };
 
 // 탄이 사라진 이유 (연출이 다르게 보여 줄 수 있어요)

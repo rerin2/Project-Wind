@@ -7,6 +7,7 @@
 #include "game/presentation/feel_settings.hpp"
 
 #include "wind/log.hpp"
+#include "wind/progression/stats.hpp"
 #include "wind/world/direction.hpp"
 
 #include <cstdint>
@@ -55,6 +56,8 @@ struct ClientOptions {
     // 시작 시각 (0~24). 비어 있으면 아침 9시.
     std::optional<float> start_hour;
     std::int64_t start_runes = 0;  // 시험용 시작 룬 (--runes, 13c)
+    progression::Stats start_stats;  // 시험용 시작 능력치 (--stat intelligence=20, 15b). 기본 모두 10
+    std::vector<std::string> learn_spells;  // 시험용: 배우고 빈 칸에 넣을 마술 id (--learn, 여러 번, 15b)
     std::string fill_bag_item;     // 시험용: 가방 모든 칸을 이 아이템으로 채워요 (--fill-bag, 14b). 비면 빈 가방
     std::vector<std::string> give_items;  // 시험용: 가방에 하나씩 넣을 아이템들 (--give, 여러 번, 15a)
     // 접근성: 화면 흔들림·번쩍임 세기 0~1 (--shake, --flash). 설정 화면은 15단계

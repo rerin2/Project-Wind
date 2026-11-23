@@ -34,6 +34,7 @@ constexpr double kMaxKnockback = 1000.0;       // 픽셀/초 (공격 데이터�
 constexpr double kMaxHitstop = 0.5;            // 초
 constexpr double kMinLightRadius = 1.0;        // 픽셀
 constexpr double kMaxLightRadius = 512.0;
+constexpr std::int64_t kMaxIcon = 255;         // 아이콘 칸 번호 상한 (도감 아이콘과 같아요, 15b)
 
 // "beam": { "length": 160, "width": 12, "tick_seconds": 0.1 }
 std::optional<combat::BeamData> read_beam(JsonReader& parent, const std::string& file,
@@ -160,6 +161,9 @@ LoadResult<combat::Spell> parse_spell(const nlohmann::json& document, const std:
     read_optional_number(reader, "knockback", kMaxKnockback, spell.knockback);  // 타격감 (10a)
     read_optional_number(reader, "hitstop", kMaxHitstop, spell.hitstop);
     read_optional_number(reader, "shake", 1.0, spell.shake);
+    if (reader.has("icon")) {  // HUD 아이콘 칸 (선택, 15b)
+        if (const auto icon = reader.integer("icon", 0, kMaxIcon)) spell.icon = static_cast<int>(*icon);
+    }
     read_optional_path(reader, "fx", spell.fx);
     read_optional_path(reader, "sfx", spell.sfx);
     if (reader.has("light")) {

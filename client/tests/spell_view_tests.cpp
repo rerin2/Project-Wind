@@ -18,8 +18,10 @@ using wind::game::ProjectileShot;
 using wind::game::SpellView;
 
 // 오른쪽으로 한 박자 날린 별빛 조각 (48 -> 54, 몸 높이 14)
-Projectile flown_shard() {
+// light: 탄이 들고 다니는 마술 빛 (15b)
+Projectile flown_shard(std::optional<wind::combat::SpellLight> light = std::nullopt) {
     ProjectileShot shot;
+    shot.light = light;
     shot.ground = {48.0f, 80.0f};
     shot.lift = 14.0f;
     shot.data.speed = 360.0f;
@@ -50,8 +52,8 @@ TEST(SpellView, DrawnCenterBlendsSteps) {
 }
 
 TEST(SpellView, OneLightPerShardPlusCastGlow) {
-    SpellView view(nullptr, nullptr, {}, ice_light());
-    const std::vector<Projectile> shots{flown_shard(), flown_shard()};
+    SpellView view(nullptr, nullptr, {});
+    const std::vector<Projectile> shots{flown_shard(ice_light()), flown_shard(ice_light())};
     wind::engine::ParticleRandom random(1);
     wind::engine::ParticlePool pool(16);
     view.update(0.016f, shots, 1.0f, {}, std::nullopt, random, pool);
@@ -63,7 +65,7 @@ TEST(SpellView, OneLightPerShardPlusCastGlow) {
     EXPECT_EQ(lights[0].color.g, 220);
 
     // 시전 중: 반쯤 모았으면 반 크기·반 밝기의 손끝 빛이 더해져요
-    view.update(0.016f, {}, 1.0f, {}, CastGlow{{10.0f, 20.0f}, 0.5f}, random, pool);
+    view.update(0.016f, {}, 1.0f, {}, CastGlow{{10.0f, 20.0f}, 0.5f, ice_light()}, random, pool);
     lights = view.lights({}, 1.0f);
     ASSERT_EQ(lights.size(), 1u);
     EXPECT_FLOAT_EQ(lights[0].radius, 18.0f);
@@ -72,7 +74,7 @@ TEST(SpellView, OneLightPerShardPlusCastGlow) {
 }
 
 TEST(SpellView, NoLightWhenSpellHasNone) {
-    SpellView view(nullptr, nullptr, {}, std::nullopt);
+    SpellView view(nullptr, nullptr, {});
     const std::vector<Projectile> shots{flown_shard()};
     EXPECT_TRUE(view.lights(shots, 1.0f).empty());
 }
@@ -85,7 +87,7 @@ TEST(SpellView, EmitsTrailAndBurst) {
     wind::engine::ParticleEffect burst;
     burst.lifetime = {1.0f, 1.0f};
     burst.burst = 5;
-    SpellView view(&trail, &burst, {}, std::nullopt);
+    SpellView view(&trail, &burst, {});
     wind::engine::ParticleRandom random(1);
     wind::engine::ParticlePool pool(64);
     const std::vector<Projectile> shots{flown_shard()};

@@ -13,14 +13,20 @@ namespace wind::game {
 HeroProgress::HeroProgress(progression::ProgressionRules rules, progression::Stats stats, std::int64_t runes)
     : rules_(std::move(rules)), stats_(stats), wallet_(runes) {}
 
-std::optional<HeroProgress> HeroProgress::load(const std::filesystem::path& content_root) {
+std::optional<HeroProgress> HeroProgress::load(const std::filesystem::path& content_root,
+                                               const progression::Stats& start) {
     auto rules = content::load_progression_rules(content_root);
     if (!rules.ok()) {
         content::log_content_errors("progression rules", rules.errors);  // 어느 파일 어느 칸이 왜 틀렸는지
         log::critical("Cannot start without valid progression rules; see errors above");
         return std::nullopt;
     }
-    return HeroProgress(std::move(*rules.value));  // 능력치 모두 10, 룬 0
+    if (!progression::stats_in_range(start)) {  // 시험용 --stat은 옵션에서 이미 막지만 한 번 더
+        log::warn("Start stats out of range; starting with all 10");
+        return HeroProgress(std::move(*rules.value));
+    }
+    if (start != progression::Stats{}) log::info("Start level {} (test stats)", progression::level_of(start));
+    return HeroProgress(std::move(*rules.value), start);  // 보통 능력치 모두 10, 룬 0
 }
 
 progression::DerivedStats HeroProgress::derived(float equipped_weight) const {

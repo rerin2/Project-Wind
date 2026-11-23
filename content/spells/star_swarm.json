@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "id": "star_swarm",
+  "name": "별무리",
+  "intelligence_required": 20,
+  "icon": 2,
+  "mp_cost": 16,
+  "cast_seconds": 0.4,
+  "power": 0.6,
+  "knockback": 30,
+  "hitstop": 0.02,
+  "shake": 0.04,
+  "projectile": { "speed": 220, "range": 260, "size": [6, 6], "count": 5,
+                  "homing": 0.8, "orbit_seconds": 1.5 },
+  "light": { "radius": 28, "color": "#9cc8ff", "intensity": 0.6 }
+}

@@ -9,6 +9,7 @@
 # 묶음 1: 실행 설정 읽기, 스크린샷 파일 이름 만들기 (SDL 없음). 기본 자료 폴더는 저장소의 content/ 폴더예요.
 add_library(wind_client_options STATIC
     src/app/client_options.cpp
+    src/app/option_values.cpp
     src/app/screenshot_name.cpp)
 target_include_directories(wind_client_options PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(wind_client_options PUBLIC wind::shared)
@@ -145,11 +146,13 @@ add_library(wind_game_core STATIC
     src/game/states/field_rest.cpp
     src/game/states/field_items.cpp
     src/game/states/field_arms.cpp
+    src/game/states/field_spells.cpp
     src/game/states/field_runes.cpp
     src/game/items/drop_roll.cpp
     src/game/items/map_loot.cpp
     src/game/items/loot_store.cpp
     src/game/items/weapon_rack.cpp
+    src/game/combat/spell_shelf.cpp
     src/game/items/field_loot.cpp
     src/game/progression/hero_progress.cpp
     src/game/progression/hero_tuning.cpp)
@@ -172,6 +175,7 @@ add_executable(wind_client
     src/app/loot_toast_drawing.cpp
     src/app/bag_screen_view.cpp
     src/app/item_hud.cpp
+    src/app/hands_hud.cpp
     src/app/item_setup.cpp
     src/app/ui_test_panel.cpp
     src/app/ui_resources.cpp
@@ -252,6 +256,7 @@ if(WIND_BUILD_TESTS)
         tests/potion_drinker_tests.cpp
         tests/field_items_tests.cpp
         tests/field_arms_tests.cpp
+        tests/field_spells_tests.cpp
         tests/field_runes_tests.cpp
         tests/rune_trace_view_tests.cpp
         tests/enemy_shots_tests.cpp

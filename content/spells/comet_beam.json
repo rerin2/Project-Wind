@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "comet_beam",
+  "name": "혜성 광선",
+  "intelligence_required": 36,
+  "icon": 4,
+  "mp_per_second": 12,
+  "cast_seconds": 0.5,
+  "power": 3.0,
+  "knockback": 20,
+  "shake": 0.1,
+  "beam": { "length": 220, "width": 14, "tick_seconds": 0.1 },
+  "light": { "radius": 110, "color": "#c8f0ff", "intensity": 1.0 }
+}

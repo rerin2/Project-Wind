@@ -5,6 +5,7 @@
 #include "game/states/field_arms.hpp"
 
 #include "game/entities/player_motion.hpp"
+#include "game/combat/spell_shelf.hpp"
 #include "game/items/loot_store.hpp"
 #include "game/items/weapon_rack.hpp"
 #include "game/progression/hero_progress.hpp"
@@ -40,8 +41,9 @@ struct Fixture {
     wind::game::LootStore store;
     wind::items::Equipment worn;
     wind::game::WeaponRack weapons = wind::game::WeaponRack::load(WIND_TEST_CONTENT_DIR, catalog);
+    wind::game::SpellShelf spells;  // 무기 담당은 마술을 안 써요
     wind::game::HeroProgress progress = *wind::game::HeroProgress::load(WIND_TEST_CONTENT_DIR);
-    wind::game::FieldArms arms{wind::game::ItemWorld{bag, catalog, store}, wind::game::GearWorld{worn, weapons},
+    wind::game::FieldArms arms{wind::game::ItemWorld{bag, catalog, store}, wind::game::GearWorld{worn, weapons, spells},
                                progress};
     wind::world::MapData map = open_map();
     PlayerMotion hero{{100.0f, 300.0f}, wind::world::Direction::Right, wind::game::MovementTuning{},

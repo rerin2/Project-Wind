@@ -108,7 +108,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                                std::move(sprites.dummies), std::move(sprites.monsters),
                                effect_ptr(effects_.star_trail),
                                effect_ptr(effects_.star_burst), effect_ptr(effects_.hit_spark),
-                               assets.spell ? assets.spell->light : std::nullopt, textures_.vignette(),
+                               textures_.vignette(),
                                &effects_.monster_fx, effect_ptr(effects_.spit_splash)}),
       // 쿠션 연출: 찾은 쿠션은 피어난 모습, 처음 찾으면 꽃잎 (13b)
       cushion_view_(rest_.cushions(), [&progress](std::string_view id) { return progress.discovered(id); },
@@ -118,6 +118,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       items_(items, loot, {sprites.item_icons, textures_.shadow(), textures_.light(), effect_ptr(effects_.item_pickup),
                           effect_ptr(effects_.potion_heal), effect_ptr(effects_.potion_mana)}, std::random_device{}()),
       arms_(items, gear, progress),  // 끼고 있는 무기 (15a)
+      spells_(progress, gear.spells),  // 고른 마술, Q (15b)
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -130,7 +131,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       atmosphere_(std::move(assets.day_cycle), std::move(assets.weather), effects_.weather_fx, effects_.night,
                   std::random_device{}(), start_weather) {
     for (const auto& effect : effects_.ambient) ambient_.add(effect);  // 꽃잎·반딧불 같은 분위기 효과
-    player_.set_spell(std::move(assets.spell));  // 고른 마술 (9e: 별빛 조각)
+    spells_.arm(player_);                        // 고른 마술 칸의 마술 (15b)
     arms_.arm(player_);                          // 끼고 있는 무기, 무거우면 느리게 (15a)
     combat_.set_hero_stats(progress_.derived());   // 칼·빛 탄 공격력의 힘·지능 보너스 (13a)
     if (assets.start_cushion) rest_.sit_on(*assets.start_cushion, player_);  // 쉬기·부활: 쿠션에 앉은 채 (13b)
@@ -145,6 +146,7 @@ void FieldState::handle_input(const engine::InputState& input, const InputBindin
     if (bindings.pressed(Action::Dodge, input)) player_.press_dodge();
     if (bindings.pressed(Action::Attack, input)) player_.press_attack();  // 공격도 메모장에 (콤보는 취소 구간에서 이어져요)
     if (bindings.pressed(Action::Cast, input)) player_.press_cast();      // 마술도 메모장에 (L / C)
+    if (bindings.pressed(Action::NextSpell, input)) spells_.press_next();  // Q: 다음 마술 칸 (15b)
     if (bindings.pressed(Action::Interact, input)) rest_.press_interact();  // E: 쿠션에서 쉬기·일어나기 (13b)
     // F4: 못 가는 칸과 발 상자 표시 켜기/끄기
     if (bindings.pressed(Action::ToggleCollision, input)) show_collision_ = !show_collision_;
@@ -166,6 +168,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     runes_.step(combat_, player_);  // 쓰러뜨린 몬스터의 룬, 쓰러지면 절반 잃고 흔적, 흔적 되찾기 (13a, 14e)
     items_.step(static_cast<float>(sim_dt), combat_, player_, map_.map);  // 쓰러진 몬스터의 드롭, 자동 줍기 (14b)
     arms_.step(player_);  // 인벤토리에서 고른 무기 바꿔 끼기 (15a)
+    (void)spells_.step(player_);  // Q로 고른 다음 마술 (시전 중이면 버려요, 15b)
     // 멈춤·느림은 진짜 시간으로 줄고, 이번에 누가 맞았으면 멈칫, 주인공이 쓰러졌으면 슬로모션 (12b)
     time_scale_.update(static_cast<float>(dt_seconds), combat_.strongest_hitstop(), combat_.hero_fell());
     combat_fx_.collect(combat_);  // 맞은 일·사라진 빛 탄은 다음 frame_update에서 연출해요 (안 빠지게 모아 둬요)
@@ -261,13 +264,8 @@ void FieldState::refresh_hero_stats() {
     player_.raise_maximums(derived.max_hp, static_cast<float>(derived.max_mp), static_cast<float>(derived.max_stamina));
     combat_.set_hero_stats(derived);
     arms_.arm(player_);  // 힘이 바뀌면 무거움도 바뀌어요 (15a)
+    spells_.arm(player_);  // 지능이 오르면 마술 칸이 늘어요 (15b)
     cushion_view_.celebrate_level_up(player_.mover().feet());  // 빛기둥 파티클과 번쩍임
-}
-
-std::vector<LootNotice> FieldState::take_loot_notices() {
-    auto notices = items_.take_notices();
-    for (auto& notice : arms_.take_notices()) notices.push_back(std::move(notice));  // 장착 알림 (15a)
-    return notices;
 }
 
 engine::Vec2 FieldState::drawn_feet() const {

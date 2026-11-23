@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -241,3 +242,45 @@ TEST(SpellLoader, RealStarShardLoads) {
 }
 
 }  // namespace
+
+// HUD 아이콘 칸 (15b): 없으면 0, 0~255만 돼요
+TEST(SpellLoader, ReadsOptionalIcon) {
+    auto doc = make_doc();
+    EXPECT_EQ(wind::content::parse_spell(doc, "s.json").value->icon, 0);
+    doc["icon"] = 3;
+    EXPECT_EQ(wind::content::parse_spell(doc, "s.json").value->icon, 3);
+    doc["icon"] = 300;
+    EXPECT_FALSE(wind::content::parse_spell(doc, "s.json").ok());
+}
+
+// 저장소의 마술 다섯 개 (명세 8.6 표): 요구 지능·MP·시전·위력·동작이 표와 같아요
+TEST(SpellLoader, ShippedSpellsMatchTheTable) {
+    struct Row {
+        const char* id;
+        int intelligence;
+        float cast;
+        float power;
+        wind::combat::SpellMotion motion;
+    };
+    using wind::combat::SpellMotion;
+    const Row rows[] = {{"star_shard", 10, 0.25f, 1.0f, SpellMotion::Projectile},
+                        {"great_star_shard", 16, 0.6f, 2.2f, SpellMotion::Projectile},
+                        {"star_swarm", 20, 0.4f, 0.6f, SpellMotion::Projectile},
+                        {"moon_blade", 14, 0.15f, 1.4f, SpellMotion::Melee},
+                        {"comet_beam", 36, 0.5f, 3.0f, SpellMotion::Beam}};
+    for (const auto& row : rows) {
+        const auto spell = wind::content::load_spell_file(WIND_TEST_CONTENT_DIR,
+                                                          std::string("spells/") + row.id + ".json");
+        ASSERT_TRUE(spell.ok()) << row.id;
+        EXPECT_EQ(spell.value->id, row.id);
+        EXPECT_EQ(spell.value->intelligence_required, row.intelligence) << row.id;
+        EXPECT_FLOAT_EQ(spell.value->cast_seconds, row.cast) << row.id;
+        EXPECT_FLOAT_EQ(spell.value->power, row.power) << row.id;
+        EXPECT_EQ(spell.value->motion, row.motion) << row.id;
+    }
+    const auto swarm = wind::content::load_spell_file(WIND_TEST_CONTENT_DIR, "spells/star_swarm.json");
+    EXPECT_EQ(swarm.value->projectile->count, 5);
+    EXPECT_FLOAT_EQ(swarm.value->projectile->orbit_seconds, 1.5f);
+    const auto beam = wind::content::load_spell_file(WIND_TEST_CONTENT_DIR, "spells/comet_beam.json");
+    EXPECT_FLOAT_EQ(beam.value->mp_per_second, 12.0f);
+}

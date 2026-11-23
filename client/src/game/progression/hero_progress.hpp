@@ -17,6 +17,7 @@
 #include "wind/progression/derived_stats.hpp"
 #include "wind/progression/progression_rules.hpp"
 #include "wind/progression/rune_wallet.hpp"
+#include "wind/progression/spell_book.hpp"
 #include "wind/progression/stats.hpp"
 
 #include <cstdint>
@@ -43,7 +44,9 @@ public:
                           std::int64_t runes = 0);
     // 콘텐츠 폴더의 성장 규칙 파일(progression/stat_curves.json, levels.json)을 읽어 처음 상태로 만들어요.
     // 파일이 틀리면 이유를 로그에 남기고 nullopt예요 (게임을 시작할 수 없어요).
-    [[nodiscard]] static std::optional<HeroProgress> load(const std::filesystem::path& content_root);
+    // start: 처음 능력치 (보통 모두 10, 시험용 --stat, 15b). 1~60 밖이면 경고하고 모두 10으로 시작해요.
+    [[nodiscard]] static std::optional<HeroProgress> load(const std::filesystem::path& content_root,
+                                                          const progression::Stats& start = {});
 
     [[nodiscard]] const progression::Stats& stats() const { return stats_; }
     [[nodiscard]] int level() const { return progression::level_of(stats_); }
@@ -85,6 +88,10 @@ public:
     // 이 쿠션을 찾은 적이 있나요? (찾은 쿠션은 피어난 모습으로 그려요)
     [[nodiscard]] bool discovered(std::string_view cushion_id) const;
 
+    // 마술 공책: 배운 마술, 마술 칸, 고른 칸 (15b). 칸 수는 derived().spell_slots예요.
+    [[nodiscard]] progression::SpellBook& spells() { return spells_; }
+    [[nodiscard]] const progression::SpellBook& spells() const { return spells_; }
+
 private:
     progression::ProgressionRules rules_;  // 곡선과 비용 계수
     progression::Stats stats_;             // 다섯 능력치
@@ -94,6 +101,7 @@ private:
     std::optional<RuneTrace> trace_;       // 룬 흔적 (14e, 하나뿐)
     std::optional<CushionRef> last_cushion_;           // 부활 자리 (13b)
     std::set<std::string, std::less<>> discovered_;   // 찾은 쿠션 id (쿠션 id는 게임 전체에서 하나뿐이에요)
+    progression::SpellBook spells_;                    // 배운 마술·마술 칸·고른 칸 (15b)
 };
 
 }  // namespace wind::game

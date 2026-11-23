@@ -35,6 +35,7 @@
 #include "game/states/field_rest.hpp"
 #include "game/states/field_arms.hpp"
 #include "game/states/field_items.hpp"
+#include "game/states/field_spells.hpp"
 #include "game/states/field_runes.hpp"
 #include "game/world/exit_watcher.hpp"
 #include "game/states/field_textures.hpp"
@@ -153,7 +154,13 @@ public:
     [[nodiscard]] unsigned rest_denied_count() const { return rest_.denied_count(); }
     // 지난번 뒤로 주운 아이템·가득 차서 못 주운 아이템 (왼쪽 아래 알림 줄용, 14b). 가져가면 비워요.
     // 무기 장착 알림(15a)도 같은 줄에 띄워요.
-    [[nodiscard]] std::vector<LootNotice> take_loot_notices();
+    [[nodiscard]] std::vector<LootNotice> take_loot_notices() {
+        auto notices = items_.take_notices();
+        for (auto& notice : arms_.take_notices()) notices.push_back(std::move(notice));
+        return notices;
+    }
+    // 고른 마술과 Q로 바꾼 횟수 (HUD 마술 칸, 15b)
+    [[nodiscard]] const FieldSpells& spells() const { return spells_; }
     // 인벤토리 화면 요청 (14c): 이 칸을 발 앞에 내려놓기, 가방 정렬. 다음 박자에 규칙대로 처리해요
     void request_put_down(std::size_t slot) { items_.request_put_down(slot); }
     void request_sort() { items_.request_sort(); }
@@ -232,6 +239,7 @@ private:
     FieldRunes runes_;                      // 룬: 받기·잃기, 룬 흔적과 되찾기 (13a, 14e)
     FieldItems items_;                      // 아이템: 드롭·자동 줍기(규칙)와 튀기·반짝·빨려 들기(연출), 알림 (14b)
     FieldArms arms_;                        // 무기: 끼고 있는 무기 쥐여 주기, 장착 요청 (15a)
+    FieldSpells spells_;                    // 마술: 고른 마술 쥐여 주기, Q (15b)
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요

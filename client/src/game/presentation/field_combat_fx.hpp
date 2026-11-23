@@ -50,7 +50,6 @@ struct CombatFxSetup {
     const engine::ParticleEffect* star_trail = nullptr;  // 빛 탄 꼬리
     const engine::ParticleEffect* star_burst = nullptr;  // 빛 탄이 사라질 때
     const engine::ParticleEffect* hit_spark = nullptr;   // 맞을 때 불꽃
-    std::optional<combat::SpellLight> spell_light;       // 마술이 내는 빛
     engine::TextureHandle vignette;                     // 가장자리가 진한 비네트 그림 (11c)
     const std::map<std::string, engine::ParticleEffect>* monster_fx = nullptr;  // 몬스터가 사라질 때 효과 (11d)
     const engine::ParticleEffect* spit_splash = nullptr;  // 몬스터 침이 사라질 때 톡 (13c)

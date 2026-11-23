@@ -13,6 +13,14 @@ namespace {
 // (여유가 없으면 15박자가 아니라 16박자째에 나가요)
 constexpr float kTimeEpsilon = 1e-4f;
 
+// 지금 움직일 수 있는 마술인가요? 15b까지는 빛 탄 하나를 똑바로 쏘는 마술만 (별빛 조각·큰 별빛 조각).
+// 근접(달빛 칼날)·여러 개·유도(별무리)는 15c, 광선(혜성 광선)은 15d에서 열어요. 그 전에는 MP도 안 써요.
+bool castable(const combat::Spell& spell) {
+    if (spell.motion != combat::SpellMotion::Projectile || !spell.projectile) return false;
+    const auto& shot = *spell.projectile;
+    return shot.count == 1 && shot.homing == 0.0f && shot.orbit_seconds == 0.0f;
+}
+
 }  // namespace
 
 SpellCaster::SpellCaster(std::optional<combat::Spell> spell) : spell_(std::move(spell)) {}
@@ -22,10 +30,8 @@ void SpellCaster::set_spell(std::optional<combat::Spell> spell) {
     spell_ = std::move(spell);
 }
 
-// 빛 탄 마술만 돼요. 근접·광선 마술은 데이터는 읽지만 아직 쓸 수 없어요 (15단계).
 bool SpellCaster::can_start() const {
-    return spell_ && spell_->motion == combat::SpellMotion::Projectile && spell_->projectile &&
-           !casting_;
+    return spell_ && castable(*spell_) && !casting_;
 }
 
 bool SpellCaster::start() {
