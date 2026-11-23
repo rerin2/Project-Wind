@@ -564,3 +564,72 @@ TEST(PlayerMotion, SecondsSinceHitResetsOnHit) {
     run_for(player, 60, {}, false, map);
     EXPECT_NEAR(player.seconds_since_hit(), 1.0f, 0.01f);
 }
+
+// ---- 14d: 물약 마시기 ----
+
+namespace {
+
+// 30만큼 맞고 경직이 다 풀린 주인공 (HP 70/100)
+PlayerMotion make_hurt_player(const wind::world::MapData& map) {
+    auto player = make_player();
+    (void)player.take_hit(30, kRight, 0.0f);
+    run_for(player, 90, {}, false, map);  // 경직·무적이 끝날 때까지 (1.5초)
+    return player;
+}
+
+TEST(PlayerMotion, DrinkingHealsAtTheGulpAndSlowsWalking) {
+    const auto map = open_map();
+    auto player = make_hurt_player(map);
+    ASSERT_EQ(player.health().current(), 70);
+    ASSERT_TRUE(player.can_drink());
+    ASSERT_TRUE(player.begin_drink({50, 0}));
+    EXPECT_EQ(player.state(), CharacterState::Drinking);
+    const float x0 = player.mover().feet().x;
+    run_for(player, 18, kRight, true, map);  // 0.3초: 꿀꺽 전, 달리기 키를 눌러도 천천히 걸어요
+    EXPECT_EQ(player.health().current(), 70);
+    EXPECT_NE(player.mover().state(), Mover::State::Running);
+    const float walked = player.mover().feet().x - x0;
+    EXPECT_LT(walked, 110.0f * 0.3f * 0.5f);  // 보통 걷기의 반도 못 가요 (0.4배)
+    run_for(player, 6, {}, false, map);       // 0.4초: 꿀꺽
+    EXPECT_EQ(player.health().current(), 100);  // 70 + 50 → 최대 100에서 잘려요
+    run_for(player, 20, {}, false, map);      // 0.73초: 끝
+    EXPECT_NE(player.state(), CharacterState::Drinking);
+}
+
+TEST(PlayerMotion, CannotAttackOrDodgeWhileDrinking) {
+    const auto map = open_map();
+    auto player = make_hurt_player(map);
+    ASSERT_TRUE(player.begin_drink({50, 0}));
+    player.press_attack();
+    player.press_dodge();
+    run_for(player, 3, {}, false, map);
+    EXPECT_EQ(player.state(), CharacterState::Drinking);  // 공격·구르기는 표가 막아요
+    EXPECT_FALSE(player.attack_started());
+}
+
+TEST(PlayerMotion, HitBeforeGulpCancelsWithoutHealing) {
+    const auto map = open_map();
+    auto player = make_hurt_player(map);
+    ASSERT_TRUE(player.begin_drink({50, 0}));
+    run_for(player, 6, {}, false, map);         // 0.1초
+    (void)player.take_hit(10, kRight, 0.0f);    // 꿀꺽 전에 맞았어요
+    EXPECT_EQ(player.state(), CharacterState::Hit);
+    run_for(player, 60, {}, false, map);
+    EXPECT_EQ(player.health().current(), 60);   // 회복 없이 맞은 만큼만 줄었어요
+}
+
+TEST(PlayerMotion, DrinkOnlyWhenFreeAndUseful) {
+    const auto map = open_map();
+    auto fresh = make_player();
+    EXPECT_FALSE(fresh.drink_would_help({50, 0}));  // HP가 가득
+    EXPECT_FALSE(fresh.drink_would_help({0, 30}));  // MP도 가득
+    auto hurt = make_hurt_player(map);
+    EXPECT_TRUE(hurt.drink_would_help({50, 0}));
+    EXPECT_FALSE(hurt.drink_would_help({0, 30}));   // MP 물약은 여전히 쓸모없어요
+    hurt.press_dodge();
+    run_for(hurt, 1, kRight, false, map);           // 구르는 중
+    EXPECT_FALSE(hurt.can_drink());
+    EXPECT_FALSE(hurt.begin_drink({50, 0}));
+}
+
+}  // namespace

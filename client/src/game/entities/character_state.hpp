@@ -20,6 +20,7 @@ enum class CharacterState : std::uint8_t {
     Running,        // 달리는 중 (Shift)
     Attacking,      // 무기를 휘두르는 중
     Casting,        // 마술을 쓰는 중
+    Drinking,       // 물약을 마시는 중 (0.6초, 천천히 걸어요, 14d)
     Dodging,        // 구르는 중
     Hit,            // 맞아서 움찔 (경직)
     Resting,        // 세이브 포인트에서 쉬는 중 (메뉴)

@@ -389,16 +389,17 @@ Code: `client/src/game/entities/character_state.*`; spec 8.5. Tested in `charact
 
 | From | Can go to |
 |---|---|
-| idle, moving, running | idle, moving, running, attacking, casting, dodging, hit, resting, dead, transitioning, in_dialogue |
+| idle, moving, running | idle, moving, running, attacking, casting, drinking, dodging, hit, resting, dead, transitioning, in_dialogue |
 | attacking | idle, moving, running, attacking (next combo hit), dodging (cancel window), hit, dead |
 | casting | idle, moving, running, dodging (before the cast or while holding a beam), hit, dead |
+| drinking (14d) | idle, moving, running, hit (cancels the drink), dead |
 | dodging | idle, moving, running, hit, dead |
 | hit | idle, moving, running, hit, dead |
 | resting, in_dialogue | idle (game input is blocked meanwhile) |
 | dead | transitioning, idle (respawn) |
 | transitioning | idle |
 
-For now the hero uses idle, moving, running, attacking, casting, dodging, hit (11c), dead (12b) and resting (13b); F3 shows the state and the combo hit (`attacking 2`).
+For now the hero uses idle, moving, running, attacking, casting, drinking (14d), dodging, hit (11c), dead (12b) and resting (13b); F3 shows the state and the combo hit (`attacking 2`).
 
 ## Time
 
@@ -433,7 +434,16 @@ For now the hero uses idle, moving, running, attacking, casting, dodging, hit (1
 - Arrows/WASD pick a slot in the 6 × 4 grid (stopping at the edges). **Enter**/E/J on an item opens a small menu: 사용 (use; dimmed until potions can be drunk in 14d), 버리기 (put down), 취소. **R** sorts. **Esc** closes the small menu, then the bag.
 - The screen never changes the bag itself: put down and sort are requests the field carries out on the next fixed step, all-or-nothing (an emptied slot does nothing).
 - **Put down** places the whole stack 14 px in front of the heroine (at her feet if that spot is a wall or water). It is not picked up again until she has been more than 48 px away.
+- **사용** (14d) is offered for consumables. Choosing it closes the bag so you can see her drink (decided with the developer).
+
+## Drinking potions (phase 14d)
+
+- Using a potion takes one from the bag at the start and plays a 0.6 s drink (state `drinking`). At 0.35 s (the gulp) it restores its `heal_hp` / `heal_mp`, capped at the maximum.
+- While drinking she walks at 0.4× speed (like casting), cannot run, and cannot attack, cast or dodge. Buttons pressed before the drink are forgotten.
+- A hit before the gulp cancels the drink: the potion is used up and nothing is restored (decided with the developer, for soulslike tension). A hit after the gulp keeps the healing.
+- She can only start a drink while standing, walking or running. Otherwise the notice line says "지금은 마실 수 없다" and the bag is unchanged. A potion that would restore nothing (HP and, for MP potions, MP already full) is not drunk: "이미 가득하다 · 회복 물약".
+- The request goes through the fixed step like put down (`FieldItems::use`): check first, then take one and start, so a refused use never changes the bag.
 
 ## Not yet defined
 
-More spells, Q and spell slots (15), drinking potions (14d), rune traces (14e), equipment (15), and saves (16) are defined later (spec section 19).
+More spells, Q and spell slots (15), quick item slots (15), rune traces (14e), equipment (15), and saves (16) are defined later (spec section 19).

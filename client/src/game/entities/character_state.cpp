@@ -28,13 +28,15 @@ constexpr Table make_table() {
     Table t{};
     // 땅에 서 있거나 움직이는 상태: 거의 모든 행동을 시작할 수 있어요.
     for (const S free : {S::Idle, S::Moving, S::Running}) {
-        allow(t, free, {S::Idle, S::Moving, S::Running, S::Attacking, S::Casting, S::Dodging, S::Hit,
+        allow(t, free, {S::Idle, S::Moving, S::Running, S::Attacking, S::Casting, S::Drinking, S::Dodging, S::Hit,
                         S::Resting, S::Dead, S::Transitioning, S::InDialogue});
     }
     // 공격 중: 끝나면 서기/걷기, 취소 구간에서 다음 콤보나 구르기, 맞거나 쓰러질 수 있어요.
     allow(t, S::Attacking, {S::Idle, S::Moving, S::Running, S::Attacking, S::Dodging, S::Hit, S::Dead});
     // 마술 중: 끝나면 서기/걷기, 시전 전이나 광선 유지 중에만 구르기(조건은 마술 코드가 확인)
     allow(t, S::Casting, {S::Idle, S::Moving, S::Running, S::Dodging, S::Hit, S::Dead});
+    // 마시는 중 (14d): 끝나면 서기/걷기. 공격·마술·구르기는 못 하고, 맞으면 끊기고, 쓰러질 수 있어요.
+    allow(t, S::Drinking, {S::Idle, S::Moving, S::Running, S::Hit, S::Dead});
     // 구르는 중: 끝나야 다른 행동. 무적이 끝난 꼬리에서는 맞을 수 있어요.
     allow(t, S::Dodging, {S::Idle, S::Moving, S::Running, S::Hit, S::Dead});
     // 맞아서 움찔: 경직이 끝나면 서기/걷기, 또 맞거나 쓰러질 수 있어요.
@@ -66,6 +68,7 @@ std::string_view to_string(CharacterState state) {
         case S::Running: return "running";
         case S::Attacking: return "attacking";
         case S::Casting: return "casting";
+        case S::Drinking: return "drinking";
         case S::Dodging: return "dodging";
         case S::Hit: return "hit";
         case S::Resting: return "resting";

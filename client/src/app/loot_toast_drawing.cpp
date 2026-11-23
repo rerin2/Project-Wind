@@ -49,7 +49,7 @@ void draw_loot_toasts(engine::UiPainter& painter, engine::TextureHandle icons, e
         // 글자: 아이콘 오른쪽, 세로 가운데
         engine::TextStyle style;
         style.font = font;
-        style.color = line.bag_full ? kFullColor : kTextColor;
+        style.color = line.warning() ? kFullColor : kTextColor;
         style.max_lines = 1;
         style.wrap = false;
         const float text_y = std::round(y + (icon - text_h) * 0.5f);

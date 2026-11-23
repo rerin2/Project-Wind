@@ -31,6 +31,8 @@ struct FieldEffects {
     std::optional<engine::ParticleEffect> level_up;      // 레벨업 빛기둥 (13c)
     std::optional<engine::ParticleEffect> spit_splash;   // 몬스터 침이 터질 때 (13c)
     std::optional<engine::ParticleEffect> item_pickup;   // 아이템을 주울 때 반짝 (14b)
+    std::optional<engine::ParticleEffect> potion_heal;   // 물약 꿀꺽: 초록 빛 가루 (14d)
+    std::optional<engine::ParticleEffect> potion_mana;   // 물약 꿀꺽: 파란 빛 가루 (14d)
     std::vector<engine::ParticleEffect> ambient;  // 맵 분위기 효과 (+ 시험용 부하 효과)
     std::map<std::string, engine::ParticleEffect> light_fx;  // 빛 자리 효과 (파일 위치 -> 효과)
     std::vector<engine::ParticleEffect> night;    // 밤에만 나오는 효과 (반딧불 등)

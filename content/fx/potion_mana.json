@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "potion_mana",
+  "shape": "soft",
+  "blend": "add",
+  "lifetime": [0.45, 0.8],
+  "speed": [18, 45],
+  "direction": 270,
+  "spread": 120,
+  "gravity": -30,
+  "drag": 2,
+  "spawn_radius": 9,
+  "start_size": [2, 3],
+  "end_size": 1,
+  "start_color": "#c8dcffff",
+  "end_color": "#5a78f000",
+  "fade_out": 0.5,
+  "burst": 16
+}

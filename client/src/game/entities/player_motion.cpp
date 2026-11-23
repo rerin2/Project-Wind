@@ -57,6 +57,7 @@ CharacterState PlayerMotion::state() const {
     if (caster_.busy()) {
         return CharacterState::Casting;
     }
+    if (drinker_.busy()) return CharacterState::Drinking;  // 물약 마시는 중 (14d)
     switch (mover_.state()) {
         case Mover::State::Idle: return CharacterState::Idle;
         case Mover::State::Walking: return CharacterState::Moving;
@@ -122,6 +123,7 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     const auto dt = static_cast<float>(dt_seconds);
     attack_started_ = false;
     spell_released_ = false;
+    drink_gulped_ = false;
     if (dead()) {  // 9) 쓰러졌으면 아무 행동도 안 해요 (12b)
         step_dead(dt_seconds, map);
         return false;
@@ -141,12 +143,14 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     }
     // 4) 공격 중에는 다리가 멈추고(서서히), 시전 중에는 천천히 걸어요. 둘 다 달리지 않아요.
     const bool attacking = attack_.busy();
+    // 시전·마시기 중에는 천천히 걸어요 (14d: 마시기도 시전과 같은 0.4배)
+    const bool slow = caster_.busy() || drinker_.busy();
     const bool casting = caster_.busy();
     const bool staggered = hit_.staggered();  // 경직 중이면 다리도 멈춰요 (11c)
     const engine::Vec2 legs =
-        (attacking || staggered) ? engine::Vec2{} : (casting ? move * kCastWalkScale : move);
+        (attacking || staggered) ? engine::Vec2{} : (slow ? move * kCastWalkScale : move);
     // 5) 달리기: Shift + 방향키 + 지침 아님
-    const bool run = !attacking && !casting && !staggered && run_held && engine::length(move) > 0.0f &&
+    const bool run = !attacking && !slow && !staggered && run_held && engine::length(move) > 0.0f &&
                      stamina_.can_run();
 
     const bool started = mover_.step(dt_seconds, legs, dodge, map, run);
@@ -168,6 +172,12 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     mana_.update(dt);
     // 7) 시전 시간이 다 차면 이번 박자에 마술이 나가요
     spell_released_ = caster_.step(dt);
+    // 11) 마시기: 꿀꺽 박자에 HP·MP를 채워요 (최대에서 잘려요, 14d)
+    if (const auto effect = drinker_.step(dt)) {
+        health_.restore(health_.current() + effect->heal_hp);
+        mana_.restore(mana_.current() + static_cast<float>(effect->heal_mp));
+        drink_gulped_ = true;
+    }
     buffer_.tick(dt_seconds);
     return started;
 }
@@ -205,6 +215,23 @@ bool PlayerMotion::begin_rest(engine::Vec2 seat) {
     return true;
 }
 
+bool PlayerMotion::can_drink() const {
+    return !dead() && !rest_.active() && can_transition(state(), CharacterState::Drinking);  // 서기·걷기·달리기만
+}
+
+bool PlayerMotion::drink_would_help(const items::UseEffect& effect) const {
+    const bool hp = effect.heal_hp > 0 && health_.current() < health_.max();  // 채울 HP가 있나
+    const bool mp = effect.heal_mp > 0 && mana_.current() < mana_.max();      // 채울 MP가 있나
+    return hp || mp;
+}
+
+bool PlayerMotion::begin_drink(const items::UseEffect& effect) {
+    if (!can_drink()) return false;
+    buffer_.clear();  // 미리 눌러 둔 공격·구르기는 잊어요 (마시고 나자마자 칼이 나가지 않게)
+    drinker_.start(effect);
+    return true;
+}
+
 void PlayerMotion::sit_on(engine::Vec2 seat) {
     mover_.teleport(seat);                // 쿠션 자리에 딱
     mover_.face(world::Direction::Down);
@@ -231,6 +258,7 @@ int PlayerMotion::take_hit(int amount, engine::Vec2 direction, float knockback) 
     }
     attack_.cancel();   // 휘두르던 칼은 끊겨요 (상태 표: attacking -> hit)
     caster_.cancel();   // 모으던 마술도 끊겨요. 먼저 낸 MP는 돌아오지 않아요 (casting -> hit)
+    drinker_.cancel();  // 마시던 물약도 끊겨요. 꿀꺽 전이면 효과 없이 물약만 써요 (drinking -> hit, 14d)
     mover_.halt();      // 걷던 힘·구르던 힘도 끊겨요
     seconds_since_hit_ = 0.0f;               // 방금 맞았어요: 3초 동안 쉴 수 없어요 (13b)
     const int taken = health_.take(amount);  // HP 깎기 (12b: 0까지 내려가면 쓰러져요)

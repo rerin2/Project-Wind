@@ -154,6 +154,7 @@ public:
     // 인벤토리 화면 요청 (14c): 이 칸을 발 앞에 내려놓기, 가방 정렬. 다음 박자에 규칙대로 처리해요
     void request_put_down(std::size_t slot) { items_.request_put_down(slot); }
     void request_sort() { items_.request_sort(); }
+    void request_use(std::size_t slot) { items_.request_use(slot); }  // 물약 마시기 (14d)
     // 쿠션에서 쉬는 중인가요? (인벤토리를 열 수 없어요, 14c)
     [[nodiscard]] bool hero_resting() const { return player_.rest().active(); }
 

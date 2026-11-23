@@ -14,6 +14,7 @@
 #include "engine/light/light.hpp"
 #include "engine/render/render_queue.hpp"
 #include "game/items/ground_item.hpp"
+#include "game/presentation/loot_view_setup.hpp"
 
 #include <string_view>
 #include <vector>
@@ -28,14 +29,6 @@ class MapLoot;
 
 // 아이템 아이콘 그림 판 (16×16 칸, 도감의 icon 번호 순서, 생성 스크립트가 그려요)
 inline constexpr std::string_view kItemIconsTexture = "items/item_icons.bmp";
-
-// 연출에 쓰는 그림들
-struct LootViewSetup {
-    engine::TextureHandle icons;    // 아이콘 그림 판 (16×16 칸이 가로로 늘어섬, items/item_icons.bmp)
-    engine::TextureHandle shadow;   // 발밑 그림자 그림
-    engine::TextureHandle glow;     // 둥근 빛 그림 (반짝임)
-    const engine::ParticleEffect* pickup_fx = nullptr;  // 주울 때 반짝 가루 (없으면 안 튀어요)
-};
 
 class LootView {
 public:

@@ -7,8 +7,6 @@
 #include "app/loot_toast_drawing.hpp"
 #include "game/states/field_state.hpp"
 
-#include "wind/log.hpp"
-
 #include <array>
 #include <utility>
 
@@ -30,7 +28,9 @@ constexpr std::array<std::pair<game::Action, game::BagInput>, 9> kKeys{{
 
 }  // namespace
 
-ItemHud::ItemHud(ItemSetup& items, engine::TextureHandle icons) : items_(items), icons_(icons), view_(icons) {}
+ItemHud::ItemHud(ItemSetup& items, engine::TextureHandle icons) : items_(items), icons_(icons), view_(icons) {
+    screen_.set_use_available(true);  // 물약 마시기가 생겼어요 (14d): "사용"을 고를 수 있어요
+}
 
 bool ItemHud::handle_input(const engine::InputState& input, const game::InputBindings& bindings,
                            game::FieldState& field, bool can_open) {
@@ -52,8 +52,9 @@ bool ItemHud::handle_input(const engine::InputState& input, const game::InputBin
         switch (command.kind) {
             case game::BagCommand::Kind::Drop: field.request_put_down(command.slot); break;  // 다음 박자에 내려놓기
             case game::BagCommand::Kind::Sort: field.request_sort(); break;                   // 다음 박자에 정렬
-            case game::BagCommand::Kind::Use:  // 물약 마시기는 14d (그 전에는 화면이 "사용"을 흐리게 막아요)
-                log::warn("Item use is not available yet (phase 14d)");
+            case game::BagCommand::Kind::Use:  // 물약 마시기 (14d): 다음 박자에 마시고, 화면은 닫혀요 (개발자와 정함)
+                field.request_use(command.slot);
+                screen_.close();
                 break;
             case game::BagCommand::Kind::Close:
             case game::BagCommand::Kind::None: break;

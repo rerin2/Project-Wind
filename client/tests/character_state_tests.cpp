@@ -68,6 +68,17 @@ TEST(CharacterState, HitStunBlocksActions) {
     EXPECT_TRUE(can_transition(S::Hit, S::Dead));
 }
 
+// 14d: 마시기는 서기·걷기·달리기에서만 시작하고, 마시는 동안 공격·마술·구르기는 못 해요. 맞거나 쓰러질 수는 있어요.
+TEST(CharacterState, DrinkingLinks) {
+    for (const S from : {S::Idle, S::Moving, S::Running}) EXPECT_TRUE(can_transition(from, S::Drinking));
+    for (const S from : {S::Attacking, S::Casting, S::Dodging, S::Hit, S::Resting, S::Dead}) {
+        EXPECT_FALSE(can_transition(from, S::Drinking));
+    }
+    for (const S to : {S::Attacking, S::Casting, S::Dodging, S::Resting}) EXPECT_FALSE(can_transition(S::Drinking, to));
+    for (const S to : {S::Idle, S::Moving, S::Hit, S::Dead}) EXPECT_TRUE(can_transition(S::Drinking, to));
+    EXPECT_EQ(wind::game::to_string(S::Drinking), "drinking");
+}
+
 TEST(CharacterState, NamesAndCountGuard) {
     EXPECT_EQ(wind::game::to_string(S::Attacking), "attacking");
     EXPECT_EQ(wind::game::to_string(S::InDialogue), "in_dialogue");

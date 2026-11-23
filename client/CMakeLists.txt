@@ -77,6 +77,7 @@ add_library(wind_game_core STATIC
     src/game/entities/hit_reaction.cpp
     src/game/entities/character_state.cpp
     src/game/entities/hero_rest.cpp
+    src/game/entities/potion_drinker.cpp
     src/game/entities/player_motion.cpp
     src/game/combat/hitbox_placement.cpp
     src/game/combat/attack_runner.cpp
@@ -119,6 +120,7 @@ add_library(wind_game_core STATIC
     src/game/presentation/debug_boxes.cpp
     src/game/presentation/rune_orbs.cpp
     src/game/presentation/loot_view.cpp
+    src/game/presentation/drink_view.cpp
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
@@ -243,6 +245,8 @@ if(WIND_BUILD_TESTS)
         tests/loot_view_tests.cpp
         tests/loot_toasts_tests.cpp
         tests/bag_screen_tests.cpp
+        tests/potion_drinker_tests.cpp
+        tests/field_items_tests.cpp
         tests/enemy_shots_tests.cpp
         tests/monster_senses_tests.cpp
         tests/monster_tests.cpp

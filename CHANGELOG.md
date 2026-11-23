@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Phase 14d — drinking potions
+- New hero state `drinking` (transition table, F3). `PotionDrinker`: 0.6 s, effect once at the 0.35 s gulp,
+  cancelled by hits (potion lost, no healing). `PlayerMotion::can_drink`, `drink_would_help`, `begin_drink`;
+  0.4× walk, no run/attack/cast/dodge while drinking.
+- Bag "사용" is live: closes the bag and asks the field; `FieldItems::use` checks first, then takes one potion and
+  starts the drink. Refusals: "지금은 마실 수 없다", "이미 가득하다 · 이름".
+- `LootNotice::Kind` (picked up, bag full, cannot use, already full); identical warnings within 1 s merge.
+- `DrinkView`: potion icon in hand tilting to 70°, `fx/potion_heal.json` / `fx/potion_mana.json` and a short
+  coloured light at the gulp. `LootViewSetup` moved to its own header.
+- 678 CTest tests.
+
 ### Phase 14c — bag screen
 - New keys I (open/close bag) and R (sort): `engine::Key::I/R`, SDL mapping, `--press i@N` / `r@N`,
   actions `ToggleBag`, `SortBag`.

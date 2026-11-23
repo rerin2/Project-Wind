@@ -113,9 +113,9 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       // 쿠션 연출: 찾은 쿠션은 피어난 모습, 처음 찾으면 꽃잎 (13b)
       cushion_view_(rest_.cushions(), [&progress](std::string_view id) { return progress.discovered(id); },
                     sprites.cushion, effect_ptr(effects_.catnip_bloom), effect_ptr(effects_.level_up)),
-      // 아이템: 이 맵의 바닥 목록, 아이콘·그림자·빛 그림, 주울 때 반짝, 드롭 주사위 씨앗 (14b)
-      items_(items, loot, {sprites.item_icons, textures_.shadow(), textures_.light(), effect_ptr(effects_.item_pickup)},
-             std::random_device{}()),
+      // 아이템: 이 맵의 바닥 목록, 아이콘·그림자·빛 그림, 주울 때 반짝, 물약 꿀꺽 가루(14d), 드롭 주사위 씨앗 (14b)
+      items_(items, loot, {sprites.item_icons, textures_.shadow(), textures_.light(), effect_ptr(effects_.item_pickup),
+                          effect_ptr(effects_.potion_heal), effect_ptr(effects_.potion_mana)}, std::random_device{}()),
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -200,7 +200,7 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     auto moving_lights = combat_fx_.lights(combat_, static_cast<float>(alpha));  // 빛 탄 빛 + 쿠션 초록 빛 (13b)
     for (const auto& light : cushion_view_.lights()) moving_lights.push_back(light);
     for (const auto& light : items_.lights()) moving_lights.push_back(light);  // 바닥 아이템 빛 (14b)
-    items_.update(dt, feet, fx_random_, air_fx_);  // 둥실·반짝·빨려 들기 (14b)
+    items_.update(dt, player_, feet, fx_random_, air_fx_);  // 둥실·반짝·빨려 들기 (14b), 물약 병 (14d)
     lighting_.set_moving_lights(std::move(moving_lights));
     lighting_.update(dt, feet, fx_random_, air_fx_);
     air_fx_.update(dt);

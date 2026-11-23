@@ -370,6 +370,16 @@ Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentati
 - Small menu: a 72 px panel right next to the chosen cell with three 18 px buttons (사용 / 버리기 / 취소); unavailable choices are drawn at 40 % and skipped.
 - Bottom hint: "R 정렬 · I 닫기" (dim). The first version also listed Enter and was clipped by the 166 px width, so it was shortened.
 
+## Drinking (phase 14d)
+
+Code: `client/src/game/presentation/drink_view.*`. There is no drinking frame in the hero sheet yet, so the potion's own 16 px icon shows the action.
+
+- The bottle sits at her hand: 7 px to the side when she faces left or right, 5 px right of centre when facing up or down, 14 px above the feet. Facing up it is drawn behind her, otherwise in front.
+- Tilt: up to 70° toward the mouth by the gulp (0.35 s, InOutQuad) while rising 6 px, then back down by 0.6 s (OutQuad). Mirrored when facing left.
+- Gulp: `fx/potion_heal.json` (16 soft green motes `#c8ffb4` → `#5ad278`, rising) for HP potions, `fx/potion_mana.json` (same in blue `#c8dcff` → `#5a78f0`) for MP-only potions, from 12 px above the feet; plus a 44 px light in green `#78e68c` or blue `#6e96ff` fading over 0.35 s (visible at night).
+- A hit before the gulp removes the bottle at once with no motes.
+- Refusals use the red notice line: "지금은 마실 수 없다", "이미 가득하다 · 회복 물약" (repeated identical warnings within 1 s refresh the line instead of stacking).
+
 ## New monsters (phase 13c)
 
 Art by `tools/test_content/generate_test_content.ps1`: `monsters/bat.bmp` 48×24 (open wings / folded windup, feet 10 px below the body because it flies), `mushroom.bmp` 64×32 (red cap with white dots and a face on the stem / windup with white spikes and a frown; the side spikes are mostly clipped by the cell, the top three show), `frog.bmp` 48×24 (sitting / puffed cheeks and open mouth). Death bursts: `fx/bat_burst.json` (violet), `fx/spore_burst.json` (slowly rising cream spores), frog reuses `slime_burst`.

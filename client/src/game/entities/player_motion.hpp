@@ -25,6 +25,8 @@
 //   9) HP가 0이면 쓰러짐(dead, 12b): 버튼·다리·스태미나·MP가 모두 멈추고 맞지도 않아요.
 //      마지막 한 방의 넉백만 끝까지 밀려나요. 일어나기(부활)는 맵을 새로 여는 것으로 해요 (12c).
 //  10) 쿠션에서 쉬는 중(resting, 13b)이면 버튼이 안 먹고 다리가 멈추고 맞지 않아요. 방향키를 누르면 기지개 켜고 일어나요.
+//  11) 물약을 마시는 중(drinking, 14d)이면 0.4배로 천천히 걷고(달리기 없음) 공격·마술·구르기는 표가 막아요.
+//      0.35초에 HP·MP가 차고, 그 전에 맞으면 끊겨서 효과가 없어요.
 // 어떤 상태에서 무엇을 시작할 수 있는지는 상태 전이 표(character_state)를 따라요.
 // SDL을 몰라서 창 없이 테스트할 수 있어요.
 
@@ -38,6 +40,7 @@
 #include "game/entities/hit_reaction.hpp"
 #include "game/entities/mana.hpp"
 #include "game/entities/mover.hpp"
+#include "game/entities/potion_drinker.hpp"
 #include "game/entities/stamina.hpp"
 #include "game/input/input_buffer.hpp"
 
@@ -99,6 +102,17 @@ public:
     // 앉아 있으면 기지개 켜고 일어나요 (E, 13b). 방향키는 step이 알아서 일으켜요.
     bool stand_up() { return rest_.stand_up(); }
     [[nodiscard]] const HeroRest& rest() const { return rest_; }
+    // 물약을 마시기 시작할 수 있나요? (14d) 서기·걷기·달리기 중에만 (공격·마술·구르기·경직·쓰러짐·쉬기면 안 돼요)
+    [[nodiscard]] bool can_drink() const;
+    // 이 효과가 지금 쓸모 있나요? (14d) HP를 채우는 물약은 HP가 가득이면 쓸모없어요 (MP도 같아요)
+    [[nodiscard]] bool drink_would_help(const items::UseEffect& effect) const;
+    // 물약 마시기 시작 (14d): 0.6초 동안 천천히 걷고, 0.35초에 효과가 나와요. 맞으면 끊겨요.
+    // 물약은 부르는 쪽(FieldItems)이 이미 가방에서 꺼냈어요. 시작할 수 없으면 false.
+    bool begin_drink(const items::UseEffect& effect);
+    [[nodiscard]] const PotionDrinker& drinker() const { return drinker_; }
+    // 이번 박자에 꿀꺽해서 HP·MP가 찼나요? (연출: 회복 반짝임)
+    [[nodiscard]] bool drink_gulped() const { return drink_gulped_; }
+
     // 레벨업으로 최대 HP·MP·스태미나가 바뀌었어요 (13c): 새 최대로 바꾸고 모두 가득 채워요.
     void raise_maximums(int max_hp, float max_mp, float max_stamina);
     // 마지막으로 맞은 뒤 지난 시간 (쉬기 조건: 3초, 13b). 한 번도 안 맞았으면 아주 큰 값이에요.
@@ -145,6 +159,8 @@ private:
     Health health_;
     HitReaction hit_;
     HeroRest rest_;                        // 쿠션 쉬기 시간표 (13b)
+    PotionDrinker drinker_;                // 물약 마시기 시간표 (14d)
+    bool drink_gulped_ = false;            // 이번 박자에 꿀꺽했나 (14d)
     float seconds_since_hit_ = kNeverHitSeconds;  // 마지막으로 맞은 뒤 지난 시간 (13b)
     bool attack_started_ = false;
     bool spell_released_ = false;
