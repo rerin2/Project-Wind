@@ -405,6 +405,15 @@ For now the hero uses idle, moving, running, attacking, casting, dodging, hit (1
 - The game clock runs at 60 real seconds per game hour (a game day is 24 real minutes), starting at 09:00 for a new game. It advances in the fixed simulation step and continues across map travel. Saving the time comes with saves (phase 16).
 - Time and weather are presentation only for now: nothing in the rules depends on them yet.
 
+## Items and the bag (phase 14a, spec 10.1, 10.2)
+
+- Items: 회복 물약 (HP +50), 별빛 물약 (MP +30), four monster materials (슬라임 젤리, 박쥐 날개, 버섯 가시, 개구리 침샘) and 롱소드 (a weapon item; equipping comes in phase 15).
+- The bag has 24 slots. Potions stack to 20, materials to 99, weapons do not stack.
+- Picking up fills matching stacks first, then the first empty slot. If not everything fits, nothing is picked up and the item stays on the ground (phase 14b shows a notice).
+- Removing items (using, quests, shops) takes from the last matching slot first and is all-or-nothing.
+- Sorting merges stacks and orders items as listed in the catalog.
+- Decided with the developer (2026-11-23): items left on the ground stay on their map (also after resting, falling or leaving); the bag screen opens with **I** and the game keeps running while it is open.
+
 ## Not yet defined
 
-More spells, Q and spell slots (15), cushions and the level-up screen (13b, 13c), items and equipment (14–15), and saves (16) are defined later (spec section 19).
+More spells, Q and spell slots (15), drops and the bag screen (14b, 14c), equipment (15), and saves (16) are defined later (spec section 19).

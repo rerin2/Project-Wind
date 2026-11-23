@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Phase 14a — item catalog and bag rules
+- Item catalog `content/items/catalog.json` (schema 1): 회복 물약, 별빛 물약, 슬라임 젤리, 박쥐 날개, 버섯 가시,
+  개구리 침샘, 롱소드. Loader `wind/content/item_catalog_loader` validates kinds, ranges, use/weapon fields and that
+  weapon items point to a loadable weapon file.
+- New shared module `items/`: `ItemDef`, `ItemStack`, `ItemCatalog` (find, file-order rank), `Inventory`
+  (24 slots, stacking, all-or-nothing add/remove, `take_at`, `sort`).
+- Nothing visible yet. 625 CTest tests.
+
 ### Phase 13c — cushion menu, level-up, runes on screen, three new monsters
 - Cushion menu (`game::CushionMenu`, `LevelUpSheet`; `CushionMenuPanel`, `CushionMenuView`): opens after a rest,
   pauses the simulation, items 레벨업 / 마술 칸 (dimmed) / 저장 (dimmed) / 떠나기. Level-up screen with [−][+],

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "items": [
+    {
+      "id": "hp_potion",
+      "name": "회복 물약",
+      "description": "붉은 약초를 달인 물약. HP를 50 채운다.",
+      "kind": "consumable",
+      "max_stack": 20,
+      "icon": 0,
+      "rarity": "common",
+      "use": { "heal_hp": 50 }
+    },
+    {
+      "id": "mp_potion",
+      "name": "별빛 물약",
+      "description": "밤이슬을 모은 푸른 물약. MP를 30 채운다.",
+      "kind": "consumable",
+      "max_stack": 20,
+      "icon": 1,
+      "rarity": "common",
+      "use": { "heal_mp": 30 }
+    },
+    {
+      "id": "slime_jelly",
+      "name": "슬라임 젤리",
+      "description": "말랑하고 끈적한 젤리. 마을에서 쓸모가 있을지도.",
+      "kind": "material",
+      "max_stack": 99,
+      "icon": 2,
+      "rarity": "common"
+    },
+    {
+      "id": "bat_wing",
+      "name": "박쥐 날개",
+      "description": "얇고 가벼운 숲 박쥐의 날개.",
+      "kind": "material",
+      "max_stack": 99,
+      "icon": 3,
+      "rarity": "common"
+    },
+    {
+      "id": "mushroom_spike",
+      "name": "버섯 가시",
+      "description": "가시 버섯에서 떨어진 단단한 가시.",
+      "kind": "material",
+      "max_stack": 99,
+      "icon": 4,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "frog_gland",
+      "name": "개구리 침샘",
+      "description": "침 뱉는 개구리의 침샘. 만지면 따끔하다.",
+      "kind": "material",
+      "max_stack": 99,
+      "icon": 5,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "longsword",
+      "name": "롱소드",
+      "description": "균형 잡힌 곧은 검. 세 번 이어 벤다.",
+      "kind": "weapon",
+      "max_stack": 1,
+      "icon": 6,
+      "rarity": "rare",
+      "weapon": "weapons/longsword.json"
+    }
+  ]
+}
