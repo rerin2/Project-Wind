@@ -323,7 +323,7 @@ Code: `shared/include/wind/progression/*` (`Stats`, `StatCurve`, `derive_stats`,
 - **Level-up cost** from L to L+1 = `floor(100 + 40·(L−1) + 6·(L−1)²)` (1→2: 100, 10→11: 946, 30→31: 6,306, 250→251: 382,066). Raising several levels at once adds each step.
 - **Raising stats** (`HeroProgress::try_raise`, screen in 13c) is all-or-nothing: the target may not lower any stat or pass 60; if the runes are short nothing changes.
 - **Runes:** wallet 0–999,999,999 (extra is dropped). A monster gives its `rune_reward` once, on the fixed step its HP reaches 0 (sword or shard). The green slime gives **12** (spec 14.2 example), so level 2 takes 9 slimes.
-- **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. Lost runes cannot be recovered yet: recovering them from a rune trace at the death spot is decided (spec 8.3.1, decision 0010) and planned for phase 14e. If a kill and the fall land on the same step, the runes are added first, then halved.
+- **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. The lost runes stay at the spot as a rune trace that can be recovered (phase 14e, see "Rune trace"). If a kill and the fall land on the same step, the runes are added first, then halved.
 - **Owner:** `HeroProgress` lives in `ClientApp`, outside the field, so stats and runes survive map travel and respawn (agreed 2026-11-22). The field borrows it. Phase 16 saves only the five stats and runes.
 
 ## Cat-nip cushions (phase 13b, spec 8.7)
@@ -444,6 +444,15 @@ For now the hero uses idle, moving, running, attacking, casting, drinking (14d),
 - She can only start a drink while standing, walking or running. Otherwise the notice line says "지금은 마실 수 없다" and the bag is unchanged. A potion that would restore nothing (HP and, for MP potions, MP already full) is not drunk: "이미 가득하다 · 회복 물약".
 - The request goes through the fixed step like put down (`FieldItems::use`): check first, then take one and start, so a refused use never changes the bag.
 
+## Rune trace (phase 14e, spec 8.3.1, decision 0010)
+
+- When she falls, the runes she loses stay where she fell (her feet) as one rune trace. No trace is left if she lost nothing.
+- There is only one trace in the game. It stays on its map through respawn, rest, map travel and monster respawns. A trace on another map is never recovered here, even at the same coordinates.
+- Walking within 24 px of it (alive, not resting) recovers the whole amount at once (capped at 999,999,999) and removes it. Recovery is automatic, like item pickup (decided with the developer).
+- Falling again before recovering it makes the old trace vanish for good; the new trace holds only the newly lost runes. The old trace vanishes even if nothing new is lost.
+- The fallen screen says "잃은 룬 N — 쓰러진 자리에 남았다" (or "잃은 룬 없음") and, if a trace vanished, "· 되찾지 못한 룬 M개가 사라졌다". Recovering shows the banner "룬을 되찾았다" and the counter rolls up "+N".
+- Rules: `HeroProgress::fall(map, at)`, `recover_trace`, `trace`, `last_vanished`; the field side is `FieldRunes`, which also adds rune rewards (rewards first, then the fall, on the same step).
+
 ## Not yet defined
 
-More spells, Q and spell slots (15), quick item slots (15), rune traces (14e), equipment (15), and saves (16) are defined later (spec section 19).
+More spells, Q and spell slots (15), quick item slots (15), equipment (15), and saves (16) are defined later (spec section 19).

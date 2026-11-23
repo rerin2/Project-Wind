@@ -121,6 +121,7 @@ add_library(wind_game_core STATIC
     src/game/presentation/rune_orbs.cpp
     src/game/presentation/loot_view.cpp
     src/game/presentation/drink_view.cpp
+    src/game/presentation/rune_trace_view.cpp
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
@@ -143,6 +144,7 @@ add_library(wind_game_core STATIC
     src/game/states/field_combat.cpp
     src/game/states/field_rest.cpp
     src/game/states/field_items.cpp
+    src/game/states/field_runes.cpp
     src/game/items/drop_roll.cpp
     src/game/items/map_loot.cpp
     src/game/items/loot_store.cpp
@@ -247,6 +249,8 @@ if(WIND_BUILD_TESTS)
         tests/bag_screen_tests.cpp
         tests/potion_drinker_tests.cpp
         tests/field_items_tests.cpp
+        tests/field_runes_tests.cpp
+        tests/rune_trace_view_tests.cpp
         tests/enemy_shots_tests.cpp
         tests/monster_senses_tests.cpp
         tests/monster_tests.cpp

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Phase 14e — rune trace (phase 14 complete)
+- Lost runes now stay where the hero fell (spec 8.3.1, decision 0010). `HeroProgress::fall(map, at)` leaves one
+  `RuneTrace` (the old one vanishes, remembered as `last_vanished`), `recover_trace` gives everything back once.
+- `FieldRunes` (rewards, fall and trace, recovery within 24 px on the same map, alive and not resting) replaces the
+  two rune lines in `FieldState`. `RuneTraceView`: breathing gold pool, circling dots, `fx/rune_trace.json` motes,
+  gold light; recovery bursts rune orbs into the hero and shows the "룬을 되찾았다" banner.
+- Fallen screen: 64 px band, "잃은 룬 N — 쓰러진 자리에 남았다", "· 되찾지 못한 룬 M개가 사라졌다".
+- Cleanup (no behavior change): F3 debug info packed in `field_state.cpp` (287 lines).
+- 690 CTest tests.
+
 ### Phase 14d — drinking potions
 - New hero state `drinking` (transition table, F3). `PotionDrinker`: 0.6 s, effect once at the 0.35 s gulp,
   cancelled by hits (potion lost, no healing). `PlayerMotion::can_drink`, `drink_would_help`, `begin_drink`;

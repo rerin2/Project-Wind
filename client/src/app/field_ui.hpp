@@ -42,6 +42,7 @@ struct HudInfo {
     unsigned rest_denied = 0;  // 소란스러워 못 쉰 횟수. 늘면 "주변이 너무 소란스럽다" (13b)
     std::int64_t runes = 0;       // 가진 룬 (오른쪽 아래 숫자, 13c)
     std::int64_t lost_runes = 0;  // 마지막으로 쓰러질 때 잃은 룬 ("쓰러졌다" 화면, 13c)
+    std::int64_t vanished_runes = 0;  // 마지막으로 쓰러질 때 사라진 이전 흔적의 룬 ("쓰러졌다" 화면, 14e)
 };
 
 class FieldUi {
@@ -79,6 +80,7 @@ private:
     RestHud rest_hud_;           // "[E] 쉬기" 안내와 "주변이 너무 소란스럽다" 알림 (13b)
     game::RuneCounter runes_;    // 룬 숫자 굴리기와 "+N" (13c)
     std::int64_t lost_runes_ = 0;  // "쓰러졌다" 화면에 보여 줄 잃은 룬 (13c)
+    std::int64_t vanished_runes_ = 0;  // "쓰러졌다" 화면에 보여 줄 사라진 흔적의 룬 (14e)
     game::DelayedBar health_;
     game::DelayedBar stamina_;
     game::DelayedBar mana_;

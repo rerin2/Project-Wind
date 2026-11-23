@@ -27,6 +27,7 @@ constexpr std::string_view kLevelUpFx = "fx/level_up.json";  // 레벨업 빛기
 constexpr std::string_view kItemPickupFx = "fx/item_pickup.json";  // 아이템을 주울 때 반짝 (14b)
 constexpr std::string_view kPotionHealFx = "fx/potion_heal.json";  // 물약 꿀꺽: HP (14d)
 constexpr std::string_view kPotionManaFx = "fx/potion_mana.json";  // 물약 꿀꺽: MP (14d)
+constexpr std::string_view kRuneTraceFx = "fx/rune_trace.json";    // 룬 흔적에서 피어오르는 금빛 가루 (14e)
 constexpr std::string_view kSpitSplashFx = "fx/spit_splash.json";  // 몬스터 침이 터질 때 (13c)
 // 시험용 부하 효과의 수명(초). 부하 개수 ÷ 수명 = 1초에 만들 개수
 constexpr float kStressLifetime = 4.0f;
@@ -74,6 +75,7 @@ FieldEffects load_field_effects(const std::filesystem::path& content_root,
     effects.item_pickup = load_effect(content_root, kItemPickupFx);
     effects.potion_heal = load_effect(content_root, kPotionHealFx);
     effects.potion_mana = load_effect(content_root, kPotionManaFx);
+    effects.rune_trace = load_effect(content_root, kRuneTraceFx);
     effects.spit_splash = load_effect(content_root, kSpitSplashFx);
     for (const auto& path : ambience.ambient_fx) {
         if (auto effect = load_effect(content_root, path)) {

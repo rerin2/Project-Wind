@@ -67,11 +67,24 @@ bool HeroProgress::discovered(std::string_view cushion_id) const {
     return discovered_.contains(cushion_id);
 }
 
-std::int64_t HeroProgress::fall() {
+std::int64_t HeroProgress::fall(std::string_view map, engine::Vec2 at) {
     const std::int64_t lost = wallet_.lose_half();
     last_lost_ = lost;  // "쓰러졌다" 화면이 보여 줘요 (13c)
-    log::info("Hero fell and lost {} runes (now {})", lost, wallet_.amount());
+    // 14e: 되찾지 못한 이전 흔적은 영영 사라져요 (새 흔적에 더하지 않아요)
+    last_vanished_ = trace_ ? trace_->amount : 0;
+    trace_.reset();
+    if (lost > 0) trace_ = RuneTrace{std::string(map), at, lost};  // 잃은 룬이 쓰러진 자리에 남아요
+    log::info("Hero fell and lost {} runes (now {}); trace {} at ({:.0f}, {:.0f}) in '{}', {} unrecovered runes vanished",
+              lost, wallet_.amount(), lost > 0 ? "left" : "not left", at.x, at.y, map, last_vanished_);
     return lost;
+}
+
+std::int64_t HeroProgress::recover_trace() {
+    if (!trace_) return 0;  // 흔적이 없어요 (이미 되찾았거나 쓰러진 적 없음)
+    const std::int64_t got = wallet_.add(trace_->amount);  // 전부 (상한에서 잘려요)
+    log::info("Recovered {} runes from the trace in '{}' (now {})", got, trace_->map, wallet_.amount());
+    trace_.reset();  // 한 번만
+    return got;
 }
 
 }  // namespace wind::game

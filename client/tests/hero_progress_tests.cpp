@@ -85,7 +85,7 @@ TEST(HeroProgress, FallingLosesHalfRoundedDown) {
     progress.earn(12);
     progress.earn(13);                     // 25
     const Stats before = progress.stats();
-    EXPECT_EQ(progress.fall(), 12);        // floor(25 / 2)
+    EXPECT_EQ(progress.fall("maps/m.json", {10.0f, 20.0f}), 12);  // floor(25 / 2)
     EXPECT_EQ(progress.runes(), 13);
     EXPECT_EQ(progress.stats(), before);   // 레벨·능력치는 잃지 않아요
 }
@@ -109,3 +109,73 @@ TEST(HeroProgress, RestAtSetsRespawnAndRemembersDiscovery) {
     ASSERT_TRUE(progress.last_cushion().has_value());
     EXPECT_EQ(*progress.last_cushion(), (wind::game::CushionRef{"maps/b.json", "b1"}));  // 마지막 쿠션
 }
+
+// ---------------------------------------------------------------- 14e: 룬 흔적 ----
+
+namespace {
+
+TEST(HeroProgress, FallingLeavesATraceWithTheLostRunes) {
+    auto progress = make_progress(0);
+    progress.earn(25);
+    EXPECT_FALSE(progress.trace().has_value());
+    EXPECT_EQ(progress.fall("maps/a.json", {10.0f, 20.0f}), 12);
+    ASSERT_TRUE(progress.trace().has_value());
+    EXPECT_EQ(progress.trace()->map, "maps/a.json");
+    EXPECT_FLOAT_EQ(progress.trace()->at.x, 10.0f);
+    EXPECT_EQ(progress.trace()->amount, 12);  // 잃은 양 그대로
+    EXPECT_EQ(progress.last_vanished(), 0);
+}
+
+TEST(HeroProgress, NoTraceWhenNothingIsLost) {
+    auto progress = make_progress(0);
+    progress.earn(1);                         // floor(1 / 2) = 0
+    EXPECT_EQ(progress.fall("maps/a.json", {}), 0);
+    EXPECT_FALSE(progress.trace().has_value());
+}
+
+TEST(HeroProgress, RecoveringGivesAllBackOnlyOnce) {
+    auto progress = make_progress(0);
+    progress.earn(100);
+    (void)progress.fall("maps/a.json", {});   // 50 잃음 → 50 남음
+    EXPECT_EQ(progress.recover_trace(), 50);
+    EXPECT_EQ(progress.runes(), 100);
+    EXPECT_FALSE(progress.trace().has_value());
+    EXPECT_EQ(progress.recover_trace(), 0);   // 두 번은 안 돼요
+    EXPECT_EQ(progress.runes(), 100);
+}
+
+TEST(HeroProgress, FallingAgainBeforeRecoveringLosesTheOldTrace) {
+    auto progress = make_progress(0);
+    progress.earn(100);
+    (void)progress.fall("maps/a.json", {1.0f, 1.0f});  // 흔적 50 (a), 지갑 50
+    progress.earn(10);                                  // 지갑 60
+    EXPECT_EQ(progress.fall("maps/b.json", {2.0f, 2.0f}), 30);
+    ASSERT_TRUE(progress.trace().has_value());
+    EXPECT_EQ(progress.trace()->map, "maps/b.json");   // 새 자리
+    EXPECT_EQ(progress.trace()->amount, 30);           // 이전 50은 더해지지 않아요
+    EXPECT_EQ(progress.last_vanished(), 50);           // "되찾지 못한 룬 50이 사라졌다"
+    EXPECT_EQ(progress.runes(), 30);
+}
+
+TEST(HeroProgress, OldTraceVanishesEvenIfTheNewLossIsZero) {
+    auto progress = make_progress(0);
+    progress.earn(4);
+    (void)progress.fall("maps/a.json", {});      // 2 잃음: 흔적 2, 지갑 2
+    (void)progress.fall("maps/a.json", {});      // 1 잃음: 흔적 1 (이전 2는 사라짐), 지갑 1
+    EXPECT_EQ(progress.last_vanished(), 2);
+    EXPECT_EQ(progress.fall("maps/c.json", {}), 0);  // floor(1 / 2) = 0
+    EXPECT_FALSE(progress.trace().has_value());      // 새 흔적은 없고 이전 흔적도 사라졌어요
+    EXPECT_EQ(progress.last_vanished(), 1);
+}
+
+TEST(HeroProgress, RecoveryStopsAtTheWalletCap) {
+    auto progress = make_progress(wind::progression::RuneWallet::kMax);
+    (void)progress.fall("maps/a.json", {});  // 절반을 흔적으로
+    const auto in_trace = progress.trace()->amount;
+    progress.earn(in_trace + 5);             // 지갑이 다시 상한
+    EXPECT_EQ(progress.recover_trace(), 0);  // 넘치는 만큼은 버려요 (정수 넘침 없이)
+    EXPECT_EQ(progress.runes(), wind::progression::RuneWallet::kMax);
+    EXPECT_FALSE(progress.trace().has_value());
+}
+
+}  // namespace

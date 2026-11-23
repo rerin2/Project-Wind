@@ -74,7 +74,7 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     log_field_entry(*assets);  // 맵 크기·효과·빛·허수아비 수 기록
     return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture, player_texture,
                                                       std::move(sprites), start_weather, viewport, stress.lights,
-                                                      progress, items, items.loot.on(map_path)));
+                                                      progress, items, items.loot.on(map_path), map_path));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
@@ -83,7 +83,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                        FieldSprites sprites,
                        std::string_view start_weather, engine::Vec2 viewport,
                        std::uint32_t stress_lights, HeroProgress& progress, const ItemWorld& items,
-                       MapLoot& loot)
+                       MapLoot& loot, std::string_view map_path)
     : map_(std::move(assets.map)),
       sprite_(std::move(assets.sheet), player_texture),
       tileset_texture_(tileset_texture),
@@ -114,6 +114,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       cushion_view_(rest_.cushions(), [&progress](std::string_view id) { return progress.discovered(id); },
                     sprites.cushion, effect_ptr(effects_.catnip_bloom), effect_ptr(effects_.level_up)),
       // 아이템: 이 맵의 바닥 목록, 아이콘·그림자·빛 그림, 주울 때 반짝, 물약 꿀꺽 가루(14d), 드롭 주사위 씨앗 (14b)
+      runes_(progress, map_path, textures_.light(), effect_ptr(effects_.rune_trace)),  // 룬 받기·잃기·흔적 (13a, 14e)
       items_(items, loot, {sprites.item_icons, textures_.shadow(), textures_.light(), effect_ptr(effects_.item_pickup),
                           effect_ptr(effects_.potion_heal), effect_ptr(effects_.potion_mana)}, std::random_device{}()),
       fx_random_(kFxSeed),
@@ -160,9 +161,8 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
         dodge_burst_ = engine::normalized(player_.mover().velocity());
     }
     combat_.step(sim_dt, player_, map_.map);  // 칼 판정, 빛 탄 만들기·날리기, 피해·넉백 주기
-    progress_.earn(combat_.runes_earned());     // 쓰러뜨린 몬스터의 룬 (13a)
+    runes_.step(combat_, player_);  // 쓰러뜨린 몬스터의 룬, 쓰러지면 절반 잃고 흔적, 흔적 되찾기 (13a, 14e)
     items_.step(static_cast<float>(sim_dt), combat_, player_, map_.map);  // 쓰러진 몬스터의 드롭, 자동 줍기 (14b)
-    if (combat_.hero_fell()) progress_.fall();  // 쓰러지면 룬 절반을 잃어요 (13a)
     // 멈춤·느림은 진짜 시간으로 줄고, 이번에 누가 맞았으면 멈칫, 주인공이 쓰러졌으면 슬로모션 (12b)
     time_scale_.update(static_cast<float>(dt_seconds), combat_.strongest_hitstop(), combat_.hero_fell());
     combat_fx_.collect(combat_);  // 맞은 일·사라진 빛 탄은 다음 frame_update에서 연출해요 (안 빠지게 모아 둬요)
@@ -200,7 +200,9 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     auto moving_lights = combat_fx_.lights(combat_, static_cast<float>(alpha));  // 빛 탄 빛 + 쿠션 초록 빛 (13b)
     for (const auto& light : cushion_view_.lights()) moving_lights.push_back(light);
     for (const auto& light : items_.lights()) moving_lights.push_back(light);  // 바닥 아이템 빛 (14b)
+    for (const auto& light : runes_.lights()) moving_lights.push_back(light);  // 룬 흔적 금빛 (14e)
     items_.update(dt, player_, feet, fx_random_, air_fx_);  // 둥실·반짝·빨려 들기 (14b), 물약 병 (14d)
+    runes_.update(dt, feet, fx_random_, air_fx_);  // 흔적 웅덩이·가루, 되찾은 알갱이 (14e)
     lighting_.set_moving_lights(std::move(moving_lights));
     lighting_.update(dt, feet, fx_random_, air_fx_);
     air_fx_.update(dt);
@@ -234,6 +236,7 @@ void FieldState::render(engine::RenderQueue& queue) {
     combat_fx_.queue(camera_rig_.camera(), combat_, player_, static_cast<float>(alpha_), show_collision_, queue);
     cushion_view_.queue(camera_rig_.camera(), queue);  // 쿠션과 떠오르는 하트·z (13b)
     items_.queue(camera_rig_.camera(), queue);  // 바닥 아이템과 빨려 드는 아이콘 (14b)
+    runes_.queue(camera_rig_.camera(), queue);  // 룬 흔적 (14e)
     engine::queue_particles(ground_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::YSorted, queue);
     engine::queue_particles(air_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::WorldFx, queue,
                             engine::DrawLayer::Glow);  // 공중 효과는 나뭇잎보다도 위에
@@ -270,31 +273,15 @@ engine::Vec2 FieldState::focus_on_screen() const {
 // 디버그 화면(F3)에 보여 줄 정보를 모아 줘요.
 FieldDebugInfo FieldState::debug_info() const {
     const engine::Vec2 feet = player_.mover().feet();
-    return {map_.map.map_id,
-            feet,
-            engine::world_to_tile(feet, map_.map.tile_size),
-            player_.mover().facing(),
-            to_string(player_.state()),
-            player_.mover().speed(),
-            tiles_queued_,
-            ground_fx_.size() + air_fx_.size(),
-            ambient_.count(),
-            ground_fx_.dropped() + air_fx_.dropped(),
-            lighting_.enabled(),
-            lighting_.stats(),
-            atmosphere_.outdoors(),
-            atmosphere_.conditions().night,
-            atmosphere_.weather_name(),
-            atmosphere_.weather_intensity(),
-            player_.stamina().current(),
-            player_.stamina().max(),
-            player_.stamina().exhausted(),
-            player_.mana().current(),
-            player_.mana().max(),
-            player_.health().current(),
-            player_.health().max(),
-            player_.attack().combo_index() + 1,
-            combat_.debug_text()};
+    // 칸 순서는 FieldDebugInfo와 같아요 (한 줄에 서로 가까운 값끼리)
+    return {map_.map.map_id, feet, engine::world_to_tile(feet, map_.map.tile_size),
+            player_.mover().facing(), to_string(player_.state()), player_.mover().speed(),
+            tiles_queued_, ground_fx_.size() + air_fx_.size(), ambient_.count(), ground_fx_.dropped() + air_fx_.dropped(),
+            lighting_.enabled(), lighting_.stats(),
+            atmosphere_.outdoors(), atmosphere_.conditions().night, atmosphere_.weather_name(), atmosphere_.weather_intensity(),
+            player_.stamina().current(), player_.stamina().max(), player_.stamina().exhausted(),
+            player_.mana().current(), player_.mana().max(), player_.health().current(), player_.health().max(),
+            player_.attack().combo_index() + 1, combat_.debug_text()};
 }
 
 }  // namespace wind::game

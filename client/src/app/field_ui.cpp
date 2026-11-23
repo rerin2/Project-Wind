@@ -39,7 +39,7 @@ constexpr engine::Color kBannerBand{0, 0, 0, 96};  // 뒤에 깔리는 반투명
 // "쓰러졌다" 화면 (12b): 주인공 아래쪽 가로 띠, 그 위에 붉은 글자, 아래에 작은 안내
 constexpr std::string_view kFallenText = "쓰러졌다";
 constexpr std::string_view kFallenHint = "Enter: 바로 부활";  // 12c: 안 누르면 2.5초 뒤 저절로 부활해요
-constexpr float kFallenBandHeight = 48.0f;                    // 띠 높이
+constexpr float kFallenBandHeight = 64.0f;                    // 띠 높이 (14e: 안내가 두 줄이라 48에서 늘렸어요)
 // 띠 가운데 높이 (화면 높이의 비율). 카메라가 쓰러진 주인공을 화면 가운데에 두니까, 띠는 그 아래에 둬서 몸을 가리지 않아요.
 constexpr float kFallenBandCenter = 0.68f;
 constexpr engine::Color kFallenBand{0, 0, 0, 150};            // 띠 색 (흑백 화면 위라 조금 진하게)
@@ -133,6 +133,7 @@ void FieldUi::update(float dt_seconds, const HudInfo& hud) {
     rest_hud_.update(dt_seconds, hud.rest_prompt && !hud.fallen, hud.rest_denied);
     runes_.update(dt_seconds, hud.runes);  // 룬 숫자 굴리기 (13c)
     lost_runes_ = hud.lost_runes;
+    vanished_runes_ = hud.vanished_runes;  // 되찾지 못하고 사라진 흔적 (14e)
     panel_.update(dt_seconds);
 }
 
@@ -234,10 +235,14 @@ void FieldUi::draw_fallen(engine::UiPainter& painter, engine::Vec2 screen) {
     }
     style.font = engine::FontStyle::Regular;
     style.color = painter.theme().text;
-    // 잃은 룬 (13c, 명세 13.1)과 부활 안내를 한 줄에
-    const std::string hint_line = std::format("잃은 룬 {}   {}", lost_runes_, kFallenHint);
-    painter.text({0.0f, text_y + line + kFallenHintGap, screen.x, painter.line_height(style.font)}, hint_line, style,
-                 hint);
+    // 1줄: 잃은 룬과 흔적 (13c, 14e, 명세 8.3.1). 되찾지 못한 이전 흔적이 사라졌으면 그것도 같은 줄에
+    std::string runes_line = lost_runes_ > 0 ? std::format("잃은 룬 {} — 쓰러진 자리에 남았다", lost_runes_)
+                                             : std::string("잃은 룬 없음");
+    if (vanished_runes_ > 0) runes_line += std::format(" · 되찾지 못한 룬 {}개가 사라졌다", vanished_runes_);
+    const float hint_h = painter.line_height(style.font);
+    const float hint_y = text_y + line + kFallenHintGap;
+    painter.text({0.0f, hint_y, screen.x, hint_h}, runes_line, style, hint);
+    painter.text({0.0f, hint_y + hint_h + 2.0f, screen.x, hint_h}, kFallenHint, style, hint);  // 2줄: 부활 안내
 }
 
 // 오른쪽 아래 룬 (13c, 명세 13.2): 작은 금빛 마름모 + 숫자. 늘면 "+N"이 위로 떠오르고, 잃으면 빨갛게 내려가요.

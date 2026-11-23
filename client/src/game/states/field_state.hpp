@@ -34,6 +34,7 @@
 #include "game/states/field_combat.hpp"
 #include "game/states/field_rest.hpp"
 #include "game/states/field_items.hpp"
+#include "game/states/field_runes.hpp"
 #include "game/world/exit_watcher.hpp"
 #include "game/states/field_textures.hpp"
 #include "game/presentation/field_lighting.hpp"
@@ -157,6 +158,8 @@ public:
     void request_use(std::size_t slot) { items_.request_use(slot); }  // 물약 마시기 (14d)
     // 쿠션에서 쉬는 중인가요? (인벤토리를 열 수 없어요, 14c)
     [[nodiscard]] bool hero_resting() const { return player_.rest().active(); }
+    // 지난번 뒤로 룬 흔적을 되찾았으면 그 양을 한 번 돌려줘요 ("룬을 되찾았다" 배너용, 14e)
+    [[nodiscard]] std::optional<std::int64_t> take_rune_recovered() { return runes_.take_recovered(); }
 
     // 맵의 보여 줄 이름 (지역 이름 배너용, 예: "시험 초원")
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }
@@ -203,7 +206,7 @@ private:
                engine::TextureHandle player_texture,
                FieldSprites sprites,
                std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights,
-               HeroProgress& progress, const ItemWorld& items, MapLoot& loot);
+               HeroProgress& progress, const ItemWorld& items, MapLoot& loot, std::string_view map_path);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
@@ -222,6 +225,7 @@ private:
     DeathFx death_fx_;                       // 쓰러짐 연출 시계: 흑백 정도, 눕는 정도 (12b)
     FieldCombatFx combat_fx_;               // 싸움 연출: 허수아비·칼자국·빛 탄·번쩍임·흔들림·피해 숫자
     CushionView cushion_view_;              // 쿠션 연출: 시든·피어난 모습, 초록 빛, 하트·z (13b)
+    FieldRunes runes_;                      // 룬: 받기·잃기, 룬 흔적과 되찾기 (13a, 14e)
     FieldItems items_;                      // 아이템: 드롭·자동 줍기(규칙)와 튀기·반짝·빨려 들기(연출), 알림 (14b)
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위

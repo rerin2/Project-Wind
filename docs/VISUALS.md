@@ -380,6 +380,18 @@ Code: `client/src/game/presentation/drink_view.*`. There is no drinking frame in
 - A hit before the gulp removes the bottle at once with no motes.
 - Refusals use the red notice line: "지금은 마실 수 없다", "이미 가득하다 · 회복 물약" (repeated identical warnings within 1 s refresh the line instead of stacking).
 
+## Rune trace (phase 14e)
+
+Code: `client/src/game/presentation/rune_trace_view.*`; fallen text in `client/src/app/field_ui.cpp`.
+
+- A gold pool lying on the ground: an additive 26×10 glow `#ffc45a` breathing (alpha 110–170, size +15 %) with a 2.2 rad/s sine (about 2.9 s), and a 9×5 bright core `#ffecaa`.
+- Three 4 px gold dots circling it on a flat 9×3.5 px ellipse at 1.3 rad/s, so it reads as lying on the ground.
+- `fx/rune_trace.json`: 2 gold pixel motes every 0.25 s, drifting up slowly (0.7–1.2 s).
+- A 40 px gold light `#ffce6e` (intensity 0.7) pulsing with the pool, so it can be found at night.
+- On grass in daylight the additive gold looks slightly lime; it stays readable, so it was left as is.
+- Recovery: the 13c rune orbs burst from the trace and fly into her; the area banner shows "룬을 되찾았다"; the counter rolls up with "+N".
+- Fallen screen: the band grew from 48 to 64 px for two hint lines (runes, then "Enter: 바로 부활").
+
 ## New monsters (phase 13c)
 
 Art by `tools/test_content/generate_test_content.ps1`: `monsters/bat.bmp` 48×24 (open wings / folded windup, feet 10 px below the body because it flies), `mushroom.bmp` 64×32 (red cap with white dots and a face on the stem / windup with white spikes and a frown; the side spikes are mostly clipped by the cell, the top three show), `frog.bmp` 48×24 (sitting / puffed cheeks and open mouth). Death bursts: `fx/bat_burst.json` (violet), `fx/spore_burst.json` (slowly rising cream spores), frog reuses `slime_burst`.

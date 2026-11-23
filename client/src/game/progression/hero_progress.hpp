@@ -8,7 +8,11 @@
 //   몬스터를 쓰러뜨리면 룬을 넣고, 주인공이 쓰러지면 룬 절반을 잃게 해요.
 // - 16단계 저장은 이 값(능력치 + 룬)을 파일로 쓰면 돼요. 레벨과 파생값은 저장하지 않고 계산해요.
 // - 13b: 마지막으로 쉰 쿠션(부활 자리)과 찾은 쿠션 목록도 가져요 (16단계 저장도 이 둘을 써요).
+// - 14e: 룬 흔적(쓰러진 자리에 남은 잃은 룬) 하나를 가져요. 쓰러지면 이전 흔적은 사라지고 새로 생겨요.
 // 게임 규칙이라 SDL을 몰라요.
+
+#include "engine/core/math.hpp"
+#include "game/progression/rune_trace.hpp"
 
 #include "wind/progression/derived_stats.hpp"
 #include "wind/progression/progression_rules.hpp"
@@ -58,10 +62,19 @@ public:
 
     // 몬스터를 쓰러뜨려 룬을 받아요. 실제로 늘어난 양(상한에서 잘림)을 돌려줘요.
     std::int64_t earn(std::int64_t runes);
-    // 주인공이 쓰러졌어요: 룬 절반(소수점 버림)을 잃어요. 잃은 양을 돌려줘요. 레벨·능력치는 그대로예요.
-    std::int64_t fall();
+    // 주인공이 map의 at 자리에서 쓰러졌어요: 룬 절반(소수점 버림)을 잃어요. 잃은 양을 돌려줘요. 레벨·능력치는 그대로예요.
+    // 14e: 되찾지 못한 이전 흔적은 영영 사라지고, 잃은 룬이 1 이상이면 그 자리에 새 흔적이 생겨요 (명세 8.3.1).
+    std::int64_t fall(std::string_view map, engine::Vec2 at);
     // 마지막으로 쓰러졌을 때 잃은 룬 ("쓰러졌다" 화면에 보여 줘요, 13c). 아직 안 쓰러졌으면 0
     [[nodiscard]] std::int64_t last_lost() const { return last_lost_; }
+    // 마지막으로 쓰러졌을 때 되찾지 못하고 사라진 이전 흔적의 룬 ("쓰러졌다" 화면, 14e). 없었으면 0
+    [[nodiscard]] std::int64_t last_vanished() const { return last_vanished_; }
+
+    // 룬 흔적 (14e): 없으면 nullopt. 게임 전체에 하나뿐이에요
+    [[nodiscard]] const std::optional<RuneTrace>& trace() const { return trace_; }
+    // 흔적을 되찾아요: 담긴 룬 전부를 지갑에 넣고(상한에서 잘림) 흔적을 지워요.
+    // 지갑에 실제로 들어간 양을 돌려줘요. 흔적이 없으면 0 (한 번만 되찾아져요)
+    std::int64_t recover_trace();
 
     // 캣닢 쿠션에서 쉬었어요 (13b): 부활 자리를 이 쿠션으로 정하고, 찾은 쿠션 목록에 넣어요.
     // 처음 찾은 쿠션이면 true (쿠션이 피어나고 배너가 떠요).
@@ -76,6 +89,8 @@ private:
     progression::Stats stats_;             // 다섯 능력치
     progression::RuneWallet wallet_;       // 룬
     std::int64_t last_lost_ = 0;           // 마지막으로 쓰러질 때 잃은 룬 (13c)
+    std::int64_t last_vanished_ = 0;       // 마지막으로 쓰러질 때 사라진 이전 흔적의 룬 (14e)
+    std::optional<RuneTrace> trace_;       // 룬 흔적 (14e, 하나뿐)
     std::optional<CushionRef> last_cushion_;           // 부활 자리 (13b)
     std::set<std::string, std::less<>> discovered_;   // 찾은 쿠션 id (쿠션 id는 게임 전체에서 하나뿐이에요)
 };

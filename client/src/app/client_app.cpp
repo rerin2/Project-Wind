@@ -233,6 +233,8 @@ int ClientApp::run() {
         hud.rest_denied = session.field().rest_denied_count();  // 못 쉬면 "주변이 너무 소란스럽다" (13b)
         hud.runes = progress->runes();            // 오른쪽 아래 룬 숫자 (13c)
         hud.lost_runes = progress->last_lost();   // "쓰러졌다" 화면의 잃은 룬 (13c)
+        hud.vanished_runes = progress->last_vanished();  // 사라진 흔적 (14e)
+        if (session.field().take_rune_recovered()) field_ui.announce("룬을 되찾았다");  // 흔적을 되찾았으면 배너 (14e)
         field_ui.update(static_cast<float>(frame_seconds), hud);
         item_hud.update(static_cast<float>(frame_seconds), session.field(), bag_allowed);  // 알림·인벤토리 (14b·14c)
 
