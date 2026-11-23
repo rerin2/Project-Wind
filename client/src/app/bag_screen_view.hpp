@@ -20,6 +20,8 @@ class Inventory;
 class ItemCatalog;
 }  // namespace wind::items
 namespace wind::game {
+class HeroProgress;
+class WeaponRack;
 class BagScreen;
 }
 
@@ -34,6 +36,11 @@ public:
     void update(float dt_seconds, bool open);
     void draw(engine::UiPainter& painter, engine::Vec2 screen, const game::BagScreen& bag_screen,
               const items::Inventory& bag, const items::ItemCatalog& catalog) const;
+    // 무기 설명 줄에 쓸 무기 선반과 진행 상태 (15a: "무게 14 / 8 · 무거움", 무거운지는 한 곳의 계산 함수로)
+    void set_weapon_info(const game::WeaponRack* weapons, const game::HeroProgress* progress) {
+        weapons_ = weapons;
+        progress_ = progress;
+    }
 
 private:
     // 칸 하나 (배경, 테두리, 아이콘, 개수)
@@ -42,12 +49,14 @@ private:
     // 고른 아이템 설명 (이름·종류·효과·설명)
     void draw_details(engine::UiPainter& painter, engine::RectF box, std::size_t slot,
                       const items::Inventory& bag, const items::ItemCatalog& catalog, float alpha) const;
-    // 작은 메뉴 (사용 / 버리기 / 취소)
+    // 작은 메뉴 (사용 또는 장착 / 버리기 / 취소)
     void draw_menu(engine::UiPainter& painter, engine::RectF cell, const game::BagScreen& bag_screen,
                    const items::Inventory& bag, const items::ItemCatalog& catalog) const;
 
     engine::TextureHandle icons_;
     float appear_ = 0.0f;  // 열릴 때 0 -> 1
+    const game::WeaponRack* weapons_ = nullptr;  // 무기 무게를 찾는 곳 (없으면 무게를 안 보여 줘요)
+    const game::HeroProgress* progress_ = nullptr;  // 힘 → 들 수 있는 무게, 무거움
 };
 
 }  // namespace wind::client

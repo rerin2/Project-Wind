@@ -160,3 +160,17 @@ TEST(Inventory, ZeroSlotBagAcceptsNothing) {
 }
 
 }  // namespace
+
+// 빈 칸에 그대로 놓기 (15a 장비 바꿔 끼우기): 빈 칸에만, 개수 1 이상만
+TEST(Inventory, PlaceAtOnlyFillsAnEmptySlot) {
+    const auto catalog = make_catalog();
+    Inventory bag(2);
+    ASSERT_TRUE(bag.try_add(catalog, "potion", 2));
+    const auto before = snapshot(bag);
+    EXPECT_FALSE(bag.place_at(0, ItemStack{"sword", 1}));  // 차 있어요
+    EXPECT_FALSE(bag.place_at(5, ItemStack{"sword", 1}));  // 밖
+    EXPECT_FALSE(bag.place_at(1, ItemStack{"sword", 0}));  // 0개
+    EXPECT_EQ(snapshot(bag), before);
+    EXPECT_TRUE(bag.place_at(1, ItemStack{"sword", 1}));
+    EXPECT_EQ(bag.at(1)->item_id, "sword");
+}

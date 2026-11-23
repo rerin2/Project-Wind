@@ -15,7 +15,7 @@
 #   content/monsters/bat.bmp          숲 박쥐 (48x24: 보통 / 공격 예고, 13c)
 #   content/monsters/mushroom.bmp     가시 버섯 (64x32: 보통 / 공격 예고 가시, 13c)
 #   content/monsters/frog.bmp         침 뱉는 개구리 (48x24: 보통 / 공격 예고 볼 부풀림, 13c)
-#   content/items/item_icons.bmp      아이템 아이콘 (128x16, 칸 16x16, 도감 icon 번호 순서, 14b)
+#   content/items/item_icons.bmp      아이템 아이콘 (160x16, 칸 16x16, 도감 icon 번호 순서, 14b)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
 #   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
 #   content/maps/test_forest.json     가로 36칸 x 세로 24칸 시험 숲 (키 큰 풀·나뭇잎이 바람에 흔들려요)
@@ -758,10 +758,10 @@ Save-Bmp $bmp (Join-Path $content 'monsters\frog.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # ------------------------------------------------------- 아이템 아이콘 (14b) ----
-# 아이템 아이콘 그림 판 (128x16, 칸 16x16). 칸 번호는 items/catalog.json의 "icon"과 같아요.
-#   0 회복 물약(빨강)  1 별빛 물약(파랑)  2 슬라임 젤리  3 박쥐 날개  4 버섯 가시  5 개구리 침샘  6 롱소드  7 (빈칸)
+# 아이템 아이콘 그림 판 (160x16, 칸 16x16). 칸 번호는 items/catalog.json의 "icon"과 같아요.
+#   0 회복 물약(빨강)  1 별빛 물약(파랑)  2 슬라임 젤리  3 박쥐 날개  4 버섯 가시  5 개구리 침샘  6 롱소드  7 단검  8 대검  9 (빈칸)
 # 바닥에 떨어진 아이템·알림 줄·인벤토리 화면(14c)이 함께 써요. 테두리는 진한 잉크색으로 둘러서 풀밭 위에서도 잘 보여요.
-$canvas = New-Canvas 128 16
+$canvas = New-Canvas 160 16
 $bmp = $canvas[0]; $g = $canvas[1]
 $icInk = Brush 28 22 40; $icGlass = Brush 220 232 240; $icCork = Brush 150 100 64; $icShine = Brush 255 255 255
 function Draw-Potion([int]$ox, $liquid, $liquidDark) {
@@ -806,6 +806,22 @@ Poly $icInk @((96 + 2), 8, (96 + 4), 8, (96 + 8), 12, (96 + 8), 14, (96 + 6), 14
 Poly (Brush 226 182 80) @((96 + 3), 9, (96 + 4), 9, (96 + 7), 12, (96 + 7), 13, (96 + 6), 13, (96 + 3), 10)   # 금빛 가드
 $g.FillRectangle($icInk, 96 + 1, 12, 4, 4)
 $g.FillRectangle((Brush 120 76 48), 96 + 2, 13, 2, 2)           # 손잡이
+# 7 단검 (15a): 짧고 가는 칼날, 손잡이가 길어 보여요
+Poly $icInk @((112 + 6), 10, (112 + 12), 4, (112 + 14), 4, (112 + 14), 6, (112 + 8), 12)
+Poly (Brush 214 222 236) @((112 + 7), 10, (112 + 12), 5, (112 + 13), 5, (112 + 13), 6, (112 + 8), 11)
+$g.FillRectangle((Brush 255 255 255), 112 + 11, 6, 1, 1)        # 칼날 반짝임
+$g.FillRectangle($icInk, 112 + 4, 9, 5, 2); $g.FillRectangle($icInk, 112 + 5, 8, 2, 5)
+$g.FillRectangle((Brush 170 176 190), 112 + 5, 9, 3, 1)         # 은빛 가드
+$g.FillRectangle($icInk, 112 + 1, 11, 5, 5)
+$g.FillRectangle((Brush 70 54 90), 112 + 2, 12, 3, 3)           # 보라 가죽 손잡이
+# 8 대검 (15a): 칸을 거의 꽉 채우는 넓고 무거운 칼날
+Poly $icInk @((128 + 3), 10, (128 + 12), 0, (128 + 16), 0, (128 + 16), 4, (128 + 6), 13)
+Poly (Brush 188 198 214) @((128 + 4), 10, (128 + 12), 1, (128 + 15), 1, (128 + 15), 4, (128 + 6), 12)
+Poly (Brush 236 242 250) @((128 + 5), 10, (128 + 13), 1, (128 + 14), 1, (128 + 6), 10)   # 날 밝은 면
+$g.FillRectangle($icInk, 128 + 1, 8, 7, 3); $g.FillRectangle($icInk, 128 + 3, 7, 3, 7)
+$g.FillRectangle((Brush 140 70 60), 128 + 2, 9, 5, 1)           # 붉은 쇠 가드
+$g.FillRectangle($icInk, 128 + 0, 12, 4, 4)
+$g.FillRectangle((Brush 96 64 44), 128 + 1, 13, 2, 2)           # 손잡이
 Save-Bmp $bmp (Join-Path $content 'items\item_icons.bmp')
 $g.Dispose(); $bmp.Dispose()
 

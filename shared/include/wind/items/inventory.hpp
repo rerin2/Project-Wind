@@ -46,6 +46,9 @@ public:
     // 칸 하나에서 count개를 꺼내 돌려줘요 (버리기·쓰기에 써요).
     // 칸이 비었거나, 번호가 밖이거나, count가 1보다 작거나 가진 것보다 많으면 아무것도 안 바뀌고 nullopt예요.
     std::optional<ItemStack> take_at(std::size_t slot, std::int32_t count);
+    // 빈 칸 하나에 묶음을 그대로 놓아요 (장비 바꿔 끼우기: 벗은 무기를 꺼낸 자리에, 15a).
+    // 칸이 차 있거나, 번호가 밖이거나, 개수가 1보다 작으면 아무것도 안 바뀌고 false예요.
+    bool place_at(std::size_t slot, ItemStack stack);
     // 같은 아이템을 모으고 도감 순서대로 앞에서부터 놓아요. 도감에 없는 아이템은 맨 뒤에 그대로 둬요.
     // (칸이 모자랄 일은 없지만, 혹시 모자라면 아무것도 바꾸지 않고 false예요)
     bool sort(const ItemCatalog& catalog);

@@ -48,8 +48,9 @@ public:
     [[nodiscard]] const progression::Stats& stats() const { return stats_; }
     [[nodiscard]] int level() const { return progression::level_of(stats_); }
     [[nodiscard]] std::int64_t runes() const { return wallet_.amount(); }
-    // 지금 능력치의 파생값 (한 곳의 계산 함수 derive_stats를 불러요)
-    [[nodiscard]] progression::DerivedStats derived() const;
+    // 지금 능력치(+ 장비 무게, 15a)의 파생값 (한 곳의 계산 함수 derive_stats를 불러요)
+    // equipped_weight: 끼고 있는 장비 무게. 무거움(heavy)을 볼 때만 넘겨요 (안 넘기면 0)
+    [[nodiscard]] progression::DerivedStats derived(float equipped_weight = 0.0f) const;
     // 바꿀 능력치 target의 파생값 (레벨업 화면 미리 보기, 13c)
     [[nodiscard]] progression::DerivedStats preview(const progression::Stats& target) const;
 

@@ -28,8 +28,10 @@ constexpr std::array<std::pair<game::Action, game::BagInput>, 9> kKeys{{
 
 }  // namespace
 
-ItemHud::ItemHud(ItemSetup& items, engine::TextureHandle icons) : items_(items), icons_(icons), view_(icons) {
+ItemHud::ItemHud(ItemSetup& items, const game::HeroProgress& progress, engine::TextureHandle icons)
+    : items_(items), icons_(icons), view_(icons) {
     screen_.set_use_available(true);  // 물약 마시기가 생겼어요 (14d): "사용"을 고를 수 있어요
+    view_.set_weapon_info(&items_.weapons, &progress);  // 무기 무게·무거움 줄 (15a)
 }
 
 bool ItemHud::handle_input(const engine::InputState& input, const game::InputBindings& bindings,
@@ -54,6 +56,10 @@ bool ItemHud::handle_input(const engine::InputState& input, const game::InputBin
             case game::BagCommand::Kind::Sort: field.request_sort(); break;                   // 다음 박자에 정렬
             case game::BagCommand::Kind::Use:  // 물약 마시기 (14d): 다음 박자에 마시고, 화면은 닫혀요 (개발자와 정함)
                 field.request_use(command.slot);
+                screen_.close();
+                break;
+            case game::BagCommand::Kind::Equip:  // 무기 장착 (15a): 다음 박자에 바꿔 끼고, 화면은 닫혀요
+                field.request_equip(command.slot);
                 screen_.close();
                 break;
             case game::BagCommand::Kind::Close:

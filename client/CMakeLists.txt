@@ -144,10 +144,12 @@ add_library(wind_game_core STATIC
     src/game/states/field_combat.cpp
     src/game/states/field_rest.cpp
     src/game/states/field_items.cpp
+    src/game/states/field_arms.cpp
     src/game/states/field_runes.cpp
     src/game/items/drop_roll.cpp
     src/game/items/map_loot.cpp
     src/game/items/loot_store.cpp
+    src/game/items/weapon_rack.cpp
     src/game/items/field_loot.cpp
     src/game/progression/hero_progress.cpp
     src/game/progression/hero_tuning.cpp)
@@ -249,6 +251,7 @@ if(WIND_BUILD_TESTS)
         tests/bag_screen_tests.cpp
         tests/potion_drinker_tests.cpp
         tests/field_items_tests.cpp
+        tests/field_arms_tests.cpp
         tests/field_runes_tests.cpp
         tests/rune_trace_view_tests.cpp
         tests/enemy_shots_tests.cpp

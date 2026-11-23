@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "dagger",
+  "name": "단검",
+  "weight": 2,
+  "base_power": 8,
+  "strength_scaling": 0.4,
+  "stamina_per_attack": 8,
+  "crit_bonus": 0.1,
+  "attack_move_scale": 0.5,
+  "attacks": [
+    "attacks/dagger_1.json",
+    "attacks/dagger_2.json",
+    "attacks/dagger_3.json",
+    "attacks/dagger_4.json"
+  ]
+}

@@ -66,6 +66,26 @@
       "icon": 6,
       "rarity": "rare",
       "weapon": "weapons/longsword.json"
+    },
+    {
+      "id": "dagger",
+      "name": "단검",
+      "description": "가볍고 짧은 칼. 빠르게 네 번 찌르고, 급소를 잘 노린다.",
+      "kind": "weapon",
+      "max_stack": 1,
+      "icon": 7,
+      "rarity": "uncommon",
+      "weapon": "weapons/dagger.json"
+    },
+    {
+      "id": "greatsword",
+      "name": "대검",
+      "description": "어른 키만 한 무거운 검. 느리지만 한 번에 크게 벤다.",
+      "kind": "weapon",
+      "max_stack": 1,
+      "icon": 8,
+      "rarity": "rare",
+      "weapon": "weapons/greatsword.json"
     }
   ]
 }

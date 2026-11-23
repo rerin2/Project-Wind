@@ -23,8 +23,8 @@ std::optional<HeroProgress> HeroProgress::load(const std::filesystem::path& cont
     return HeroProgress(std::move(*rules.value));  // 능력치 모두 10, 룬 0
 }
 
-progression::DerivedStats HeroProgress::derived() const {
-    return progression::derive_stats(stats_, rules_.curves);
+progression::DerivedStats HeroProgress::derived(float equipped_weight) const {
+    return progression::derive_stats(stats_, rules_.curves, equipped_weight);
 }
 
 progression::DerivedStats HeroProgress::preview(const progression::Stats& target) const {

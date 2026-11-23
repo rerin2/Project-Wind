@@ -6,6 +6,8 @@
 // 실제로 가방에 든 물건(몇 개 있는지)은 ItemStack이 따로 적어요.
 // 숫자는 content/items/catalog.json에서 읽어요. 게임 규칙이라 SDL을 몰라요.
 
+#include "wind/items/equip_slot.hpp"
+
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -16,7 +18,7 @@ namespace wind::items {
 enum class ItemKind {
     Consumable,  // 써서 없어지는 것 (물약)
     Material,    // 재료 (몬스터 젤리·날개, 18단계 상점·퀘스트에서 써요)
-    Weapon,      // 무기 (장착은 15단계)
+    Weapon,      // 무기 (가방에서 장착, 15a)
 };
 
 // 희귀도: 인벤토리 칸 테두리 색이 달라져요 (14c)
@@ -24,14 +26,6 @@ enum class Rarity {
     Common,
     Uncommon,
     Rare,
-};
-
-// 장비 칸 (명세 10.3). 14단계에서는 무기만 써요.
-enum class EquipSlot {
-    Weapon,
-    Head,
-    Body,
-    Accessory,
 };
 
 // 쓰면 생기는 일 (소비 아이템만). 0이면 그 효과가 없어요.

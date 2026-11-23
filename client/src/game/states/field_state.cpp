@@ -55,7 +55,7 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
                                                std::string_view map_path,
                                                std::string_view player_sheet_path,
                                                engine::Vec2 viewport, HeroProgress& progress,
-                                               const ItemWorld& items, std::string_view spawn_id,
+                                               const ItemWorld& items, const GearWorld& gear, std::string_view spawn_id,
                                                FieldStress stress, std::string_view start_weather) {
     // 1) 파일 준비물: 맵, 주인공 그림 설명서, 등장 자리, 하루 색, 날씨, 효과들
     auto assets = load_field_assets(resources.content_root(), map_path, player_sheet_path, spawn_id,
@@ -74,7 +74,7 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
     log_field_entry(*assets);  // 맵 크기·효과·빛·허수아비 수 기록
     return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture, player_texture,
                                                       std::move(sprites), start_weather, viewport, stress.lights,
-                                                      progress, items, items.loot.on(map_path), map_path));
+                                                      progress, items, gear, items.loot.on(map_path), map_path));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
@@ -82,7 +82,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                        engine::TextureHandle tileset_texture, engine::TextureHandle player_texture,
                        FieldSprites sprites,
                        std::string_view start_weather, engine::Vec2 viewport,
-                       std::uint32_t stress_lights, HeroProgress& progress, const ItemWorld& items,
+                       std::uint32_t stress_lights, HeroProgress& progress, const ItemWorld& items, const GearWorld& gear,
                        MapLoot& loot, std::string_view map_path)
     : map_(std::move(assets.map)),
       sprite_(std::move(assets.sheet), player_texture),
@@ -97,7 +97,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                   engine::tile_feet(assets.spawn_tile, map_.map.tile_size)),
       // 캐릭터가 처음 설 곳(등장 자리)과 능력치에서 나온 최대 HP·MP·스태미나 (13a)
       player_(engine::tile_feet(assets.spawn_tile, map_.map.tile_size), world::Direction::Down, MovementTuning{},
-              stamina_tuning(progress.derived()), kInputBufferSeconds, std::move(assets.weapon),
+              stamina_tuning(progress.derived()), kInputBufferSeconds, combat::Weapon{},  // 무기는 아래 arms_가 쥐여 줘요
               mana_tuning(progress.derived()), health_tuning(progress.derived())),
       // 허수아비들, 싸움 주사위 씨앗(치명타·몬스터, 켤 때마다 달라요), 기본 치명타 확률, 몬스터들 (11a)
       combat_(std::move(assets.dummies), std::random_device{}(), kBaseCritChance, std::move(assets.monsters)),
@@ -117,6 +117,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       runes_(progress, map_path, textures_.light(), effect_ptr(effects_.rune_trace)),  // 룬 받기·잃기·흔적 (13a, 14e)
       items_(items, loot, {sprites.item_icons, textures_.shadow(), textures_.light(), effect_ptr(effects_.item_pickup),
                           effect_ptr(effects_.potion_heal), effect_ptr(effects_.potion_mana)}, std::random_device{}()),
+      arms_(items, gear, progress),  // 끼고 있는 무기 (15a)
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -130,6 +131,7 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                   std::random_device{}(), start_weather) {
     for (const auto& effect : effects_.ambient) ambient_.add(effect);  // 꽃잎·반딧불 같은 분위기 효과
     player_.set_spell(std::move(assets.spell));  // 고른 마술 (9e: 별빛 조각)
+    arms_.arm(player_);                          // 끼고 있는 무기, 무거우면 느리게 (15a)
     combat_.set_hero_stats(progress_.derived());   // 칼·빛 탄 공격력의 힘·지능 보너스 (13a)
     if (assets.start_cushion) rest_.sit_on(*assets.start_cushion, player_);  // 쉬기·부활: 쿠션에 앉은 채 (13b)
 }
@@ -163,6 +165,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     combat_.step(sim_dt, player_, map_.map);  // 칼 판정, 빛 탄 만들기·날리기, 피해·넉백 주기
     runes_.step(combat_, player_);  // 쓰러뜨린 몬스터의 룬, 쓰러지면 절반 잃고 흔적, 흔적 되찾기 (13a, 14e)
     items_.step(static_cast<float>(sim_dt), combat_, player_, map_.map);  // 쓰러진 몬스터의 드롭, 자동 줍기 (14b)
+    arms_.step(player_);  // 인벤토리에서 고른 무기 바꿔 끼기 (15a)
     // 멈춤·느림은 진짜 시간으로 줄고, 이번에 누가 맞았으면 멈칫, 주인공이 쓰러졌으면 슬로모션 (12b)
     time_scale_.update(static_cast<float>(dt_seconds), combat_.strongest_hitstop(), combat_.hero_fell());
     combat_fx_.collect(combat_);  // 맞은 일·사라진 빛 탄은 다음 frame_update에서 연출해요 (안 빠지게 모아 둬요)
@@ -257,7 +260,14 @@ void FieldState::refresh_hero_stats() {
     const auto derived = progress_.derived();  // 한 곳의 계산 함수
     player_.raise_maximums(derived.max_hp, static_cast<float>(derived.max_mp), static_cast<float>(derived.max_stamina));
     combat_.set_hero_stats(derived);
+    arms_.arm(player_);  // 힘이 바뀌면 무거움도 바뀌어요 (15a)
     cushion_view_.celebrate_level_up(player_.mover().feet());  // 빛기둥 파티클과 번쩍임
+}
+
+std::vector<LootNotice> FieldState::take_loot_notices() {
+    auto notices = items_.take_notices();
+    for (auto& notice : arms_.take_notices()) notices.push_back(std::move(notice));  // 장착 알림 (15a)
+    return notices;
 }
 
 engine::Vec2 FieldState::drawn_feet() const {

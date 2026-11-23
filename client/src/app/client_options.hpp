@@ -56,6 +56,7 @@ struct ClientOptions {
     std::optional<float> start_hour;
     std::int64_t start_runes = 0;  // 시험용 시작 룬 (--runes, 13c)
     std::string fill_bag_item;     // 시험용: 가방 모든 칸을 이 아이템으로 채워요 (--fill-bag, 14b). 비면 빈 가방
+    std::vector<std::string> give_items;  // 시험용: 가방에 하나씩 넣을 아이템들 (--give, 여러 번, 15a)
     // 접근성: 화면 흔들림·번쩍임 세기 0~1 (--shake, --flash). 설정 화면은 15단계
     game::FeelSettings feel;
     // 처음 날씨 이름 ("rain" 등). 비어 있으면 날씨 표의 확률대로.

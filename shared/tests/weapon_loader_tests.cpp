@@ -159,3 +159,40 @@ TEST(WeaponLoader, ShippedLongswordIsValid) {
 }
 
 }  // namespace
+
+// 휘두르며 걷기 배수 (15a): 없으면 0(멈춤), 0~1만 돼요
+TEST(WeaponLoader, ReadsAttackMoveScale) {
+    const auto fake = make_attacks();
+    auto doc = make_doc();
+    EXPECT_FLOAT_EQ(parse_weapon(doc, "w.json", fake.source()).value->attack_move_scale, 0.0f);
+    doc["attack_move_scale"] = 0.5;
+    EXPECT_FLOAT_EQ(parse_weapon(doc, "w.json", fake.source()).value->attack_move_scale, 0.5f);
+    doc["attack_move_scale"] = 1.5;
+    EXPECT_TRUE(has_error_at(parse_weapon(doc, "w.json", fake.source()).errors, "attack_move_scale"));
+}
+
+// 저장소의 단검·대검 (명세 8.4 표): 무게, 공격력, 박자, 스태미나, 콤보 수가 롱소드와 뚜렷이 달라요
+TEST(WeaponLoader, ShippedDaggerAndGreatswordMatchTheTable) {
+    const auto dagger = wind::content::load_weapon_file(WIND_TEST_CONTENT_DIR, "weapons/dagger.json");
+    ASSERT_TRUE(dagger.ok()) << wind::content::to_string(dagger.errors.front());
+    EXPECT_FLOAT_EQ(dagger.value->weight, 2.0f);
+    EXPECT_FLOAT_EQ(dagger.value->base_power, 8.0f);
+    EXPECT_FLOAT_EQ(dagger.value->stamina_per_attack, 8.0f);
+    EXPECT_FLOAT_EQ(dagger.value->crit_bonus, 0.1f);
+    EXPECT_GT(dagger.value->attack_move_scale, 0.0f);  // 휘두르는 중 덜 멈춰요
+    ASSERT_EQ(dagger.value->combo.size(), 4u);
+    EXPECT_FLOAT_EQ(dagger.value->combo[0].windup, 0.04f);
+
+    const auto great = wind::content::load_weapon_file(WIND_TEST_CONTENT_DIR, "weapons/greatsword.json");
+    ASSERT_TRUE(great.ok()) << wind::content::to_string(great.errors.front());
+    EXPECT_FLOAT_EQ(great.value->weight, 14.0f);
+    EXPECT_FLOAT_EQ(great.value->base_power, 26.0f);
+    EXPECT_FLOAT_EQ(great.value->strength_scaling, 1.2f);
+    EXPECT_FLOAT_EQ(great.value->stamina_per_attack, 26.0f);
+    ASSERT_EQ(great.value->combo.size(), 2u);
+    EXPECT_FLOAT_EQ(great.value->combo[0].windup, 0.22f);
+    EXPECT_FLOAT_EQ(great.value->combo[0].active, 0.14f);
+    EXPECT_FLOAT_EQ(great.value->combo[0].recovery, 0.36f);
+    // 대검은 넓게 휘둘러요: 1타 판정 상자가 롱소드 1타(28x24)보다 커요
+    EXPECT_GT(great.value->combo[0].hitbox.length, 28.0f);
+}

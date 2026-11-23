@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "dagger_3",
+  "windup": 0.04,
+  "active": 0.06,
+  "recovery": 0.10,
+  "cancel_window": [0.10, 0.20],
+  "hitbox": { "offset": [15, -8], "size": [22, 22] },
+  "power": 1.1,
+  "knockback": 60,
+  "hitstop": 0.03,
+  "shake": 0.08,
+  "next_combo": "dagger_4"
+}

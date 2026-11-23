@@ -178,7 +178,25 @@ Data: `content/weapons/longsword.json`, `content/attacks/longsword_{1,2,3}.json`
 | 2 | 0.08 / 0.10 / 0.18 | 0.18–0.36 | 1.1 | 90 | 18, −8, 28 × 26 |
 | 3 | 0.14 / 0.12 / 0.28 | 0.36–0.54 | 1.5 | 160 | 20, −8, 32 × 30 |
 
-Each swing costs 14 stamina (spec 8.4). The cancel window opens when the hit's active part ends, so the next hit can follow (or a dodge can cut the recovery) without skipping the hit itself. The weapon is loaded with the field (`weapons/longsword.json`, the start weapon); if it fails to load, the error is logged and the hero is bare-handed (attacks do nothing, everything else works).
+Each swing costs 14 stamina (spec 8.4). The cancel window opens when the hit's active part ends, so the next hit can follow (or a dodge can cut the recovery) without skipping the hit itself. The worn weapon comes from the equipment (start: longsword, see "Weapons and equipment"); if its file failed to load, the error is logged and the hero is bare-handed (attacks do nothing, everything else works).
+
+## Weapons and equipment (phase 15a, spec 8.4, 10.2, 10.3)
+
+Data: `content/weapons/{dagger,longsword,greatsword}.json`, attacks `content/attacks/dagger_{1..4}.json`, `greatsword_{1,2}.json`. Code: `wind/items/equipment`, `wind/combat/heavy_weapon`, `game/states/field_arms`, `game/items/weapon_rack`. Tested in `equipment_tests`, `heavy_weapon_tests`, `field_arms_tests`.
+
+| Weapon | weight | power | str. scaling | timing per hit (s) | stamina | hits | notes |
+|---|---|---|---|---|---|---|---|
+| Dagger | 2 | 8 | 0.4 | 0.04 / 0.06 / 0.10 (4th 0.06 / 0.08 / 0.16) | 8 | 4 | crit +10 %, short 20 × 20 box, walks at 0.5× while swinging |
+| Longsword | 6 | 14 | 0.8 | see "Longsword combo" | 14 | 3 | start weapon |
+| Greatsword | 14 | 26 | 1.2 | 0.22 / 0.14 / 0.36, 2nd 0.28 / 0.16 / 0.44 | 26 | 2 | wide 44 × 40 box, knockback 240–320, hitstop 0.12–0.16, shake 0.5–0.7 |
+
+- **Slots:** weapon, head, body, accessory; only the weapon slot is used now. The worn item lives outside the bag (it does not take a slot). Start: longsword worn (spec 8.1).
+- **Equipping** (bag → 장착): takes the weapon out of its bag slot and puts the previously worn weapon into that same slot, so it works with a full bag. Only while standing, walking or running; otherwise "지금은 바꿀 수 없다" and nothing changes. A swap restarts the combo from hit 1. The bag closes after choosing 장착 (like 사용).
+- **Unequipping** (rule only, screen in 15e): needs a free bag slot, otherwise nothing changes.
+- **Heavy:** `derive_stats(stats, curves, equipped_weight)` sets `heavy` when the weight is **greater than** the carry weight (equal is fine). Starting strength 10 carries 8, so the greatsword (14) is heavy until strength 20. Heavy multiplies windup, active, recovery and the cancel window by **1.3** and stamina per swing by **1.5** (`combat::wield`); power, knockback and hitstop are unchanged. The field re-arms the hero after a level-up so raising strength lifts the penalty at once.
+- **Feedback:** equipping shows "단검 장착" (cream) or "대검 장착 · 너무 무겁다" (red) on the notice line; the bag's detail line shows "무기 · 무게 6", or in red "무기 · 무게 14 / 8 · 무거움".
+- **Getting them:** for now only the test option `--give dagger --give greatsword` (decided with the developer); where they are found is decided with the region design (phases 18–19).
+- **While swinging** the facing is locked to the swing direction, even for the dagger that keeps walking.
 
 ## Attacking
 
@@ -187,7 +205,7 @@ Code: `client/src/game/combat/attack_runner.*`, `client/src/game/entities/player
 - **Keys:** J or Z. The press goes into the same 0.15 s input buffer as the dodge.
 - **Starting:** a swing starts when the state table allows it (not while dodging), the runner is free, and stamina is above 0 and not exhausted. It spends the weapon's `stamina_per_attack` (14); with less left the swing still happens and stamina drops to 0 (exhaustion starts). At 0/exhausted the press waits in the buffer and is then dropped.
 - **Direction:** the held direction at the start, otherwise the current facing. The facing then stays fixed for the swing.
-- **Legs:** while attacking the hero's input is ignored for movement (she slows to a stop at the normal deceleration) and cannot run.
+- **Legs:** while attacking the hero's input is ignored for movement (she slows to a stop at the normal deceleration) and cannot run. A weapon with `attack_move_scale` (the dagger, 0.5) lets her keep walking at that fraction of her walk speed (15a).
 - **Combo:** a buffered press inside the current hit's cancel window starts the next hit. After the last hit, or when a swing ends without a press, the next attack starts again from hit 1.
 - **Dodge cancel:** during a swing a dodge only comes out inside the cancel window; it ends the swing at once. If both buttons are buffered in the same step, the dodge wins.
 - **Hits:** the hitbox exists only during `active`. Each target can be hit **once per swing**; the next combo hit is a new swing and can hit it again.
@@ -455,4 +473,4 @@ For now the hero uses idle, moving, running, attacking, casting, drinking (14d),
 
 ## Not yet defined
 
-More spells, Q and spell slots (15), quick item slots (15), equipment (15), and saves (16) are defined later (spec section 19).
+More spells, Q and spell slots (15b–15d), the pause menu and equipment screen (15e), quick item slots (15f), head/body/accessory gear (expansion), and saves (16) are defined later (spec section 19).

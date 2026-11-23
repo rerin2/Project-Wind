@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "greatsword_1",
+  "windup": 0.22,
+  "active": 0.14,
+  "recovery": 0.36,
+  "cancel_window": [0.36, 0.72],
+  "hitbox": { "offset": [22, -8], "size": [44, 40] },
+  "power": 1.0,
+  "knockback": 240,
+  "hitstop": 0.12,
+  "shake": 0.5,
+  "next_combo": "greatsword_2"
+}

@@ -18,7 +18,7 @@ int floor_int(double value) {
 
 }  // namespace
 
-DerivedStats derive_stats(const Stats& stats, const StatCurves& curves) {
+DerivedStats derive_stats(const Stats& stats, const StatCurves& curves, float equipped_weight) {
     DerivedStats d;
     d.max_hp = floor_int(curves.max_hp.value_at(stats[StatId::Vigor]));               // 생명력
     d.max_mp = floor_int(curves.max_mp.value_at(stats[StatId::Mind]));                // 정신력
@@ -28,6 +28,8 @@ DerivedStats derive_stats(const Stats& stats, const StatCurves& curves) {
     d.intelligence_bonus =
         static_cast<float>(curves.intelligence_bonus.value_at(stats[StatId::Intelligence]));        // 지능
     d.spell_slots = floor_int(curves.spell_slots.value_at(stats[StatId::Intelligence]));          // 지능
+    d.equipped_weight = equipped_weight > 0.0f ? equipped_weight : 0.0f;  // 음수·NaN은 0 (무게 없음)
+    d.heavy = d.equipped_weight > d.carry_weight;                       // 무거움 (명세 8.4)
     return d;
 }
 

@@ -16,7 +16,6 @@
 #include "game/world/cushion.hpp"
 
 #include "wind/combat/spell.hpp"
-#include "wind/combat/weapon.hpp"
 #include "wind/content/map_loader.hpp"
 #include "wind/world/day_cycle.hpp"
 #include "wind/world/direction.hpp"
@@ -38,7 +37,6 @@ struct FieldAssets {
     FieldEffects effects;
     std::optional<world::DayCycle> day_cycle;
     std::optional<world::WeatherTable> weather;
-    combat::Weapon weapon;  // 든 무기 (불러오기 실패면 콤보가 빈 맨손)
     std::vector<TrainingDummy> dummies;  // 맵에 놓인 훈련용 허수아비들 (9c)
     std::optional<combat::Spell> spell;  // 고른 마술 (9e: 별빛 조각 고정, 실패면 마술 없음)
     std::vector<Monster> monsters;       // 맵의 몬스터들 (11a, 설명 파일이 잘못된 몬스터는 빠져요)

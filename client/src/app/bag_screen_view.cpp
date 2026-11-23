@@ -8,6 +8,8 @@
 #include "engine/ui/ui_painter.hpp"
 #include "game/presentation/loot_view.hpp"
 #include "game/presentation/rarity_color.hpp"
+#include "game/items/weapon_rack.hpp"
+#include "game/progression/hero_progress.hpp"
 #include "game/ui/bag_screen.hpp"
 
 #include "wind/items/inventory.hpp"
@@ -41,7 +43,17 @@ constexpr engine::Color kEmptyBorder{90, 96, 112, 160};   // 빈 칸 테두리 (
 constexpr engine::Color kEffectColor{142, 220, 128, 255}; // 효과 글자 (연두, 레벨업 화면과 같아요)
 constexpr engine::Color kCountBack{0, 0, 0, 150};         // 개수 글자 뒤 작은 띠 (아이콘 위에서도 읽히게)
 
+constexpr engine::Color kHeavyColor{236, 96, 96, 255};    // 무거움 글자 (빨강, 15a)
+
 constexpr std::array<std::string_view, BagScreen::kActionCount> kActionLabels{"사용", "버리기", "취소"};
+constexpr std::string_view kEquipLabel = "장착";  // 장비 칸에서는 "사용" 자리에 (15a)
+
+// 이 칸이 장비인가요? (작은 메뉴의 첫 항목을 "장착"이라고 보여 줘요)
+bool is_equipment(const items::Inventory& bag, const items::ItemCatalog& catalog, std::size_t slot) {
+    const auto& stack = bag.at(slot);
+    const auto* def = stack ? catalog.find(stack->item_id) : nullptr;
+    return def != nullptr && def->equip.has_value();
+}
 
 // 글자 한 줄 (자르기, 그림자 있음)
 void line(engine::UiPainter& painter, engine::RectF box, std::string_view text, engine::Color color, float alpha,
@@ -73,9 +85,15 @@ std::string kind_text(const items::ItemDef& def) {
             return text;
         }
         case items::ItemKind::Material: return "재료";
-        case items::ItemKind::Weapon: return "무기 (장착은 곧)";
+        case items::ItemKind::Weapon: return "무기";
     }
     return {};
+}
+
+// 무기 줄 (15a): "무기 · 무게 6", 들 수 있는 무게보다 무거우면 "무기 · 무게 14 / 8 · 무거움"
+std::string weapon_text(const combat::Weapon& weapon, float carry_weight, bool heavy) {
+    if (!heavy) return std::format("무기 · 무게 {:g}", weapon.weight);
+    return std::format("무기 · 무게 {:g} / {:g} · 무거움", weapon.weight, std::floor(carry_weight));
 }
 
 // 칸 수에 맞는 줄 수 (24칸 → 4줄)
@@ -183,9 +201,16 @@ void BagScreenView::draw_details(engine::UiPainter& painter, engine::RectF box, 
          engine::TextAlign::Left, engine::FontStyle::Bold);
     line(painter, {box.x, box.y, box.w, line_h}, std::format("×{}", stack->count), theme.text, alpha,
          engine::TextAlign::Right);
-    // 종류와 효과
-    line(painter, {box.x, box.y + line_h, box.w, line_h}, kind_text(*def),
-         def->use ? kEffectColor : theme.text_dim, alpha);
+    // 종류와 효과 (무기면 무게, 무거우면 빨갛게, 15a)
+    const combat::Weapon* weapon = weapons_ != nullptr ? weapons_->find(def->id) : nullptr;
+    if (weapon != nullptr && progress_ != nullptr) {
+        const auto load = progress_->derived(weapon->weight);  // 한 곳의 계산 함수 (명세 8.2, 10.3)
+        line(painter, {box.x, box.y + line_h, box.w, line_h}, weapon_text(*weapon, load.carry_weight, load.heavy),
+             load.heavy ? kHeavyColor : theme.text_dim, alpha);
+    } else {
+        line(painter, {box.x, box.y + line_h, box.w, line_h}, kind_text(*def),
+             def->use ? kEffectColor : theme.text_dim, alpha);
+    }
     // 설명 (줄바꿈, 3줄까지)
     engine::TextStyle style;
     style.color = theme.text;
@@ -203,7 +228,8 @@ void BagScreenView::draw_menu(engine::UiPainter& painter, engine::RectF cell, co
         const bool enabled = bag_screen.action_enabled(action, bag, catalog);
         const engine::RectF button{rect.x + 4.0f, rect.y + 4.0f + kMenuButton * static_cast<float>(i), rect.w - 8.0f,
                                    kMenuButton};
-        painter.button(button, kActionLabels[i], enabled && bag_screen.menu_choice() == action,
+        const bool equip = action == BagScreen::Action::Use && is_equipment(bag, catalog, bag_screen.cursor());
+        painter.button(button, equip ? kEquipLabel : kActionLabels[i], enabled && bag_screen.menu_choice() == action,
                        enabled ? 1.0f : kDisabledAlpha);
     }
 }

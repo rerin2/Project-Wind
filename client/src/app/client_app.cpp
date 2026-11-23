@@ -114,19 +114,18 @@ int ClientApp::run() {
     if (!progress) return 1;  // 성장 규칙 파일이 틀리면 최대 HP 같은 값을 정할 수 없어요 (이유는 로그에)
     if (options_.start_runes > 0) progress->earn(options_.start_runes);  // 시험용 --runes (13c)
     // 아이템 도감·가방·맵마다의 바닥 아이템: 필드 밖에 하나씩 (14b). 도감이 틀리면 시작할 수 없어요
-    const auto item_setup = load_item_setup(options_.content_dir, options_.fill_bag_item);
+    const auto item_setup = load_item_setup(options_.content_dir, options_.fill_bag_item, options_.give_items);
     if (!item_setup) return 1;
     const game::ItemWorld items{item_setup->bag, item_setup->catalog, item_setup->loot};
+    const game::GearWorld gear{item_setup->worn, item_setup->weapons};  // 장비·무기 선반 (15a)
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
     auto make_field = [&](std::string_view map_path, std::string_view spawn_id) {
         auto made = game::FieldState::create(resources, renderer, map_path, kPlayerSheet,
-                                             renderer.logical_size(), *progress, items, spawn_id, stress,
+                                             renderer.logical_size(), *progress, items, gear, spawn_id, stress,
                                              options_.start_weather);
-        if (made) {
-            made->set_feel(options_.feel);  // 흔들림·번쩍임 세기 (접근성, 새 맵마다)
-        }
+        if (made) made->set_feel(options_.feel);  // 흔들림·번쩍임 세기 (접근성, 새 맵마다)
         return made;
     };
     // 지금 필드와 필드 바꾸기(출구·부활·쉬기)를 맡는 곳 (13b에서 ClientApp에서 떼어 냈어요)
@@ -147,7 +146,7 @@ int ClientApp::run() {
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
-    ItemHud item_hud(*item_setup, resources.texture(game::kItemIconsTexture));  // 알림 줄·인벤토리 화면 (14b·14c)
+    ItemHud item_hud(*item_setup, *progress, resources.texture(game::kItemIconsTexture));  // 알림 줄·인벤토리 (14b·14c)
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.

@@ -102,6 +102,11 @@ LoadResult<combat::Weapon> parse_weapon(const nlohmann::json& document, const st
             weapon.crit_bonus = static_cast<float>(*crit);
         }
     }
+    if (reader.has("attack_move_scale")) {  // 휘두르며 걷기 (선택, 15a). 1이면 평소처럼 걸어요
+        if (const auto scale = reader.number("attack_move_scale", 0.0, 1.0)) {
+            weapon.attack_move_scale = static_cast<float>(*scale);
+        }
+    }
     read_combo(reader, load_attack, weapon);
     check_combo_links(reader, weapon);
 

@@ -17,7 +17,7 @@
 //   3) 마술 메모가 있고, 시전할 수 있으면:
 //      MP가 충분하면 -> MP를 먼저 내고 시전 시작 (방향은 이때 정해져요)
 //      MP가 모자라면 -> 메모를 지우고 "MP 모자람" 횟수를 하나 올려요 (HUD가 깜빡여요)
-//   4) 공격 중에는 발이 멈추고, 시전 중에는 천천히 걸어요(0.4배). 둘 다 달리지 않아요
+//   4) 공격 중에는 발이 멈추고(단검처럼 attack_move_scale이 있으면 그만큼 걸어요, 15a), 시전 중에는 천천히 걸어요(0.4배). 둘 다 달리지 않아요
 //   5) Shift를 누르고 움직이며 지침이 아니면 -> 달리기 (달리는 동안 1초에 25 씀)
 //   6) 스태미나는 쓰지 않았으면 0.6초 뒤부터 다시 참, MP는 박자마다 조금씩 참
 //   7) 시전이 끝난 박자에는 spell_released()가 true예요 (FieldCombat이 빛 탄을 만들어요)
@@ -72,6 +72,11 @@ public:
     void press_cast();
     // 고른 마술을 정해요 (없으면 마술을 못 써요)
     void set_spell(std::optional<combat::Spell> spell) { caster_.set_spell(std::move(spell)); }
+    // 든 무기를 바꿔요 (15a: 장착, 무거움 반영). 하던 공격은 끝나고 콤보는 1타부터예요.
+    // 부르는 쪽이 can_change_weapon()을 먼저 확인해요.
+    void set_weapon(combat::Weapon weapon) { attack_ = AttackRunner(std::move(weapon)); }
+    // 무기를 바꿀 수 있나요? (15a) 마시기와 같아요: 서기·걷기·달리기 중에만
+    [[nodiscard]] bool can_change_weapon() const { return can_drink(); }
     // 한 박자. move: 가고 싶은 방향, run_held: Shift를 누르고 있나
     // 구르기를 시작했으면 true
     bool step(double dt_seconds, engine::Vec2 move, bool run_held, const world::MapData& map);
@@ -165,6 +170,7 @@ private:
     bool attack_started_ = false;
     bool spell_released_ = false;
     world::Direction cast_facing_ = world::Direction::Down;
+    world::Direction attack_facing_ = world::Direction::Down;  // 휘두르는 쪽 (단검은 휘두르며 걸어도 이쪽을 봐요, 15a)
     unsigned mana_denied_count_ = 0;
 };
 

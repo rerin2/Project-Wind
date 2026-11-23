@@ -14,6 +14,9 @@ constexpr const char* kTimes = " ×";                      // 개수 앞 표시
 constexpr const char* kBagFull = "가방이 가득 찼다 · ";     // 가득 참 줄 앞부분
 constexpr const char* kCannotUse = "지금은 마실 수 없다";   // 공격·구르기·맞는 중 (14d)
 constexpr const char* kAlreadyFull = "이미 가득하다 · ";    // 채울 HP·MP가 없음 (14d)
+constexpr const char* kEquipped = " 장착";                 // 무기를 바꿔 낌 (15a)
+constexpr const char* kHeavy = " 장착 · 너무 무겁다";      // 힘이 모자라 무거움 (15a)
+constexpr const char* kCannotEquip = "지금은 바꿀 수 없다";  // 공격·구르기·맞는 중 (15a)
 
 // 줄 글 만들기: 알림 종류마다 한 줄
 std::string make_text(const std::string& name, std::int32_t count, LootNotice::Kind kind) {
@@ -21,6 +24,9 @@ std::string make_text(const std::string& name, std::int32_t count, LootNotice::K
         case LootNotice::Kind::BagFull: return kBagFull + name;
         case LootNotice::Kind::CannotUse: return kCannotUse;
         case LootNotice::Kind::AlreadyFull: return kAlreadyFull + name;
+        case LootNotice::Kind::Equipped: return name + kEquipped;
+        case LootNotice::Kind::EquippedHeavy: return name + kHeavy;
+        case LootNotice::Kind::CannotEquip: return kCannotEquip;
         case LootNotice::Kind::PickedUp: break;
     }
     return name + kTimes + std::to_string(count);

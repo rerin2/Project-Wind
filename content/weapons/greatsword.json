@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "greatsword",
+  "name": "대검",
+  "weight": 14,
+  "base_power": 26,
+  "strength_scaling": 1.2,
+  "stamina_per_attack": 26,
+  "attacks": [
+    "attacks/greatsword_1.json",
+    "attacks/greatsword_2.json"
+  ]
+}

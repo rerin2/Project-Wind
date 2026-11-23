@@ -105,6 +105,12 @@ std::optional<ItemStack> Inventory::take_at(std::size_t slot, std::int32_t count
     return taken;
 }
 
+bool Inventory::place_at(std::size_t slot, ItemStack stack) {
+    if (slot >= slots_.size() || slots_[slot] || stack.count < 1) return false;  // 빈 칸에만
+    slots_[slot] = std::move(stack);
+    return true;
+}
+
 bool Inventory::sort(const ItemCatalog& catalog) {
     // 1) 도감에 있는 아이템은 id별로 모두 더하고, 없는 아이템은 그대로 따로 모아요
     std::map<std::size_t, std::pair<std::string, std::int64_t>> known;  // 도감 순서 → (id, 합계)

@@ -92,7 +92,8 @@ void PlayerMotion::try_attack(engine::Vec2 move) {
     (void)buffer_.consume(Action::Attack);
     attack_.start();
     // 공격 방향은 누른 방향, 아무것도 안 누르면 바라보는 방향 (명세 9.2)
-    mover_.face(facing_from_vector(move, mover_.facing()));
+    attack_facing_ = facing_from_vector(move, mover_.facing());
+    mover_.face(attack_facing_);
     // 모자라도 나가고 0이 돼요 (spend가 0 아래로는 안 내려가요).
     stamina_.spend(attack_.weapon().stamina_per_attack);
     attack_started_ = true;
@@ -141,14 +142,14 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
         try_attack(move);
         try_cast(move);
     }
-    // 4) 공격 중에는 다리가 멈추고(서서히), 시전 중에는 천천히 걸어요. 둘 다 달리지 않아요.
+    // 4) 공격 중에는 다리가 멈추고(서서히, 단검은 덜 멈춰요 15a), 시전 중에는 천천히 걸어요. 둘 다 달리지 않아요.
     const bool attacking = attack_.busy();
     // 시전·마시기 중에는 천천히 걸어요 (14d: 마시기도 시전과 같은 0.4배)
     const bool slow = caster_.busy() || drinker_.busy();
     const bool casting = caster_.busy();
     const bool staggered = hit_.staggered();  // 경직 중이면 다리도 멈춰요 (11c)
-    const engine::Vec2 legs =
-        (attacking || staggered) ? engine::Vec2{} : (slow ? move * kCastWalkScale : move);
+    const float scale = attacking ? attack_.weapon().attack_move_scale : (slow ? kCastWalkScale : 1.0f);
+    const engine::Vec2 legs = staggered ? engine::Vec2{} : move * scale;
     // 5) 달리기: Shift + 방향키 + 지침 아님
     const bool run = !attacking && !slow && !staggered && run_held && engine::length(move) > 0.0f &&
                      stamina_.can_run();
@@ -162,8 +163,8 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     if (mover_.state() == Mover::State::Running) {
         stamina_.spend(stamina_.tuning().run_cost_per_second * dt);
     }
-    if (casting) {
-        mover_.face(cast_facing_);  // 시전 중에는 걸어도 마술 쪽을 계속 봐요
+    if (casting || attacking) {
+        mover_.face(casting ? cast_facing_ : attack_facing_);  // 걸어도 마술·칼 쪽을 계속 봐요 (단검, 15a)
     }
     attack_.step(dt);
     // 6) 스태미나: 이번 박자에 썼으면 기다리는 시간이 다시 시작돼서, 이 update는 채우지 않아요.

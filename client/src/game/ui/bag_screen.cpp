@@ -22,9 +22,11 @@ bool BagScreen::action_enabled(Action action, const items::Inventory& bag, const
     const auto& stack = bag.at(cursor_);
     switch (action) {
         case Action::Use: {
-            if (!use_available_ || !stack) return false;
+            if (!stack) return false;
             const auto* def = catalog.find(stack->item_id);
-            return def != nullptr && def->use.has_value();  // 소비 아이템만
+            if (def == nullptr) return false;
+            if (def->equip) return true;                          // 장비는 "장착" (15a)
+            return use_available_ && def->use.has_value();        // 소비 아이템은 "사용"
         }
         case Action::Drop: return stack.has_value();  // 무엇이든 내려놓을 수 있어요 (도감에 없는 것도)
         case Action::Cancel: return true;
@@ -96,7 +98,10 @@ BagCommand BagScreen::handle_menu(BagInput input, const items::Inventory& bag, c
     menu_open_ = false;  // 무엇을 고르든 메뉴는 닫혀요
     if (!action_enabled(choice_, bag, catalog)) return {};  // 그사이 칸이 비었으면 아무 일도 없어요
     switch (choice_) {
-        case Action::Use: return {BagCommand::Kind::Use, cursor_};
+        case Action::Use: {  // 장비면 장착, 소비 아이템이면 사용 (15a)
+            const auto* def = catalog.find(bag.at(cursor_)->item_id);  // action_enabled가 칸·도감을 확인했어요
+            return {def->equip ? BagCommand::Kind::Equip : BagCommand::Kind::Use, cursor_};
+        }
         case Action::Drop: return {BagCommand::Kind::Drop, cursor_};
         case Action::Cancel: break;
     }

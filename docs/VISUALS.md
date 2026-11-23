@@ -352,7 +352,7 @@ Code: `client/src/game/presentation/rune_orbs.*`, `client/src/app/field_ui.cpp` 
 
 Code: `client/src/game/presentation/loot_view.*`, `client/src/game/ui/loot_toasts.*`, `client/src/app/loot_toast_drawing.*`.
 
-- Icons: `items/item_icons.bmp`, 128×16, one 16×16 cell per catalog `icon` index (generator section "아이템 아이콘"). Dark ink outline so they read on grass.
+- Icons: `items/item_icons.bmp`, 160×16 (15a: dagger 7, greatsword 8), one 16×16 cell per catalog `icon` index (generator section "아이템 아이콘"). Dark ink outline so they read on grass.
 - Drop: the icon flies from the fallen monster's feet to its landing spot in a 0.45 s arc 14 px high (ease-out sideways), then bounces once 4 px for 0.15 s. The 0.6 s total is also when it can first be picked up. The bounce follows the item's simulation age, so items already on the ground when you enter a map are simply lying there.
 - Resting: bobs 0–1.5 px (2.4 rad/s, offset per item); a 12×4 shadow that shrinks while it is in the air; every 2.2 s (offset per item) a 9 px additive glint at the icon's top right for 0.3 s (Glow layer).
 - Night: each item gives a small 18 px light (intensity 0.55, slow 0.5 Hz pulse) in its rarity colour: common warm white `#fff0c8`, uncommon sky `#78dcff`, rare pink-violet `#ffaaff`.
@@ -367,7 +367,8 @@ Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentati
 - Title "가방" in bold gold, used/total slots on the right in dim text.
 - Slots: 26 px cells on a 28 px pitch, 6 × 4. Dark fill `#0000005a`; empty cells have a dim `#5a6070` border, filled cells a border in the item's rarity colour (the same colours as the ground glow). The chosen cell gets a pale gold fill and a gold outline 1 px outside the cell. Counts above 1 sit at the bottom right on a small `#00000096` band so the icon stays readable.
 - Details under the grid: name in bold rarity colour with "×N" on the right, then kind and effect ("소비 · HP +50" in green `#8edc80`, materials and weapons in dim text), then the description (up to 3 lines). An empty slot shows "빈 칸".
-- Small menu: a 72 px panel right next to the chosen cell with three 18 px buttons (사용 / 버리기 / 취소); unavailable choices are drawn at 40 % and skipped.
+- Small menu: a 72 px panel right next to the chosen cell with three 18 px buttons (사용 / 버리기 / 취소; the first reads 장착 on equipment, 15a); unavailable choices are drawn at 40 % and skipped.
+- Weapon detail line (15a): "무기 · 무게 N" in dim text, or "무기 · 무게 14 / 8 · 무거움" in red `#ec6060` when heavy for the current strength (the heavy check comes from `derive_stats`, not from the view).
 - Bottom hint: "R 정렬 · I 닫기" (dim). The first version also listed Enter and was clipped by the 166 px width, so it was shortened.
 
 ## Drinking (phase 14d)

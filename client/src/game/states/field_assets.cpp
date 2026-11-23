@@ -8,7 +8,6 @@
 
 #include "wind/content/day_cycle_loader.hpp"
 #include "wind/content/spell_loader.hpp"
-#include "wind/content/weapon_loader.hpp"
 #include "wind/content/error_list.hpp"
 #include "wind/content/monster_loader.hpp"
 #include "wind/content/training_dummy_loader.hpp"
@@ -25,8 +24,6 @@ namespace {
 // 주인공 그림 묶음(스프라이트 시트)에 꼭 있어야 하는 동작 그림(클립) 이름
 constexpr std::string_view kIdleClip = "idle";  // 가만히 서 있기
 constexpr std::string_view kWalkClip = "walk";  // 걷기
-// 시작 무기 (명세 8.1). 장비 화면이 생기면(단계 15) 저장된 장비에서 골라요.
-constexpr std::string_view kStartWeapon = "weapons/longsword.json";
 // 시작 마술 (명세 8.6). 마술 칸이 생기면(단계 15) 저장된 칸에서 골라요.
 constexpr std::string_view kStartSpell = "spells/star_shard.json";
 
@@ -162,21 +159,13 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
     FieldEffects effects = load_field_effects(content_root, ambience, weather ? &*weather : nullptr,
                                               stress_particles);
 
-    // 7) 든 무기 (잘못되면 기록하고 맨손: 공격만 안 나가고 나머지는 그대로 돼요)
-    combat::Weapon weapon;
-    if (auto loaded = content::load_weapon_file(content_root, kStartWeapon); loaded.ok()) {
-        weapon = std::move(*loaded.value);
-    } else {
-        content::log_content_errors("weapon " + std::string(kStartWeapon), loaded.errors);
-    }
-
-    // 8) 맵에 놓인 허수아비들 (설명 파일이 잘못되면 맵을 열지 않아요: 막힌 칸만 남는 걸 막으려고)
+    // 7) 맵에 놓인 허수아비들 (설명 파일이 잘못되면 맵을 열지 않아요: 막힌 칸만 남는 걸 막으려고)
     auto dummies = load_dummies(content_root, map.value->map);
     if (!dummies) {
         return std::nullopt;  // 이유는 이미 기록했어요
     }
 
-    // 9) 고른 마술 (잘못되면 기록하고 마술 없음: L/C만 안 되고 나머지는 그대로 돼요)
+    // 8) 고른 마술 (잘못되면 기록하고 마술 없음: L/C만 안 되고 나머지는 그대로 돼요)
     std::optional<combat::Spell> spell;
     if (auto loaded = content::load_spell_file(content_root, kStartSpell); loaded.ok()) {
         spell = std::move(*loaded.value);
@@ -184,7 +173,7 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
         content::log_content_errors("spell " + std::string(kStartSpell), loaded.errors);
     }
 
-    // 10) 맵의 몬스터들 (11a). 아래에서 맵을 넘겨주기(move) 전에 읽어야 해요.
+    // 9) 맵의 몬스터들 (11a). 아래에서 맵을 넘겨주기(move) 전에 읽어야 해요.
     auto monsters = load_monsters(content_root, map.value->map);
     std::vector<std::string> monster_fx;  // 몬스터가 사라질 때 효과 파일들 (11d)
     for (const auto& monster : monsters) {
@@ -193,7 +182,7 @@ std::optional<FieldAssets> load_field_assets(const std::filesystem::path& conten
     load_monster_effects(content_root, monster_fx, effects);
 
     return FieldAssets{std::move(*map.value), std::move(*sheet.value), spawn_tile, std::move(effects),
-                       std::move(day_cycle), std::move(weather), std::move(weapon),
+                       std::move(day_cycle), std::move(weather),
                        std::move(*dummies), std::move(spell),
                        std::move(monsters), std::move(cushions), start->cushion};
 }

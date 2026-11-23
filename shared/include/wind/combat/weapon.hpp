@@ -15,11 +15,12 @@ namespace wind::combat {
 struct Weapon {
     std::string id;                  // "longsword"
     std::string name;                // 화면에 보일 이름 ("롱소드")
-    float weight = 0.0f;             // 무게 (들 수 있는 무게보다 무거우면 "무거움", 단계 15)
+    float weight = 0.0f;             // 무게 (들 수 있는 무게보다 무거우면 "무거움", 15a)
     float base_power = 0.0f;         // 기본 공격력
     float strength_scaling = 0.0f;   // 힘 보정 (힘 보너스에 곱해요)
     float stamina_per_attack = 0.0f; // 한 번 휘두를 때 쓰는 스태미나
     float crit_bonus = 0.0f;         // 치명타 확률 더하기 (0~1, 선택)
+    float attack_move_scale = 0.0f;  // 휘두르는 동안 걷는 빠르기 배수 (0 = 멈춤, 단검 0.5, 선택, 15a)
     std::vector<AttackData> combo;   // 콤보 순서대로의 공격들 (1타, 2타, 3타 ...)
 };
 

@@ -33,6 +33,7 @@
 #include "game/states/field_assets.hpp"
 #include "game/states/field_combat.hpp"
 #include "game/states/field_rest.hpp"
+#include "game/states/field_arms.hpp"
 #include "game/states/field_items.hpp"
 #include "game/states/field_runes.hpp"
 #include "game/world/exit_watcher.hpp"
@@ -105,7 +106,7 @@ public:
                                                             std::string_view player_sheet_path,
                                                             engine::Vec2 viewport,
                                                             HeroProgress& progress,
-                                                            const ItemWorld& items,
+                                                            const ItemWorld& items, const GearWorld& gear,
                                                             std::string_view spawn_id = "default",
                                                             FieldStress stress = {},
                                                             std::string_view start_weather = {});
@@ -151,11 +152,13 @@ public:
     // 소란스러워서 못 쉰 횟수 (UI가 바뀐 걸 보고 "주변이 너무 소란스럽다"를 띄워요, 13b)
     [[nodiscard]] unsigned rest_denied_count() const { return rest_.denied_count(); }
     // 지난번 뒤로 주운 아이템·가득 차서 못 주운 아이템 (왼쪽 아래 알림 줄용, 14b). 가져가면 비워요.
-    [[nodiscard]] std::vector<LootNotice> take_loot_notices() { return items_.take_notices(); }
+    // 무기 장착 알림(15a)도 같은 줄에 띄워요.
+    [[nodiscard]] std::vector<LootNotice> take_loot_notices();
     // 인벤토리 화면 요청 (14c): 이 칸을 발 앞에 내려놓기, 가방 정렬. 다음 박자에 규칙대로 처리해요
     void request_put_down(std::size_t slot) { items_.request_put_down(slot); }
     void request_sort() { items_.request_sort(); }
     void request_use(std::size_t slot) { items_.request_use(slot); }  // 물약 마시기 (14d)
+    void request_equip(std::size_t slot) { arms_.request_equip(slot); }  // 무기 장착 (15a)
     // 쿠션에서 쉬는 중인가요? (인벤토리를 열 수 없어요, 14c)
     [[nodiscard]] bool hero_resting() const { return player_.rest().active(); }
     // 지난번 뒤로 룬 흔적을 되찾았으면 그 양을 한 번 돌려줘요 ("룬을 되찾았다" 배너용, 14e)
@@ -206,7 +209,8 @@ private:
                engine::TextureHandle player_texture,
                FieldSprites sprites,
                std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights,
-               HeroProgress& progress, const ItemWorld& items, MapLoot& loot, std::string_view map_path);
+               HeroProgress& progress, const ItemWorld& items, const GearWorld& gear, MapLoot& loot,
+               std::string_view map_path);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
@@ -227,6 +231,7 @@ private:
     CushionView cushion_view_;              // 쿠션 연출: 시든·피어난 모습, 초록 빛, 하트·z (13b)
     FieldRunes runes_;                      // 룬: 받기·잃기, 룬 흔적과 되찾기 (13a, 14e)
     FieldItems items_;                      // 아이템: 드롭·자동 줍기(규칙)와 튀기·반짝·빨려 들기(연출), 알림 (14b)
+    FieldArms arms_;                        // 무기: 끼고 있는 무기 쥐여 주기, 장착 요청 (15a)
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요

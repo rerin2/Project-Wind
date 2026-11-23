@@ -208,7 +208,8 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
   "attacks": ["attacks/longsword_1.json", "attacks/longsword_2.json", "attacks/longsword_3.json"] }
 ```
 
-- `name` 1–64 bytes (UTF-8), `weight` 0–100, `base_power` 0–999, `strength_scaling` 0–5, `stamina_per_attack` 0–200, optional `crit_bonus` 0–1.
+- `name` 1–64 bytes (UTF-8), `weight` 0–100, `base_power` 0–999, `strength_scaling` 0–5, `stamina_per_attack` 0–200, optional `crit_bonus` 0–1, optional `attack_move_scale` 0–1 (walk speed multiplier while swinging, default 0 = stop; the dagger uses 0.5, phase 15a).
+- Weapons shipped: `dagger` (4 hits), `longsword` (3), `greatsword` (2). Each weapon item in the catalog points at one; `game::WeaponRack` loads them all at start-up so equipping never reads files mid-game.
 - `attacks`: 1–8 content paths in combo order. Every attack file is loaded and validated with the weapon; one broken file rejects the whole weapon and its own errors are reported too. Attack ids must be unique in the combo.
 - `next_combo`, when present on an attack, must equal the id of the next attack in the list; the last attack must not have one. The list order is the source of truth.
 - Parsed by `wind/content/weapon_loader` (`parse_weapon` takes an attack source, so tests run without files).
