@@ -41,6 +41,7 @@ add_library(wind_shared STATIC
     src/content/monster_loader.cpp
     src/content/progression_loader.cpp
     src/content/item_catalog_loader.cpp
+    src/content/drop_table_reader.cpp
     src/combat/damage.cpp
     src/progression/stats.cpp
     src/progression/stat_curve.cpp
@@ -93,7 +94,8 @@ if(WIND_BUILD_TESTS)
         tests/progression_loader_tests.cpp
         tests/item_catalog_tests.cpp
         tests/item_catalog_loader_tests.cpp
-        tests/inventory_tests.cpp)
+        tests/inventory_tests.cpp
+        tests/monster_drops_tests.cpp)
     target_link_libraries(wind_shared_tests PRIVATE wind::shared GTest::gtest_main)
     # 진짜 시험 맵을 검사하는 시험이 저장소의 content 폴더 위치를 알 수 있게 알려 준다.
     target_compile_definitions(wind_shared_tests PRIVATE

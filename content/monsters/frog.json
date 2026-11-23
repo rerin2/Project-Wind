@@ -18,5 +18,9 @@
   "sprite": { "image": "monsters/frog.bmp", "frame": [24, 24], "origin": [12, 21] },
   "attacks": ["attacks/frog_spit.json"],
   "stagger_seconds": 0.25,
-  "death_fx": "fx/slime_burst.json"
+  "death_fx": "fx/slime_burst.json",
+  "drops": [
+    { "item": "frog_gland", "chance": 0.5 },
+    { "item": "mp_potion", "chance": 0.15 }
+  ]
 }

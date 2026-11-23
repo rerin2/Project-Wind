@@ -15,6 +15,7 @@
 #   content/monsters/bat.bmp          숲 박쥐 (48x24: 보통 / 공격 예고, 13c)
 #   content/monsters/mushroom.bmp     가시 버섯 (64x32: 보통 / 공격 예고 가시, 13c)
 #   content/monsters/frog.bmp         침 뱉는 개구리 (48x24: 보통 / 공격 예고 볼 부풀림, 13c)
+#   content/items/item_icons.bmp      아이템 아이콘 (128x16, 칸 16x16, 도감 icon 번호 순서, 14b)
 #   content/maps/test_meadow.json     가로 40칸 x 세로 30칸 시험 맵 (왼쪽 끝 동굴 입구, 오른쪽 끝 숲길)
 #   content/maps/test_cave.json       가로 30칸 x 세로 20칸 조명 시험 동굴
 #   content/maps/test_forest.json     가로 36칸 x 세로 24칸 시험 숲 (키 큰 풀·나뭇잎이 바람에 흔들려요)
@@ -754,6 +755,58 @@ function Draw-Frog([int]$ox, [bool]$puffed) {
 Draw-Frog 0 $false
 Draw-Frog 24 $true
 Save-Bmp $bmp (Join-Path $content 'monsters\frog.bmp')
+$g.Dispose(); $bmp.Dispose()
+
+# ------------------------------------------------------- 아이템 아이콘 (14b) ----
+# 아이템 아이콘 그림 판 (128x16, 칸 16x16). 칸 번호는 items/catalog.json의 "icon"과 같아요.
+#   0 회복 물약(빨강)  1 별빛 물약(파랑)  2 슬라임 젤리  3 박쥐 날개  4 버섯 가시  5 개구리 침샘  6 롱소드  7 (빈칸)
+# 바닥에 떨어진 아이템·알림 줄·인벤토리 화면(14c)이 함께 써요. 테두리는 진한 잉크색으로 둘러서 풀밭 위에서도 잘 보여요.
+$canvas = New-Canvas 128 16
+$bmp = $canvas[0]; $g = $canvas[1]
+$icInk = Brush 28 22 40; $icGlass = Brush 220 232 240; $icCork = Brush 150 100 64; $icShine = Brush 255 255 255
+function Draw-Potion([int]$ox, $liquid, $liquidDark) {
+    $g.FillRectangle($icInk, $ox + 5, 1, 6, 5)                  # 목 테두리
+    $g.FillRectangle($icCork, $ox + 6, 1, 4, 2)                 # 코르크 마개
+    $g.FillRectangle($icGlass, $ox + 6, 3, 4, 3)                # 유리 목
+    $g.FillEllipse($icInk, $ox + 2, 5, 12, 11)                  # 둥근 병 테두리
+    $g.FillEllipse($icGlass, $ox + 3, 6, 10, 9)                 # 유리
+    $g.FillEllipse($liquidDark, $ox + 3, 8, 10, 7)              # 물약 (아래쪽 진한 색)
+    $g.FillEllipse($liquid, $ox + 4, 8, 8, 5)                   # 물약 (밝은 색)
+    $g.FillRectangle($icShine, $ox + 5, 7, 2, 2)                # 유리 반짝임
+}
+Draw-Potion 0 (Brush 226 64 72) (Brush 150 30 48)               # 회복 물약: 붉은 약초
+Draw-Potion 16 (Brush 92 150 240) (Brush 44 76 170)             # 별빛 물약: 밤이슬
+$g.FillRectangle((Brush 255 236 140), 16 + 9, 10, 1, 1)         # 별빛 물약 안의 작은 별
+# 2 슬라임 젤리: 말랑한 민트색 덩어리
+$g.FillEllipse($icInk, 32 + 2, 4, 12, 11)
+$g.FillEllipse((Brush 96 200 150), 32 + 3, 5, 10, 9)
+$g.FillEllipse((Brush 150 236 190), 32 + 4, 6, 6, 4)
+$g.FillRectangle($icShine, 32 + 5, 7, 2, 1)
+# 3 박쥐 날개: 뾰족뾰족한 보라색 날개 한 장
+Poly $icInk @((48 + 1), 3, (48 + 14), 5, (48 + 13), 12, (48 + 10), 10, (48 + 7), 13, (48 + 5), 10, (48 + 2), 12)
+Poly (Brush 92 70 136) @((48 + 2), 4, (48 + 13), 6, (48 + 12), 11, (48 + 10), 9, (48 + 7), 12, (48 + 5), 9, (48 + 3), 10)
+$g.FillRectangle((Brush 132 108 170), 48 + 3, 5, 9, 1)          # 날개 뼈
+# 4 버섯 가시: 붉은 밑동에서 솟은 흰 가시
+Poly $icInk @((64 + 8), 0, (64 + 13), 13, (64 + 3), 13)
+Poly (Brush 250 246 230) @((64 + 8), 2, (64 + 12), 12, (64 + 4), 12)
+$g.FillRectangle($icInk, 64 + 2, 12, 12, 4)
+$g.FillRectangle((Brush 196 74 64), 64 + 3, 13, 10, 2)          # 갓 조각
+$g.FillRectangle((Brush 248 236 210), 64 + 5, 13, 2, 1)
+# 5 개구리 침샘: 초록 주머니에 분홍 반점
+$g.FillEllipse($icInk, 80 + 2, 3, 12, 12)
+$g.FillEllipse((Brush 110 184 104), 80 + 3, 4, 10, 10)
+$g.FillEllipse((Brush 230 140 150), 80 + 5, 7, 3, 3)
+$g.FillEllipse((Brush 230 140 150), 80 + 9, 9, 2, 2)
+$g.FillRectangle($icShine, 80 + 5, 5, 2, 1)
+# 6 롱소드: 왼쪽 아래 손잡이에서 오른쪽 위로 뻗은 은빛 칼날
+Poly $icInk @((96 + 4), 10, (96 + 13), 1, (96 + 15), 1, (96 + 15), 3, (96 + 6), 12)
+Poly (Brush 214 222 236) @((96 + 5), 10, (96 + 13), 2, (96 + 14), 2, (96 + 14), 3, (96 + 6), 11)
+$g.FillRectangle((Brush 255 255 255), 96 + 11, 4, 1, 1)         # 칼날 반짝임
+Poly $icInk @((96 + 2), 8, (96 + 4), 8, (96 + 8), 12, (96 + 8), 14, (96 + 6), 14, (96 + 2), 10)
+Poly (Brush 226 182 80) @((96 + 3), 9, (96 + 4), 9, (96 + 7), 12, (96 + 7), 13, (96 + 6), 13, (96 + 3), 10)   # 금빛 가드
+$g.FillRectangle($icInk, 96 + 1, 12, 4, 4)
+$g.FillRectangle((Brush 120 76 48), 96 + 2, 13, 2, 2)           # 손잡이
+Save-Bmp $bmp (Join-Path $content 'items\item_icons.bmp')
 $g.Dispose(); $bmp.Dispose()
 
 # --------------------------------------------------------------- 시험 맵 ----

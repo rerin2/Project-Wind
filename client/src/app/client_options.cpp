@@ -22,6 +22,8 @@ constexpr std::uint64_t kMaxWindowSize = 7680;
 constexpr std::uint64_t kMaxFxStress = 4000;
 // 성능 시험용 빛 개수 상한 (한 화면에 그리는 빛 최대 개수와 같아요)
 constexpr std::uint64_t kMaxLightStress = 64;
+// 아이템 id 길이 상한 (도감과 같아요, 14b --fill-bag)
+constexpr std::size_t kMaxItemIdLength = 64;
 
 // --press로 누를 수 있는 키 이름인가요?
 bool is_scriptable_key(std::string_view name) {
@@ -180,6 +182,12 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
             }
             options.start_runes = runes;
         }
+        else if (arg == "--fill-bag") {
+            // 시험용 (14b): 가방 모든 칸을 이 아이템으로 채운 채 시작해요 ("가득 찼다" 확인용).
+            // 도감에 있는지는 도감을 읽은 뒤에 확인해요 (없으면 경고하고 빈 가방)
+            if (value.empty() || value.size() > kMaxItemIdLength) return fail("--fill-bag needs an item id");
+            options.fill_bag_item = std::string(value);
+        }
         else if (arg == "--shake" || arg == "--flash") {
             // 접근성: 화면 흔들림 / 맞을 때 번쩍임 세기 0~1 (0이면 끔)
             const auto strength = parse_unit(value);
@@ -240,6 +248,7 @@ std::string_view client_usage() {
            "  --hold <key@a-b>     hold a key from frame a to b, e.g. shift@30-200; may repeat\n"
            "  --time <hours>       start time of day, 0 to below 24 (default 9)\n"
            "  --runes <n>          test only: start with n runes (0-999999999, default 0)\n"
+           "  --fill-bag <item>    test only: start with every bag slot full of this item\n"
            "  --weather <id>       start weather from the map's table, e.g. rain\n"
            "  --shake <0-1>        screen shake strength (default 1, 0 = off)\n"
            "  --flash <0-1>        hit flash strength (default 1, 0 = off)\n"

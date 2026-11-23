@@ -17,5 +17,10 @@
   "sprite": { "image": "monsters/mushroom.bmp", "frame": [32, 32], "origin": [16, 29] },
   "attacks": ["attacks/mushroom_spikes.json"],
   "stagger_seconds": 0.15,
-  "death_fx": "fx/spore_burst.json"
+  "death_fx": "fx/spore_burst.json",
+  "drops": [
+    { "item": "mushroom_spike", "chance": 0.5, "count": [1, 2] },
+    { "item": "hp_potion", "chance": 0.15 },
+    { "item": "longsword", "chance": 0.05 }
+  ]
 }

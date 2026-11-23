@@ -8,6 +8,8 @@
 #include "app/damage_number_drawing.hpp"
 #include "app/debug_overlay.hpp"
 #include "app/field_ui.hpp"
+#include "app/item_setup.hpp"
+#include "app/loot_toast_drawing.hpp"
 #include "app/screenshot_flash.hpp"
 #include "app/screenshot_name.hpp"
 #include "app/scripted_input.hpp"
@@ -21,6 +23,7 @@
 #include "engine/resources/resource_manager.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/progression/hero_progress.hpp"
+#include "game/ui/loot_toasts.hpp"
 #include "game/world/game_clock.hpp"
 #include "app/cushion_menu_panel.hpp"
 #include "app/field_session.hpp"
@@ -109,14 +112,18 @@ int ClientApp::run() {
     FieldUi field_ui;  // HUD 스태미나 바, 지역 이름 배너, UI 시험판(F7)
     // 주인공 진행 상태(능력치·룬): 필드 밖에 하나만 두어 맵을 옮기거나 부활해도 남아요 (13a)
     auto progress = game::HeroProgress::load(options_.content_dir);  // 능력치 모두 10, 룬 0
-    if (!progress) return 1;
-    if (options_.start_runes > 0) progress->earn(options_.start_runes);  // 시험용 --runes (13c)  // 성장 규칙 파일이 틀리면 최대 HP 같은 값을 정할 수 없어요 (이유는 로그에)
+    if (!progress) return 1;  // 성장 규칙 파일이 틀리면 최대 HP 같은 값을 정할 수 없어요 (이유는 로그에)
+    if (options_.start_runes > 0) progress->earn(options_.start_runes);  // 시험용 --runes (13c)
+    // 아이템 도감·가방·맵마다의 바닥 아이템: 필드 밖에 하나씩 (14b). 도감이 틀리면 시작할 수 없어요
+    const auto item_setup = load_item_setup(options_.content_dir, options_.fill_bag_item);
+    if (!item_setup) return 1;
+    const game::ItemWorld items{item_setup->bag, item_setup->catalog, item_setup->loot};
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
     auto make_field = [&](std::string_view map_path, std::string_view spawn_id) {
         auto made = game::FieldState::create(resources, renderer, map_path, kPlayerSheet,
-                                             renderer.logical_size(), *progress, spawn_id, stress,
+                                             renderer.logical_size(), *progress, items, spawn_id, stress,
                                              options_.start_weather);
         if (made) {
             made->set_feel(options_.feel);  // 흔들림·번쩍임 세기 (접근성, 새 맵마다)
@@ -141,6 +148,8 @@ int ClientApp::run() {
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
+    game::LootToasts loot_toasts;                            // 왼쪽 아래 아이템 알림 줄 (14b)
+    const auto item_icons = resources.texture(game::kItemIconsTexture);  // 알림 줄 아이콘 (14b)
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.
@@ -169,9 +178,7 @@ int ClientApp::run() {
             log::info("Reached --max-frames {}", *options_.max_frames);
             break;  // 시험용: 정해진 장수를 다 그렸어요
         }
-        if (bindings.pressed(game::Action::ToggleDebug, input)) {
-            overlay.toggle();  // F3
-        }
+        if (bindings.pressed(game::Action::ToggleDebug, input)) overlay.toggle();  // F3
         if (bindings.pressed(game::Action::SkipTime, input) || command == UiCommand::SkipTime) {
             game_clock.skip_hours(kSkipHours);  // F5 (또는 시험판 버튼): 시간 3시간 앞으로
             log::info("Time skipped to {}", game_clock.text());
@@ -228,6 +235,8 @@ int ClientApp::run() {
         hud.runes = progress->runes();            // 오른쪽 아래 룬 숫자 (13c)
         hud.lost_runes = progress->last_lost();   // "쓰러졌다" 화면의 잃은 룬 (13c)
         field_ui.update(static_cast<float>(frame_seconds), hud);
+        for (const auto& notice : session.field().take_loot_notices()) loot_toasts.push(notice, item_setup->catalog);
+        loot_toasts.update(static_cast<float>(frame_seconds));  // 주움·가득 참 알림 (14b)
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();
@@ -248,6 +257,7 @@ int ClientApp::run() {
         // 7. HUD(스태미나 바)와 지역 이름 배너. 화면 가리기보다 아래라서 맵과 함께 어두워져요.
         const engine::Vec2 screen = renderer.logical_size();
         field_ui.draw_hud(painter, screen);
+        draw_loot_toasts(painter, item_icons, screen, loot_toasts);  // 왼쪽 아래 아이템 알림 줄 (14b)
         // 8. 맵을 옮기는 중이면 화면을 검게 가려요 (디버그 정보판은 그 위에 보여요).
         //    아이리스는 주인공을 가운데 두고 오므라들어요. 못 간 출구가 있으면 잠깐 알려 줘요.
         draw_transition(renderer, session.fade(), session.field().focus_on_screen());

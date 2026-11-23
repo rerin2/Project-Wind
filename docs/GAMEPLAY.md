@@ -323,7 +323,7 @@ Code: `shared/include/wind/progression/*` (`Stats`, `StatCurve`, `derive_stats`,
 - **Level-up cost** from L to L+1 = `floor(100 + 40·(L−1) + 6·(L−1)²)` (1→2: 100, 10→11: 946, 30→31: 6,306, 250→251: 382,066). Raising several levels at once adds each step.
 - **Raising stats** (`HeroProgress::try_raise`, screen in 13c) is all-or-nothing: the target may not lower any stat or pass 60; if the runes are short nothing changes.
 - **Runes:** wallet 0–999,999,999 (extra is dropped). A monster gives its `rune_reward` once, on the fixed step its HP reaches 0 (sword or shard). The green slime gives **12** (spec 14.2 example), so level 2 takes 9 slimes.
-- **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. Lost runes cannot be recovered (spec 23.2). If a kill and the fall land on the same step, the runes are added first, then halved.
+- **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. Lost runes cannot be recovered yet: recovering them from a rune trace at the death spot is decided (spec 8.3.1, decision 0010) and planned for phase 14d. If a kill and the fall land on the same step, the runes are added first, then halved.
 - **Owner:** `HeroProgress` lives in `ClientApp`, outside the field, so stats and runes survive map travel and respawn (agreed 2026-11-22). The field borrows it. Phase 16 saves only the five stats and runes.
 
 ## Cat-nip cushions (phase 13b, spec 8.7)
@@ -414,6 +414,18 @@ For now the hero uses idle, moving, running, attacking, casting, dodging, hit (1
 - Sorting merges stacks and orders items as listed in the catalog.
 - Decided with the developer (2026-11-23): items left on the ground stay on their map (also after resting, falling or leaving); the bag screen opens with **I** and the game keeps running while it is open.
 
+## Drops and pickup (phase 14b, spec 9.7)
+
+- Each monster has a drop table (`drops` in its data). When it falls, every line rolls on its own: it drops with `chance`, and then a count from `count` (each count equally likely). A separate drop dice (seeded per field) is used, so drops never change combat or monster movement.
+- Drop rates (decided with the developer, "normal"): slime 50 % 슬라임 젤리 ×1–2, 15 % 회복 물약; bat 50 % 박쥐 날개, 10 % 별빛 물약; mushroom 50 % 버섯 가시 ×1–2, 15 % 회복 물약, 5 % 롱소드; frog 50 % 개구리 침샘, 15 % 별빛 물약. With 40 meadow slimes you get about six potions.
+- Each drop lands 10–20 px from the fallen monster in a random direction (on its feet if that spot is a wall or water).
+- Pickup is automatic: once an item has been on the ground for 0.6 s (its bounce), it goes into the bag when the hero's feet are within 36 px. Each ground item has its own number in that map, so it can be picked up only once.
+- If the whole stack does not fit, it stays on the ground and the notice line says "가방이 가득 찼다" once. Walking more than 48 px away and coming back warns again.
+- No pickup while fallen or resting.
+- Ground items stay on their map when you leave, rest or respawn. Each map keeps at most 64; when a 65th drops, the oldest one disappears.
+- A map whose monsters drop an item missing from the catalog does not open (the error is logged).
+- Test option `--fill-bag <item_id>` fills every bag slot with that item.
+
 ## Not yet defined
 
-More spells, Q and spell slots (15), drops and the bag screen (14b, 14c), equipment (15), and saves (16) are defined later (spec section 19).
+More spells, Q and spell slots (15), the bag screen and using potions (14c), equipment (15), and saves (16) are defined later (spec section 19).

@@ -100,6 +100,7 @@ Do not attempt to implement the whole game in one task. Follow the phases in the
 - 통합 테스트 결과
 - 화면 확인 결과 (눈에 보이는 기능)
 - 발견된 문제와 미해결 항목
+- 토큰이 많이 필요한 스크린샷 찍기 등은 조금만 할 것 
 
 실제로 실행해서 통과하지 않은 빌드나 테스트를 통과했다고 보고하지 않는다.
 

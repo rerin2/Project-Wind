@@ -207,3 +207,61 @@ TEST(MonsterLoader, KeepAwayMustBeShorterThanAttackRange) {
     doc["keep_away"] = 10;
     EXPECT_TRUE(parse(doc).ok());
 }
+
+// ---- 드롭 표 (14b) ----
+
+namespace {
+
+TEST(MonsterLoader, DropsAreOptional) {
+    const auto result = parse(make_monster());
+    ASSERT_TRUE(result.ok());
+    EXPECT_TRUE(result.value->drops.empty());  // 칸이 없으면 아무것도 안 떨어뜨려요
+}
+
+TEST(MonsterLoader, ReadsDropTable) {
+    auto doc = make_monster();
+    doc["drops"] = json::array({json{{"item", "jelly"}, {"chance", 0.5}, {"count", {1, 3}}},
+                                json{{"item", "potion"}, {"chance", 1}, {"count", 2}},
+                                json{{"item", "gem"}, {"chance", 0.05}}});
+    const auto result = parse(doc);
+    ASSERT_TRUE(result.ok()) << wind::content::to_string(result.errors.front());
+    const auto& drops = result.value->drops;
+    ASSERT_EQ(drops.size(), 3u);
+    EXPECT_EQ(drops[0].item_id, "jelly");
+    EXPECT_FLOAT_EQ(drops[0].chance, 0.5f);
+    EXPECT_EQ(drops[0].min_count, 1);
+    EXPECT_EQ(drops[0].max_count, 3);
+    EXPECT_EQ(drops[1].min_count, 2);  // 숫자 하나면 최소 = 최대
+    EXPECT_EQ(drops[1].max_count, 2);
+    EXPECT_EQ(drops[2].min_count, 1);  // count가 없으면 1개
+    EXPECT_EQ(drops[2].max_count, 1);
+}
+
+TEST(MonsterLoader, RejectsBadDropLines) {
+    auto doc = make_monster();
+    doc["drops"] = json::array({json{{"item", "a"}, {"chance", 0}},                        // 0%
+                                json{{"item", "b"}, {"chance", 1.5}},                      // 100% 넘음
+                                json{{"item", "c"}, {"chance", 0.5}, {"count", {3, 1}}},   // 최소 > 최대
+                                json{{"item", "d"}, {"chance", 0.5}, {"count", 1.5}},      // 소수 개수
+                                json{{"item", "e"}, {"chance", 0.5}, {"count", 100}},      // 99개 넘음
+                                json{{"chance", 0.5}}});                                   // 아이템 없음
+    const auto result = parse(doc);
+    EXPECT_FALSE(result.ok());
+    EXPECT_TRUE(has_error_at(result.errors, "drops[0].chance"));
+    EXPECT_TRUE(has_error_at(result.errors, "drops[1].chance"));
+    EXPECT_TRUE(has_error_at(result.errors, "drops[2].count"));
+    EXPECT_TRUE(has_error_at(result.errors, "drops[3].count"));
+    EXPECT_TRUE(has_error_at(result.errors, "drops[4].count"));
+    EXPECT_TRUE(has_error_at(result.errors, "drops[5].item"));
+}
+
+TEST(MonsterLoader, RejectsTooManyOrNonListDrops) {
+    auto doc = make_monster();
+    doc["drops"] = json::array();
+    for (int i = 0; i < 9; ++i) doc["drops"].push_back(json{{"item", "a"}, {"chance", 0.5}});  // 8줄 넘음
+    EXPECT_FALSE(parse(doc).ok());
+    doc["drops"] = "jelly";
+    EXPECT_FALSE(parse(doc).ok());
+}
+
+}  // namespace

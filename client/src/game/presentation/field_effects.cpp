@@ -24,6 +24,7 @@ constexpr std::string_view kStarBurstFx = "fx/star_burst.json";
 constexpr std::string_view kHitSparkFx = "fx/hit_spark.json";
 constexpr std::string_view kCatnipBloomFx = "fx/catnip_bloom.json";  // 쿠션이 처음 피어날 때 (13b)
 constexpr std::string_view kLevelUpFx = "fx/level_up.json";  // 레벨업 빛기둥 (13c)
+constexpr std::string_view kItemPickupFx = "fx/item_pickup.json";  // 아이템을 주울 때 반짝 (14b)
 constexpr std::string_view kSpitSplashFx = "fx/spit_splash.json";  // 몬스터 침이 터질 때 (13c)
 // 시험용 부하 효과의 수명(초). 부하 개수 ÷ 수명 = 1초에 만들 개수
 constexpr float kStressLifetime = 4.0f;
@@ -68,6 +69,7 @@ FieldEffects load_field_effects(const std::filesystem::path& content_root,
     effects.hit_spark = load_effect(content_root, kHitSparkFx);
     effects.catnip_bloom = load_effect(content_root, kCatnipBloomFx);
     effects.level_up = load_effect(content_root, kLevelUpFx);
+    effects.item_pickup = load_effect(content_root, kItemPickupFx);
     effects.spit_splash = load_effect(content_root, kSpitSplashFx);
     for (const auto& path : ambience.ambient_fx) {
         if (auto effect = load_effect(content_root, path)) {

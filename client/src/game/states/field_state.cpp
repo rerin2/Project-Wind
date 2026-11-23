@@ -12,6 +12,7 @@
 #include "game/physics/tile_collision.hpp"
 #include "game/progression/hero_progress.hpp"
 #include "game/progression/hero_tuning.hpp"
+#include "game/items/loot_store.hpp"
 #include "game/presentation/debug_boxes.hpp"
 #include "game/presentation/hero_blink.hpp"
 #include "game/presentation/shadow_drawing.hpp"
@@ -54,28 +55,26 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
                                                std::string_view map_path,
                                                std::string_view player_sheet_path,
                                                engine::Vec2 viewport, HeroProgress& progress,
-                                               std::string_view spawn_id, FieldStress stress,
-                                               std::string_view start_weather) {
+                                               const ItemWorld& items, std::string_view spawn_id,
+                                               FieldStress stress, std::string_view start_weather) {
     // 1) 파일 준비물: 맵, 주인공 그림 설명서, 등장 자리, 하루 색, 날씨, 효과들
     auto assets = load_field_assets(resources.content_root(), map_path, player_sheet_path, spawn_id,
                                     stress.particles);
-    if (!assets) {
-        return nullptr;  // 이유는 이미 기록했어요
-    }
-    // 2) 그림 파일(텍스처)을 불러와요. 그림이 없어도 체크무늬 대신 그림으로 계속 진행해요.
-    //    (무엇이 없는지는 리소스 관리자가 기록해 줘요.)
+    if (!assets) return nullptr;  // 이유는 이미 기록했어요
+    if (!FieldItems::drops_known(assets->monsters, items.catalog)) return nullptr;  // 드롭 아이템은 도감에 (14b)
+    // 2) 그림 파일(텍스처). 없어도 체크무늬로 계속해요 (무엇이 없는지는 리소스 관리자가 기록해요)
     const auto tileset_texture = resources.texture(assets->map.tileset.image);
     const auto player_texture = resources.texture(assets->sheet.image);
     // 3) 싸움 그림: 칼자국, 허수아비·몬스터마다 그림 (같은 파일은 리소스 관리자가 한 번만 읽어요)
-    FieldSprites sprites{resources.texture(kSlashTexture), {}, {}, resources.texture(kCushionTexture)};
+    FieldSprites sprites{resources.texture(kSlashTexture), {}, {}, resources.texture(kCushionTexture),
+                         resources.texture(kItemIconsTexture)};
     for (const auto& dummy : assets->dummies) sprites.dummies.push_back(resources.texture(dummy.data().sprite.image));
     for (const auto& monster : assets->monsters) sprites.monsters.push_back(resources.texture(monster.data().sprite.image));
     if (stress.lights > 0) log::info("Light stress test: {} extra lights", stress.lights);
     log_field_entry(*assets);  // 맵 크기·효과·빛·허수아비 수 기록
-    return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture,
-                                                      player_texture,
-                                                      std::move(sprites), start_weather,
-                                                      viewport, stress.lights, progress));
+    return std::unique_ptr<FieldState>(new FieldState(renderer, std::move(*assets), tileset_texture, player_texture,
+                                                      std::move(sprites), start_weather, viewport, stress.lights,
+                                                      progress, items, items.loot.on(map_path)));
 }
 
 // 준비물을 받아서 필드 화면을 실제로 꾸려요.
@@ -83,7 +82,8 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
                        engine::TextureHandle tileset_texture, engine::TextureHandle player_texture,
                        FieldSprites sprites,
                        std::string_view start_weather, engine::Vec2 viewport,
-                       std::uint32_t stress_lights, HeroProgress& progress)
+                       std::uint32_t stress_lights, HeroProgress& progress, const ItemWorld& items,
+                       MapLoot& loot)
     : map_(std::move(assets.map)),
       sprite_(std::move(assets.sheet), player_texture),
       tileset_texture_(tileset_texture),
@@ -113,6 +113,9 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       // 쿠션 연출: 찾은 쿠션은 피어난 모습, 처음 찾으면 꽃잎 (13b)
       cushion_view_(rest_.cushions(), [&progress](std::string_view id) { return progress.discovered(id); },
                     sprites.cushion, effect_ptr(effects_.catnip_bloom), effect_ptr(effects_.level_up)),
+      // 아이템: 이 맵의 바닥 목록, 아이콘·그림자·빛 그림, 주울 때 반짝, 드롭 주사위 씨앗 (14b)
+      items_(items, loot, {sprites.item_icons, textures_.shadow(), textures_.light(), effect_ptr(effects_.item_pickup)},
+             std::random_device{}()),
       fx_random_(kFxSeed),
       ground_fx_(kGroundFxCapacity),
       air_fx_(kAirFxCapacity),
@@ -134,21 +137,14 @@ FieldState::~FieldState() = default;  // 코드로 만든 그림은 FieldTexture
 
 void FieldState::handle_input(const engine::InputState& input, const InputBindings& bindings) {
     intent_.update(bindings, input);  // 새로 누른 방향키를 기억
-    if (bindings.pressed(Action::Dodge, input)) {
-        // 바로 구르지 않고 메모장에 적어 둬요. 다음 박자 계산 때 꺼내 써요.
-        // (이번 화면에 박자 계산이 0번이어도 버튼이 사라지지 않아요)
-        player_.press_dodge();
-    }
-    if (bindings.pressed(Action::Attack, input)) {
-        player_.press_attack();  // 공격도 메모장에 적어 둬요 (콤보는 취소 구간에서 이어져요)
-    }
-    if (bindings.pressed(Action::Cast, input)) {
-        player_.press_cast();  // 마술도 메모장에 (L / C)
-    }
+    // 구르기는 바로 하지 않고 메모장에 적어 둬요. 다음 박자 계산 때 꺼내 써요.
+    // (이번 화면에 박자 계산이 0번이어도 버튼이 사라지지 않아요)
+    if (bindings.pressed(Action::Dodge, input)) player_.press_dodge();
+    if (bindings.pressed(Action::Attack, input)) player_.press_attack();  // 공격도 메모장에 (콤보는 취소 구간에서 이어져요)
+    if (bindings.pressed(Action::Cast, input)) player_.press_cast();      // 마술도 메모장에 (L / C)
     if (bindings.pressed(Action::Interact, input)) rest_.press_interact();  // E: 쿠션에서 쉬기·일어나기 (13b)
-    if (bindings.pressed(Action::ToggleCollision, input)) {
-        show_collision_ = !show_collision_;  // F4: 못 가는 칸과 발 상자 표시 켜기/끄기
-    }
+    // F4: 못 가는 칸과 발 상자 표시 켜기/끄기
+    if (bindings.pressed(Action::ToggleCollision, input)) show_collision_ = !show_collision_;
 }
 
 // 정해진 박자(1/60초)마다 불려요. 캐릭터 이동처럼 "게임 규칙" 계산은 여기서 해요.
@@ -165,6 +161,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     }
     combat_.step(sim_dt, player_, map_.map);  // 칼 판정, 빛 탄 만들기·날리기, 피해·넉백 주기
     progress_.earn(combat_.runes_earned());     // 쓰러뜨린 몬스터의 룬 (13a)
+    items_.step(static_cast<float>(sim_dt), combat_, player_, map_.map);  // 쓰러진 몬스터의 드롭, 자동 줍기 (14b)
     if (combat_.hero_fell()) progress_.fall();  // 쓰러지면 룬 절반을 잃어요 (13a)
     // 멈춤·느림은 진짜 시간으로 줄고, 이번에 누가 맞았으면 멈칫, 주인공이 쓰러졌으면 슬로모션 (12b)
     time_scale_.update(static_cast<float>(dt_seconds), combat_.strongest_hitstop(), combat_.hero_fell());
@@ -202,6 +199,8 @@ void FieldState::frame_update(double dt_seconds, double alpha, float hour) {
     cushion_view_.update(dt, rest_.resting_cushion(), player_.rest(), fx_random_, air_fx_);  // 피어나기, 하트·z (13b)
     auto moving_lights = combat_fx_.lights(combat_, static_cast<float>(alpha));  // 빛 탄 빛 + 쿠션 초록 빛 (13b)
     for (const auto& light : cushion_view_.lights()) moving_lights.push_back(light);
+    for (const auto& light : items_.lights()) moving_lights.push_back(light);  // 바닥 아이템 빛 (14b)
+    items_.update(dt, feet, fx_random_, air_fx_);  // 둥실·반짝·빨려 들기 (14b)
     lighting_.set_moving_lights(std::move(moving_lights));
     lighting_.update(dt, feet, fx_random_, air_fx_);
     air_fx_.update(dt);
@@ -234,6 +233,7 @@ void FieldState::render(engine::RenderQueue& queue) {
     // 허수아비·HP 바·번쩍임, 칼자국, 손끝 빛·빛 탄 (F4면 판정 상자)
     combat_fx_.queue(camera_rig_.camera(), combat_, player_, static_cast<float>(alpha_), show_collision_, queue);
     cushion_view_.queue(camera_rig_.camera(), queue);  // 쿠션과 떠오르는 하트·z (13b)
+    items_.queue(camera_rig_.camera(), queue);  // 바닥 아이템과 빨려 드는 아이콘 (14b)
     engine::queue_particles(ground_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::YSorted, queue);
     engine::queue_particles(air_fx_, camera_rig_.camera(), textures_.particles(), engine::DrawLayer::WorldFx, queue,
                             engine::DrawLayer::Glow);  // 공중 효과는 나뭇잎보다도 위에

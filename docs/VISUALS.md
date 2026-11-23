@@ -348,6 +348,17 @@ Code: `client/src/game/presentation/rune_orbs.*`, `client/src/app/field_ui.cpp` 
 - Counter at the bottom right (12 px margins): a 5 px gold diamond `#ffd678` with a dark outline, then the number in bold. Gains float "+N" in light gold 10 px up over 1.2 s; losses turn the number and "-N" red `#e66054`.
 - Orbs: gold `#ffd678` additive glows 10 px, drawn on the Glow layer (above lighting, so they read at night). Burst 40–90 px/s with drag 5 for 0.3 s, then pulled at 900 px/s² up to 420 px/s toward the hero's body (18 px above the feet); caught within 8 px; at most 64 alive, 2 s life.
 
+## Ground items (phase 14b)
+
+Code: `client/src/game/presentation/loot_view.*`, `client/src/game/ui/loot_toasts.*`, `client/src/app/loot_toast_drawing.*`.
+
+- Icons: `items/item_icons.bmp`, 128×16, one 16×16 cell per catalog `icon` index (generator section "아이템 아이콘"). Dark ink outline so they read on grass.
+- Drop: the icon flies from the fallen monster's feet to its landing spot in a 0.45 s arc 14 px high (ease-out sideways), then bounces once 4 px for 0.15 s. The 0.6 s total is also when it can first be picked up. The bounce follows the item's simulation age, so items already on the ground when you enter a map are simply lying there.
+- Resting: bobs 0–1.5 px (2.4 rad/s, offset per item); a 12×4 shadow that shrinks while it is in the air; every 2.2 s (offset per item) a 9 px additive glint at the icon's top right for 0.3 s (Glow layer).
+- Night: each item gives a small 18 px light (intensity 0.55, slow 0.5 Hz pulse) in its rarity colour: common warm white `#fff0c8`, uncommon sky `#78dcff`, rare pink-violet `#ffaaff`.
+- Pickup: the icon flies to the hero's body (10 px above the feet) in 0.28 s, accelerating (u²) and shrinking to half size, then `fx/item_pickup.json` (8 warm sparks) bursts there.
+- Notice line (bottom left, decided with the developer): band `#00000078`, 16 px icon, text in cream `#f0e8c8` ("슬라임 젤리 ×2") or red-orange `#f07860` ("가방이 가득 찼다 · 롱소드"). Newest line at the bottom (10 px margin), 20 px apart, at most 4 lines. Each slides in 40 px from the left in 0.2 s, stays 2.6 s and fades over the last 0.4 s; picking up the same item within 1 s adds to the count instead of adding a line.
+
 ## New monsters (phase 13c)
 
 Art by `tools/test_content/generate_test_content.ps1`: `monsters/bat.bmp` 48×24 (open wings / folded windup, feet 10 px below the body because it flies), `mushroom.bmp` 64×32 (red cap with white dots and a face on the stem / windup with white spikes and a frown; the side spikes are mostly clipped by the cell, the top three show), `frog.bmp` 48×24 (sitting / puffed cheeks and open mouth). Death bursts: `fx/bat_burst.json` (violet), `fx/spore_burst.json` (slowly rising cream spores), frog reuses `slime_burst`.

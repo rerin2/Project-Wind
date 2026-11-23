@@ -86,7 +86,7 @@ void FieldCombat::collect_runes() {
         if (!monsters_[i].defeated() || rewarded_[i]) continue;  // 살아 있거나 이미 받았어요
         rewarded_[i] = true;
         runes_earned_ += monsters_[i].data().rune_reward;
-        rune_drops_.push_back({monsters_[i].feet(), monsters_[i].data().rune_reward});  // 연출: 룬이 빨려 들어요 (13c)
+        rune_drops_.push_back({monsters_[i].feet(), monsters_[i].data().rune_reward, i});  // 연출: 룬이 빨려 들어요 (13c)
     }
 }
 

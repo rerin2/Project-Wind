@@ -267,6 +267,7 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 
 - `max_hp` 1–99,999; `attack_power`, `defense` 0–9,999; `move_speed` 1–400 px/s; `detect_range`, `attack_range`, `leash_range` 1–2,000 px with **attack ≤ detect ≤ leash**.
 - `rune_reward` 0–9,999,999 (required, 13a): runes the hero gets when the monster falls (once per monster, on the step its HP reaches 0).
+- `drops` (optional, 14b): up to 8 lines `{ "item": "slime_jelly", "chance": 0.5, "count": [1, 2] }`. `item` is a catalog id (checked against `items/catalog.json` when a field opens, and by the `MonsterDrops` test); `chance` above 0 and at most 1; `count` a whole number or `[min, max]` from 1 to 99 (default 1). Read by `wind/content/drop_table_reader`.
 - `keep_away` 0–2,000 px (optional, 13c): if the hero is closer, the monster steps away (`Monster::step_back`) instead of attacking; must be smaller than `attack_range`. A blocked retreat attacks anyway. Used by the frog.
 - An attack with `projectile` (13c) is a ranged monster attack: the windup warning runs the length of `projectile.range`, there is no contact hitbox, and when the attack starts the monster fires one shot (`Monster::take_shot` → `game::EnemyShots`). Shots fly like the star shard (`Projectile`), hit the hero's hurtbox unless she is invulnerable (dodge, hit, resting) and use the same damage path as lunges (`game::strike_hero`). Monster files: `slime_green`, `bat`, `mushroom`, `frog` (13c).
 - `notice_seconds` 0–2 (the "!" pause before chasing).
@@ -326,6 +327,8 @@ One file lists every item. The order in the file is the order the inventory sort
 - `weapon` is required for `weapon` and not allowed otherwise: a content path that must load as a weapon file (attacks included). Weapon items must have `max_stack` 1; their equip slot is `weapon` (equipping comes in phase 15).
 - Parsed by `wind/content/item_catalog_loader` (`load_item_catalog`) into `items::ItemCatalog` (find by id, `rank` = file order).
 - `items::Inventory` (shared, pure rules): 24 slots by default, stacks fill before new slots, `try_add`/`try_remove` are all-or-nothing, `take_at` takes from one slot, `sort` merges stacks in catalog order and keeps unknown ids at the back.
+- Phase 14b runtime: `client/src/app/item_setup` loads the catalog at start (a broken catalog stops the game, like maps) and owns the bag and `game::LootStore` (ground items per map file, outside the field so they survive travel). The field borrows them as `game::ItemWorld`. `FieldItems` runs `FieldLoot` (rules: drops with its own dice, pickup) in the fixed step and `LootView` (presentation) per frame; pickups and bag-full refusals become `LootNotice`s that the app shows with `game::LootToasts`.
+- Item icons: `items/item_icons.bmp`, 16×16 cells in a row, cell = `icon`.
 
 ### Images
 

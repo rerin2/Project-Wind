@@ -7,6 +7,7 @@
 #include "wind/content/body_readers.hpp"
 #include "wind/content/combat_readers.hpp"
 #include "wind/content/content_path.hpp"
+#include "wind/content/drop_table_reader.hpp"
 #include "wind/content/json_file.hpp"
 #include "wind/content/json_reader.hpp"
 
@@ -129,8 +130,9 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     const auto stagger = reader.number("stagger_seconds", 0.0, kMaxStagger);  // 맞으면 움찔 (11d)
     std::optional<std::string> death_fx;                                      // 사라질 때 효과 (선택, 11d)
     if (reader.has("death_fx")) death_fx = reader.content_path("death_fx");    // 틀리면 공책에 적혀 거절돼요
+    auto drops = read_drop_table(reader);                                     // 드롭 표 (선택, 14b)
     if (!id || !name || !max_hp || !attack || !defense || !runes || !move_speed || !detect || !attack_range ||
-        !leash || !notice || !wander || !body || !hurtbox || !sprite || attacks.empty() || !stagger) {
+        !leash || !notice || !wander || !body || !hurtbox || !sprite || attacks.empty() || !stagger || !drops) {
         if (errors.empty()) errors.add(file, "", "monster is incomplete");
         return {std::nullopt, errors.take()};
     }
@@ -154,6 +156,7 @@ LoadResult<combat::MonsterData> parse_monster(const nlohmann::json& document, co
     data.attacks = std::move(attacks);
     data.stagger_seconds = static_cast<float>(*stagger);
     data.death_fx = std::move(death_fx);
+    data.drops = std::move(*drops);
     if (reader.has("keep_away")) {  // 물러나는 거리 (선택, 13c). 틀리면 공책에 적혀서 아래에서 거절돼요
         if (const auto keep = reader.number("keep_away", 0.0, kMaxRange)) data.keep_away = static_cast<float>(*keep);
     }

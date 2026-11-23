@@ -33,6 +33,7 @@
 #include "game/states/field_assets.hpp"
 #include "game/states/field_combat.hpp"
 #include "game/states/field_rest.hpp"
+#include "game/states/field_items.hpp"
 #include "game/world/exit_watcher.hpp"
 #include "game/states/field_textures.hpp"
 #include "game/presentation/field_lighting.hpp"
@@ -46,6 +47,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace wind::engine {
@@ -102,6 +104,7 @@ public:
                                                             std::string_view player_sheet_path,
                                                             engine::Vec2 viewport,
                                                             HeroProgress& progress,
+                                                            const ItemWorld& items,
                                                             std::string_view spawn_id = "default",
                                                             FieldStress stress = {},
                                                             std::string_view start_weather = {});
@@ -146,6 +149,8 @@ public:
     [[nodiscard]] bool rest_prompt() const { return rest_.prompt_cushion(player_) != nullptr; }
     // 소란스러워서 못 쉰 횟수 (UI가 바뀐 걸 보고 "주변이 너무 소란스럽다"를 띄워요, 13b)
     [[nodiscard]] unsigned rest_denied_count() const { return rest_.denied_count(); }
+    // 지난번 뒤로 주운 아이템·가득 차서 못 주운 아이템 (왼쪽 아래 알림 줄용, 14b). 가져가면 비워요.
+    [[nodiscard]] std::vector<LootNotice> take_loot_notices() { return items_.take_notices(); }
 
     // 맵의 보여 줄 이름 (지역 이름 배너용, 예: "시험 초원")
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }
@@ -184,6 +189,7 @@ private:
         std::vector<engine::TextureHandle> dummies;    // 허수아비마다 그림 (assets.dummies와 같은 순서)
         std::vector<engine::TextureHandle> monsters;   // 몬스터마다 그림 (assets.monsters와 같은 순서, 11a)
         engine::TextureHandle cushion;                 // 캣닢 쿠션 그림 판 (13b)
+        engine::TextureHandle item_icons;              // 아이템 아이콘 그림 판 (14b)
     };
 
     // create()를 통해서만 만들어요. (준비물 검사를 빼먹지 않도록)
@@ -191,7 +197,7 @@ private:
                engine::TextureHandle player_texture,
                FieldSprites sprites,
                std::string_view start_weather, engine::Vec2 viewport, std::uint32_t stress_lights,
-               HeroProgress& progress);
+               HeroProgress& progress, const ItemWorld& items, MapLoot& loot);
 
     // 지금 화면에 그릴 발 위치 (두 박자 사이를 이은 위치)
     [[nodiscard]] engine::Vec2 drawn_feet() const;
@@ -210,6 +216,7 @@ private:
     DeathFx death_fx_;                       // 쓰러짐 연출 시계: 흑백 정도, 눕는 정도 (12b)
     FieldCombatFx combat_fx_;               // 싸움 연출: 허수아비·칼자국·빛 탄·번쩍임·흔들림·피해 숫자
     CushionView cushion_view_;              // 쿠션 연출: 시든·피어난 모습, 초록 빛, 하트·z (13b)
+    FieldItems items_;                      // 아이템: 드롭·자동 줍기(규칙)와 튀기·반짝·빨려 들기(연출), 알림 (14b)
     MovementIntent intent_;                  // 어느 방향으로 가고 싶은지
     engine::ParticleRandom fx_random_;       // 파티클 주사위
     engine::ParticlePool ground_fx_;         // 땅 효과 통 (먼지): 캐릭터와 발 위치로 줄 서요

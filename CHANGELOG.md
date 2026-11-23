@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Phase 14b — drops and pickup
+- Monster data: optional `drops` table (`wind/content/drop_table_reader`, up to 8 lines, chance, count range).
+  Slime, bat, mushroom and frog now drop materials and potions ("normal" rates; mushroom 5 % longsword).
+- Ground items per map (`game::MapLoot`, 64 max, oldest removed; `game::LootStore` outside the field) survive
+  travel, rest and respawn. `FieldLoot`: drops roll with their own dice and scatter 10–20 px; auto pickup within
+  36 px after 0.6 s, all-or-nothing, each item only once; bag full → stays and warns once (again after 48 px away).
+- Maps whose monsters drop unknown items do not open (`FieldItems::drops_known`, `MonsterDrops` test).
+- Visuals: `LootView` (arc + bounce, bob, glint, rarity light at night, fly-in with `fx/item_pickup.json`),
+  item icons `items/item_icons.bmp` (generator section), bottom-left notice line `LootToasts`.
+- `RuneDropEvent` carries the monster index. App: `item_setup` (catalog, bag, loot store), test option
+  `--fill-bag <item>`. `FieldState` delegates items to `FieldItems` (kept at 300 lines).
+- 653 CTest tests.
+
 ### Phase 14a — item catalog and bag rules
 - Item catalog `content/items/catalog.json` (schema 1): 회복 물약, 별빛 물약, 슬라임 젤리, 박쥐 날개, 버섯 가시,
   개구리 침샘, 롱소드. Loader `wind/content/item_catalog_loader` validates kinds, ranges, use/weapon fields and that

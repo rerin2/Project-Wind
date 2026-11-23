@@ -13,7 +13,7 @@ Replace the experience/level-up design with soulslike progression.
 2. **Level up only at save points** ("catnip cushions": rest restores HP, MP, stamina and status, sets the respawn point, respawns monsters and saves the game; see spec 8.7). The player picks which stat to raise; each level adds 1 to one stat. Confirming is all-or-nothing.
 3. **Five stats, 1–60 each:** vigor (max HP), mind (max MP), endurance (max stamina), strength (physical attack scaling, carry weight), intelligence (magic attack, spell requirements, spell slots). Level = sum of stats − 49 (start 1, max 251). Only the five stats are saved; everything else is computed by one function from data curves with soft caps.
 4. **Level cost** `floor(a + b·(L−1) + c·(L−1)²)` with data coefficients a = 100, b = 40, c = 6. This is our own curve, not copied from another game.
-5. **Death** loses `floor(runes / 2)`. Level, stats and items are kept. Lost runes cannot be recovered (initial rule). The game saves right after the loss so reloading cannot undo it.
+5. **Death** loses `floor(runes / 2)`. Level, stats and items are kept. Lost runes cannot be recovered (initial rule; superseded on 2026-11-23 by `0010-rune-recovery.md`: lost runes stay at the death spot and can be recovered once). The game saves right after the loss so reloading cannot undo it.
 6. **Weapons** (dagger 2, longsword 6, greatsword 14 weight) differ in base power, strength scaling, timing, combo length and stamina per swing. A weapon heavier than the strength-based carry weight can be equipped but is "heavy": attack timeline ×1.3, attack stamina ×1.5. Attacks cost stamina.
 7. **Sorceries ("starlight sorcery")**: star shard (basic bolt), great star shard (slow heavy bolt), star swarm (orbiting homing stars), moon blade (melee arc), comet beam (held beam, MP per second). Each has an intelligence requirement; spell slots (2–4) grow with intelligence; slots change at cushions.
 
@@ -36,4 +36,4 @@ Mechanics are inspired by the soulslike genre and by popular sorcery archetypes 
 
 ## Open
 
-- Rune recovery at the death spot, poise, a dexterity stat for daggers, catalysts (staffs) that change magic power.
+- ~~Rune recovery at the death spot~~ (decided in 0010), poise, a dexterity stat for daggers, catalysts (staffs) that change magic power.

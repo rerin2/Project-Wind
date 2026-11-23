@@ -17,5 +17,9 @@
   "sprite": { "image": "monsters/bat.bmp", "frame": [24, 24], "origin": [12, 22] },
   "attacks": ["attacks/bat_dive.json"],
   "stagger_seconds": 0.2,
-  "death_fx": "fx/bat_burst.json"
+  "death_fx": "fx/bat_burst.json",
+  "drops": [
+    { "item": "bat_wing", "chance": 0.5 },
+    { "item": "mp_potion", "chance": 0.1 }
+  ]
 }

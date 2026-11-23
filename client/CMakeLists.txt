@@ -118,6 +118,7 @@ add_library(wind_game_core STATIC
     src/game/presentation/cushion_view.cpp
     src/game/presentation/debug_boxes.cpp
     src/game/presentation/rune_orbs.cpp
+    src/game/presentation/loot_view.cpp
     src/game/presentation/weather_system.cpp
     src/game/presentation/fog_layer.cpp
     src/game/presentation/field_atmosphere.cpp
@@ -133,10 +134,16 @@ add_library(wind_game_core STATIC
     src/game/ui/fallen_screen.cpp
     src/game/ui/level_up_sheet.cpp
     src/game/ui/cushion_menu.cpp
+    src/game/ui/loot_toasts.cpp
     src/game/ui/rune_counter.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp
     src/game/states/field_rest.cpp
+    src/game/states/field_items.cpp
+    src/game/items/drop_roll.cpp
+    src/game/items/map_loot.cpp
+    src/game/items/loot_store.cpp
+    src/game/items/field_loot.cpp
     src/game/progression/hero_progress.cpp
     src/game/progression/hero_tuning.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
@@ -155,6 +162,8 @@ add_executable(wind_client
     src/app/cushion_menu_view.cpp
     src/app/cushion_menu_panel.cpp
     src/app/damage_number_drawing.cpp
+    src/app/loot_toast_drawing.cpp
+    src/app/item_setup.cpp
     src/app/ui_test_panel.cpp
     src/app/ui_resources.cpp
     src/app/transition_view.cpp
@@ -224,6 +233,12 @@ if(WIND_BUILD_TESTS)
         tests/cushion_menu_tests.cpp
         tests/rune_counter_tests.cpp
         tests/rune_orbs_tests.cpp
+        tests/drop_roll_tests.cpp
+        tests/map_loot_tests.cpp
+        tests/loot_store_tests.cpp
+        tests/field_loot_tests.cpp
+        tests/loot_view_tests.cpp
+        tests/loot_toasts_tests.cpp
         tests/enemy_shots_tests.cpp
         tests/monster_senses_tests.cpp
         tests/monster_tests.cpp

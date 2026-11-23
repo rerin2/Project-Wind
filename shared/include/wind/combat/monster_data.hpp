@@ -3,11 +3,12 @@
 // 이 파일은 무엇을 하나요?
 // 몬스터 설명(데이터)이에요. (명세 9.6, 14.2) 숫자는 content/monsters/*.json에서 읽어요.
 // 11a: 대기·배회 칸. 11b: 알아채기 시간과 공격 목록 (감지·공격·추적 한계 거리를 쓰기 시작해요).
-// 11d: 맞으면 움찔하는 시간과 사라질 때 효과(선택). 13a: 쓰러뜨리면 주는 룬. 드롭 표(14단계)는 그 단계에서 칸을 더해요.
+// 11d: 맞으면 움찔하는 시간과 사라질 때 효과(선택). 13a: 쓰러뜨리면 주는 룬. 14b: 드롭 표(선택).
 
 #include "wind/combat/attack.hpp"
 #include "wind/combat/hurtbox_shape.hpp"
 #include "wind/combat/sprite_strip.hpp"
+#include "wind/items/drop_entry.hpp"
 
 #include <optional>
 #include <string>
@@ -44,6 +45,7 @@ struct MonsterData {
     std::optional<std::string> death_fx;  // 쓰러져 사라질 때 터지는 파티클 효과 (선택, 11d)
     int rune_reward = 0;                  // 쓰러뜨리면 주인공이 받는 룬 (13a)
     float keep_away = 0.0f;               // 주인공이 이보다 가까우면 물러나요 (픽셀, 선택, 0이면 안 물러남, 13c 개구리)
+    std::vector<items::DropEntry> drops;  // 쓰러뜨리면 떨어뜨리는 아이템 표 (선택, 비면 없음, 14b)
 };
 
 }  // namespace wind::combat

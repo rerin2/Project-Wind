@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "item_pickup",
+  "shape": "pixel",
+  "blend": "add",
+  "lifetime": [0.2, 0.35],
+  "speed": [40, 90],
+  "direction": 270,
+  "spread": 360,
+  "drag": 5,
+  "spawn_radius": 2,
+  "start_size": [1, 2],
+  "end_size": 1,
+  "start_color": "#fffbe0ff",
+  "end_color": "#ffd77a00",
+  "fade_out": 0.5,
+  "burst": 8
+}
