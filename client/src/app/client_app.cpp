@@ -9,7 +9,7 @@
 #include "app/debug_overlay.hpp"
 #include "app/field_ui.hpp"
 #include "app/item_setup.hpp"
-#include "app/loot_toast_drawing.hpp"
+#include "app/item_hud.hpp"
 #include "app/screenshot_flash.hpp"
 #include "app/screenshot_name.hpp"
 #include "app/scripted_input.hpp"
@@ -23,7 +23,6 @@
 #include "engine/resources/resource_manager.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/progression/hero_progress.hpp"
-#include "game/ui/loot_toasts.hpp"
 #include "game/world/game_clock.hpp"
 #include "app/cushion_menu_panel.hpp"
 #include "app/field_session.hpp"
@@ -148,8 +147,7 @@ int ClientApp::run() {
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
-    game::LootToasts loot_toasts;                            // 왼쪽 아래 아이템 알림 줄 (14b)
-    const auto item_icons = resources.texture(game::kItemIconsTexture);  // 알림 줄 아이콘 (14b)
+    ItemHud item_hud(*item_setup, resources.texture(game::kItemIconsTexture));  // 알림 줄·인벤토리 화면 (14b·14c)
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.
@@ -167,9 +165,10 @@ int ClientApp::run() {
         const UiCommand command = field_ui.handle_input(input, bindings, ui_used_quit);
         // 쿠션 메뉴 (13c): 열려 있으면 키를 메뉴가 써요 (Esc = 떠나기). 이번 장은 게임 입력도 막아요.
         const bool menu_open = cushion_menu.is_open();
-        if (menu_open && cushion_menu.handle_input(input, bindings, *progress, session.field(), field_ui)) {
-            ui_used_quit = true;
-        }
+        if (menu_open && cushion_menu.handle_input(input, bindings, *progress, session.field(), field_ui)) ui_used_quit = true;
+        // 인벤토리 (14c): 옮기는 중·쓰러짐·쉬는 중·쿠션 메뉴가 아니면 I로 열어요. 열려 있으면 Esc는 화면이 써요
+        const bool bag_allowed = !session.busy() && !session.field().hero_down() && !session.field().hero_resting() && !menu_open;
+        if (item_hud.handle_input(input, bindings, session.field(), bag_allowed)) ui_used_quit = true;
         if (!ui_used_quit && bindings.pressed(game::Action::Quit, input)) {
             log::info("Quit requested");
             break;  // Esc
@@ -197,7 +196,7 @@ int ClientApp::run() {
             input.set_key(move_key(*options_.auto_move), true);
         }
         // 맵을 옮기는 중(페이드)이거나 UI 창이 열려 있으면 캐릭터가 움직이지 않게 키를 막아요.
-        const bool blocked = session.busy() || field_ui.captures_input() || menu_open;
+        const bool blocked = session.busy() || field_ui.captures_input() || menu_open || item_hud.bag_open();
         const engine::InputState& game_input = blocked ? no_input : input;
 
         // 3. 누른 키를 필드에 알려 줘요 (구르기 버튼은 메모장에 적어 둬요).
@@ -235,8 +234,7 @@ int ClientApp::run() {
         hud.runes = progress->runes();            // 오른쪽 아래 룬 숫자 (13c)
         hud.lost_runes = progress->last_lost();   // "쓰러졌다" 화면의 잃은 룬 (13c)
         field_ui.update(static_cast<float>(frame_seconds), hud);
-        for (const auto& notice : session.field().take_loot_notices()) loot_toasts.push(notice, item_setup->catalog);
-        loot_toasts.update(static_cast<float>(frame_seconds));  // 주움·가득 참 알림 (14b)
+        item_hud.update(static_cast<float>(frame_seconds), session.field(), bag_allowed);  // 알림·인벤토리 (14b·14c)
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();
@@ -257,7 +255,7 @@ int ClientApp::run() {
         // 7. HUD(스태미나 바)와 지역 이름 배너. 화면 가리기보다 아래라서 맵과 함께 어두워져요.
         const engine::Vec2 screen = renderer.logical_size();
         field_ui.draw_hud(painter, screen);
-        draw_loot_toasts(painter, item_icons, screen, loot_toasts);  // 왼쪽 아래 아이템 알림 줄 (14b)
+        item_hud.draw(painter, screen);  // 왼쪽 아래 알림 줄과 인벤토리 화면 (14b·14c)
         // 8. 맵을 옮기는 중이면 화면을 검게 가려요 (디버그 정보판은 그 위에 보여요).
         //    아이리스는 주인공을 가운데 두고 오므라들어요. 못 간 출구가 있으면 잠깐 알려 줘요.
         draw_transition(renderer, session.fade(), session.field().focus_on_screen());

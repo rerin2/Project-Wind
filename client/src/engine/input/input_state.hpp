@@ -34,6 +34,8 @@ enum class Key : std::uint8_t {
     L,
     C,
     E,      // 살펴보기·쉬기 (13b)
+    I,      // 인벤토리 열기·닫기 (14c)
+    R,      // 인벤토리 정렬 (14c)
     Shift,  // 왼쪽·오른쪽 Shift 둘 다
     F3,
     F4,

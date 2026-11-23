@@ -359,6 +359,17 @@ Code: `client/src/game/presentation/loot_view.*`, `client/src/game/ui/loot_toast
 - Pickup: the icon flies to the hero's body (10 px above the feet) in 0.28 s, accelerating (u²) and shrinking to half size, then `fx/item_pickup.json` (8 warm sparks) bursts there.
 - Notice line (bottom left, decided with the developer): band `#00000078`, 16 px icon, text in cream `#f0e8c8` ("슬라임 젤리 ×2") or red-orange `#f07860` ("가방이 가득 찼다 · 롱소드"). Newest line at the bottom (10 px margin), 20 px apart, at most 4 lines. Each slides in 40 px from the left in 0.2 s, stays 2.6 s and fades over the last 0.4 s; picking up the same item within 1 s adds to the count instead of adding a line.
 
+## Bag screen (phase 14c)
+
+Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentation/rarity_color.hpp`.
+
+- A panel on the left of the screen (16 px from the edge, centred vertically), so the heroine and nearby monsters in the middle stay visible while time runs. It slides in 12 px from the left over 0.18 s (OutCubic) while fading in.
+- Title "가방" in bold gold, used/total slots on the right in dim text.
+- Slots: 26 px cells on a 28 px pitch, 6 × 4. Dark fill `#0000005a`; empty cells have a dim `#5a6070` border, filled cells a border in the item's rarity colour (the same colours as the ground glow). The chosen cell gets a pale gold fill and a gold outline 1 px outside the cell. Counts above 1 sit at the bottom right on a small `#00000096` band so the icon stays readable.
+- Details under the grid: name in bold rarity colour with "×N" on the right, then kind and effect ("소비 · HP +50" in green `#8edc80`, materials and weapons in dim text), then the description (up to 3 lines). An empty slot shows "빈 칸".
+- Small menu: a 72 px panel right next to the chosen cell with three 18 px buttons (사용 / 버리기 / 취소); unavailable choices are drawn at 40 % and skipped.
+- Bottom hint: "R 정렬 · I 닫기" (dim). The first version also listed Enter and was clipped by the 166 px width, so it was shortened.
+
 ## New monsters (phase 13c)
 
 Art by `tools/test_content/generate_test_content.ps1`: `monsters/bat.bmp` 48×24 (open wings / folded windup, feet 10 px below the body because it flies), `mushroom.bmp` 64×32 (red cap with white dots and a face on the stem / windup with white spikes and a frown; the side spikes are mostly clipped by the cell, the top three show), `frog.bmp` 48×24 (sitting / puffed cheeks and open mouth). Death bursts: `fx/bat_burst.json` (violet), `fx/spore_burst.json` (slowly rising cream spores), frog reuses `slime_burst`.

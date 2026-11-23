@@ -135,6 +135,7 @@ add_library(wind_game_core STATIC
     src/game/ui/level_up_sheet.cpp
     src/game/ui/cushion_menu.cpp
     src/game/ui/loot_toasts.cpp
+    src/game/ui/bag_screen.cpp
     src/game/ui/rune_counter.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp
@@ -163,6 +164,8 @@ add_executable(wind_client
     src/app/cushion_menu_panel.cpp
     src/app/damage_number_drawing.cpp
     src/app/loot_toast_drawing.cpp
+    src/app/bag_screen_view.cpp
+    src/app/item_hud.cpp
     src/app/item_setup.cpp
     src/app/ui_test_panel.cpp
     src/app/ui_resources.cpp
@@ -239,6 +242,7 @@ if(WIND_BUILD_TESTS)
         tests/field_loot_tests.cpp
         tests/loot_view_tests.cpp
         tests/loot_toasts_tests.cpp
+        tests/bag_screen_tests.cpp
         tests/enemy_shots_tests.cpp
         tests/monster_senses_tests.cpp
         tests/monster_tests.cpp

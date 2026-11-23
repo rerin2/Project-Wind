@@ -349,7 +349,7 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 ## Input (spec 5.8)
 
 - `SdlPlatform` translates SDL **scancodes** (physical keys, layout-independent) into engine `Key`s; OS key-repeat events are ignored.
-- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Shift run (held), Space/K/X dodge, J/Z attack, L/C cast, Enter confirm (UI), F3 debug overlay, F4 collision overlay, F5 skip time, F6 next weather, F7 UI test panel, F12 screenshot, Esc quit (closes the UI test panel instead when it is open). Left and right Shift both map to `Key::Shift`.
+- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Shift run (held), Space/K/X dodge, J/Z attack, L/C cast, E interact, I bag (14c), R sort bag (14c), Enter confirm (UI), F3 debug overlay, F4 collision overlay, F5 skip time, F6 next weather, F7 UI test panel, F12 screenshot, Esc quit (closes the UI test panel instead when it is open). Left and right Shift both map to `Key::Shift`.
 - `MovementIntent` turns held move keys into an 8-way unit vector (diagonals are normalized). When opposite keys are both held, the most recently pressed one wins.
 - `InputBuffer` remembers a dodge, attack or cast press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
 - `InputState::set_ui_capture(true)` makes all game queries return false (for menus and text input, phases 15 and 17). In phase 8 the game loop gives the field an empty input while `FieldUi::captures_input()` (UI test panel open) or a map transition is running; the UI itself reads the real input first.

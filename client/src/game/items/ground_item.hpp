@@ -20,6 +20,7 @@ struct GroundItem {
     engine::Vec2 at;          // 떨어진 자리 (맵 위 픽셀, 줍기 거리를 여기서 재요)
     float age = 0.0f;         // 떨어진 뒤 흐른 게임 시간 (초). 튀어 오르는 동안은 못 주워요
     bool full_notice = false; // 가방이 가득 차서 "가득 찼다"를 이미 알렸나 (멀어지면 다시 false)
+    bool wait_for_leave = false; // 주인공이 내려놓은 것: 48픽셀 밖으로 멀어졌다 올 때까지 안 주워요 (14c)
 };
 
 }  // namespace wind::game

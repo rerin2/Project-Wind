@@ -17,6 +17,7 @@
 
 #include "wind/items/item_stack.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -46,6 +47,11 @@ public:
     // 한 박자: 드롭 -> 나이 먹기 -> 줍기
     void step(float dt_seconds, const FieldCombat& combat, const PlayerMotion& hero,
               const world::MapData& map, items::Inventory& bag, const items::ItemCatalog& catalog);
+
+    // 가방 칸 하나의 묶음을 전부 꺼내 주인공 발 앞에 내려놓아요 (인벤토리 "버리기", 14c).
+    // 내려놓은 것은 48픽셀 밖으로 멀어졌다 올 때까지 다시 빨려 들지 않아요.
+    // 빈 칸이거나 쓰러졌거나 쉬는 중이면 아무것도 바꾸지 않고 false예요.
+    bool put_down(std::size_t slot, const PlayerMotion& hero, const world::MapData& map, items::Inventory& bag);
 
     [[nodiscard]] const MapLoot& loot() const { return loot_; }
     // 이번 박자에 주운 아이템들 (다음 박자에 지워져요, 연출·알림용)

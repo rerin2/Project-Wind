@@ -160,3 +160,56 @@ TEST(FieldLoot, DropsLandAroundTheMonsterOnWalkableTiles) {
 }
 
 }  // namespace
+
+// ---- 14c: 인벤토리에서 발 앞에 내려놓기 ----
+
+namespace {
+
+TEST(FieldLoot, PutDownMovesWholeStackInFrontAndWaitsUntilHeroLeaves) {
+    const auto near = make_player(100.0f);  // 오른쪽을 봐요
+    const auto far = make_player(400.0f);
+    const FieldCombat combat({}, 1, 0.0f);
+    const auto map = open_map();
+    const auto catalog = make_catalog();
+    wind::items::Inventory bag;
+    ASSERT_TRUE(bag.try_add(catalog, "jelly", 5));
+    MapLoot loot;
+    FieldLoot field(loot, 3);
+    ASSERT_TRUE(field.put_down(0, near, map, bag));
+    EXPECT_EQ(bag.count_of("jelly"), 0);  // 묶음 전부 나왔어요
+    ASSERT_EQ(loot.items().size(), 1u);
+    EXPECT_EQ(loot.items()[0].stack.count, 5);
+    EXPECT_FLOAT_EQ(loot.items()[0].at.x, 114.0f);  // 바라보는 쪽 14픽셀 앞
+    for (int i = 0; i < 120; ++i) field.step(static_cast<float>(kDt), combat, near, map, bag, catalog);
+    EXPECT_EQ(bag.count_of("jelly"), 0);  // 옆에 있어도 바로 다시 빨려 들지 않아요
+    field.step(static_cast<float>(kDt), combat, far, map, bag, catalog);   // 멀어졌다가
+    field.step(static_cast<float>(kDt), combat, near, map, bag, catalog);  // 돌아오면
+    EXPECT_EQ(bag.count_of("jelly"), 5);  // 다시 주워요
+    EXPECT_TRUE(loot.items().empty());
+}
+
+TEST(FieldLoot, PutDownEmptySlotChangesNothing) {
+    const auto hero = make_player(100.0f);
+    const auto map = open_map();
+    wind::items::Inventory bag;
+    MapLoot loot;
+    FieldLoot field(loot, 3);
+    EXPECT_FALSE(field.put_down(0, hero, map, bag));
+    EXPECT_FALSE(field.put_down(99, hero, map, bag));  // 밖의 칸도 멈추지 않아요
+    EXPECT_TRUE(loot.items().empty());
+}
+
+TEST(FieldLoot, PutDownNextToWallLandsAtFeet) {
+    const auto hero = make_player(90.0f);  // 발은 (90, 300) = 칸 (2, 9), 오른쪽을 봐요
+    auto map = open_map();
+    map.walkable[static_cast<std::size_t>(9 * map.width + 3)] = 0;  // 발 앞(104, 300) = 칸 (3, 9)이 벽
+    const auto catalog = make_catalog();
+    wind::items::Inventory bag;
+    ASSERT_TRUE(bag.try_add(catalog, "jelly", 1));
+    MapLoot loot;
+    FieldLoot field(loot, 3);
+    ASSERT_TRUE(field.put_down(0, hero, map, bag));
+    EXPECT_FLOAT_EQ(loot.items()[0].at.x, 90.0f);  // 벽 안에 놓지 않아요
+}
+
+}  // namespace

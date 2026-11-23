@@ -151,6 +151,11 @@ public:
     [[nodiscard]] unsigned rest_denied_count() const { return rest_.denied_count(); }
     // 지난번 뒤로 주운 아이템·가득 차서 못 주운 아이템 (왼쪽 아래 알림 줄용, 14b). 가져가면 비워요.
     [[nodiscard]] std::vector<LootNotice> take_loot_notices() { return items_.take_notices(); }
+    // 인벤토리 화면 요청 (14c): 이 칸을 발 앞에 내려놓기, 가방 정렬. 다음 박자에 규칙대로 처리해요
+    void request_put_down(std::size_t slot) { items_.request_put_down(slot); }
+    void request_sort() { items_.request_sort(); }
+    // 쿠션에서 쉬는 중인가요? (인벤토리를 열 수 없어요, 14c)
+    [[nodiscard]] bool hero_resting() const { return player_.rest().active(); }
 
     // 맵의 보여 줄 이름 (지역 이름 배너용, 예: "시험 초원")
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }

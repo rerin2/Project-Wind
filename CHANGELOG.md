@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Phase 14c — bag screen
+- New keys I (open/close bag) and R (sort): `engine::Key::I/R`, SDL mapping, `--press i@N` / `r@N`,
+  actions `ToggleBag`, `SortBag`.
+- `game::BagScreen` (6 × 4 grid cursor, small menu 사용/버리기/취소 skipping disabled items, commands) and
+  `client::BagScreenView` (left panel, rarity borders, counts, details, slide-in). `client::ItemHud` groups the bag
+  screen and the 14b notice line and connects them to the game loop; the heroine stands still while it is open.
+- Put down and sort are requests carried out by `FieldItems` on the next step. `FieldLoot::put_down` places the whole
+  stack 14 px in front (feet if blocked) with `GroundItem::wait_for_leave`, so it is not picked up until the hero
+  has been 48 px away.
+- `rarity_color` shared by ground glow, slot borders and item names. "사용" stays dimmed until phase 14d.
+- Spec: phase 14 now has 14d (drinking potions, 0.6 s) and 14e (rune trace, moved from 14d).
+- 663 CTest tests.
+
 ### Phase 14b — drops and pickup
 - Monster data: optional `drops` table (`wind/content/drop_table_reader`, up to 8 lines, chance, count range).
   Slime, bat, mushroom and frog now drop materials and potions ("normal" rates; mushroom 5 % longsword).

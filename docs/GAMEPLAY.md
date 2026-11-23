@@ -323,7 +323,7 @@ Code: `shared/include/wind/progression/*` (`Stats`, `StatCurve`, `derive_stats`,
 - **Level-up cost** from L to L+1 = `floor(100 + 40·(L−1) + 6·(L−1)²)` (1→2: 100, 10→11: 946, 30→31: 6,306, 250→251: 382,066). Raising several levels at once adds each step.
 - **Raising stats** (`HeroProgress::try_raise`, screen in 13c) is all-or-nothing: the target may not lower any stat or pass 60; if the runes are short nothing changes.
 - **Runes:** wallet 0–999,999,999 (extra is dropped). A monster gives its `rune_reward` once, on the fixed step its HP reaches 0 (sword or shard). The green slime gives **12** (spec 14.2 example), so level 2 takes 9 slimes.
-- **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. Lost runes cannot be recovered yet: recovering them from a rune trace at the death spot is decided (spec 8.3.1, decision 0010) and planned for phase 14d. If a kill and the fall land on the same step, the runes are added first, then halved.
+- **Falling** loses `floor(runes ÷ 2)` on the step of the fatal hit; stats and level stay. Lost runes cannot be recovered yet: recovering them from a rune trace at the death spot is decided (spec 8.3.1, decision 0010) and planned for phase 14e. If a kill and the fall land on the same step, the runes are added first, then halved.
 - **Owner:** `HeroProgress` lives in `ClientApp`, outside the field, so stats and runes survive map travel and respawn (agreed 2026-11-22). The field borrows it. Phase 16 saves only the five stats and runes.
 
 ## Cat-nip cushions (phase 13b, spec 8.7)
@@ -426,6 +426,14 @@ For now the hero uses idle, moving, running, attacking, casting, dodging, hit (1
 - A map whose monsters drop an item missing from the catalog does not open (the error is logged).
 - Test option `--fill-bag <item_id>` fills every bag slot with that item.
 
+## Bag screen (phase 14c, spec 10.2, 13.1)
+
+- **I** opens and closes the bag. It cannot open while changing maps, fallen, resting or in the cushion menu, and it closes by itself if one of those starts.
+- The game keeps running while it is open (decided with the developer), but the heroine stands still: the game loop gives the field no input, so monsters can still reach her.
+- Arrows/WASD pick a slot in the 6 × 4 grid (stopping at the edges). **Enter**/E/J on an item opens a small menu: 사용 (use; dimmed until potions can be drunk in 14d), 버리기 (put down), 취소. **R** sorts. **Esc** closes the small menu, then the bag.
+- The screen never changes the bag itself: put down and sort are requests the field carries out on the next fixed step, all-or-nothing (an emptied slot does nothing).
+- **Put down** places the whole stack 14 px in front of the heroine (at her feet if that spot is a wall or water). It is not picked up again until she has been more than 48 px away.
+
 ## Not yet defined
 
-More spells, Q and spell slots (15), the bag screen and using potions (14c), equipment (15), and saves (16) are defined later (spec section 19).
+More spells, Q and spell slots (15), drinking potions (14d), rune traces (14e), equipment (15), and saves (16) are defined later (spec section 19).

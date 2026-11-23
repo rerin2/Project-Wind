@@ -9,7 +9,7 @@
 
 namespace wind::game {
 
-std::uint32_t MapLoot::drop(const items::ItemStack& stack, engine::Vec2 from, engine::Vec2 at) {
+std::uint32_t MapLoot::drop(const items::ItemStack& stack, engine::Vec2 from, engine::Vec2 at, bool wait_for_leave) {
     if (items_.size() >= kMaxItems) {
         // 가장 오래된 것(맨 앞)을 지워 자리를 만들어요
         log::info("Ground item limit reached; removing oldest {} x{}", items_.front().stack.item_id,
@@ -18,7 +18,7 @@ std::uint32_t MapLoot::drop(const items::ItemStack& stack, engine::Vec2 from, en
         ++discarded_;
     }
     const std::uint32_t id = next_id_++;
-    items_.push_back({id, stack, from, at});
+    items_.push_back({id, stack, from, at, 0.0f, false, wait_for_leave});
     return id;
 }
 

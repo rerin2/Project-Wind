@@ -37,6 +37,8 @@ InputBindings InputBindings::defaults() {
     b.bind(Action::Cast, Key::L);
     b.bind(Action::Cast, Key::C);
     b.bind(Action::Interact, Key::E);  // 캣닢 쿠션에서 쉬기 (명세 8.7, 13b)
+    b.bind(Action::ToggleBag, Key::I);  // 인벤토리 (14c)
+    b.bind(Action::SortBag, Key::R);    // 인벤토리 정렬 (14c)
     b.bind(Action::ToggleDebug, Key::F3);
     b.bind(Action::ToggleCollision, Key::F4);
     b.bind(Action::Screenshot, Key::F12);

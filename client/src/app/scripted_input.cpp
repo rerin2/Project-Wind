@@ -31,6 +31,8 @@ engine::Key scripted_key(std::string_view name) {
     if (name == "j") return engine::Key::J;
     if (name == "l") return engine::Key::L;
     if (name == "e") return engine::Key::E;  // 쿠션에서 쉬기 (13b)
+    if (name == "i") return engine::Key::I;  // 인벤토리 (14c)
+    if (name == "r") return engine::Key::R;  // 인벤토리 정렬 (14c)
     if (name == "up") return engine::Key::Up;
     if (name == "down") return engine::Key::Down;
     if (name == "left") return engine::Key::Left;

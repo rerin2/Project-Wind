@@ -1,6 +1,6 @@
 # 0010 — Rune recovery at the death spot ("rune trace")
 
-- Status: accepted (design; implementation planned as phase 14d)
+- Status: accepted (design; implementation planned as phase 14e)
 - Date: 2026-11-23
 - Spec reference: master spec 8.3, 8.3.1, 9.5, 12.1, 12.3, 13.1, 18, 19 (phase 14), 23.2
 - Requested by: the developer

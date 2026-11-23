@@ -6,6 +6,7 @@
 
 #include "engine/fx/particle_spawn.hpp"
 #include "game/items/map_loot.hpp"
+#include "game/presentation/rarity_color.hpp"
 #include "game/presentation/shadow_drawing.hpp"
 
 #include "wind/items/item_catalog.hpp"
@@ -34,16 +35,6 @@ constexpr float kFlySeconds = 0.28f;     // 주인공에게 빨려 드는 시간
 constexpr float kFlyEndScale = 0.5f;     // 닿을 때 크기 (처음의 반)
 constexpr float kLightRadius = 18.0f;    // 밤 빛 크기
 constexpr float kLightIntensity = 0.55f; // 밤 빛 밝기
-
-// 희귀도 색 (밤 빛)
-engine::Color rarity_color(items::Rarity rarity) {
-    switch (rarity) {
-        case items::Rarity::Uncommon: return {120, 220, 255, 255};  // 하늘색
-        case items::Rarity::Rare: return {255, 170, 255, 255};      // 분홍빛 보라
-        case items::Rarity::Common: break;
-    }
-    return {255, 240, 200, 255};  // 따뜻한 흰색
-}
 
 }  // namespace
 

@@ -17,6 +17,7 @@
 #include "game/items/loot_notice.hpp"
 #include "game/presentation/loot_view.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -33,7 +34,11 @@ public:
     // 맵 몬스터들의 드롭 표가 모두 도감에 있나요? 없으면 이유를 기록하고 false (맵을 열지 않아요)
     [[nodiscard]] static bool drops_known(const std::vector<Monster>& monsters, const items::ItemCatalog& catalog);
 
-    // 정해진 박자마다: 드롭과 줍기 (규칙), 주운 것은 연출·알림으로 모아 둬요
+    // 인벤토리 화면의 요청 (14c): 다음 박자에 규칙대로 처리해요 (그사이 칸이 바뀌었으면 아무 일도 없어요)
+    void request_put_down(std::size_t slot) { requests_.push_back({Request::Kind::PutDown, slot}); }
+    void request_sort() { requests_.push_back({Request::Kind::Sort, 0}); }
+
+    // 정해진 박자마다: 화면 요청 처리 -> 드롭과 줍기 (규칙), 주운 것은 연출·알림으로 모아 둬요
     void step(float dt_seconds, const FieldCombat& combat, const PlayerMotion& hero, const world::MapData& map);
     // 화면 한 장마다: 연출 시계. feet: 주인공 발 (그린 위치)
     void update(float dt_seconds, engine::Vec2 feet, engine::ParticleRandom& random, engine::ParticlePool& air_fx);
@@ -45,7 +50,15 @@ public:
     [[nodiscard]] const MapLoot& loot() const { return loot_.loot(); }
 
 private:
+    // 인벤토리 화면에서 온 요청 하나 (14c)
+    struct Request {
+        enum class Kind : std::uint8_t { PutDown, Sort };
+        Kind kind = Kind::Sort;
+        std::size_t slot = 0;  // PutDown일 때 어느 칸
+    };
+
     ItemWorld items_;                   // 가방·도감·바닥 아이템 (빌려 씀)
+    std::vector<Request> requests_;     // 다음 박자에 처리할 화면 요청 (14c)
     FieldLoot loot_;                    // 규칙: 드롭·줍기
     LootView view_;                     // 연출
     std::vector<LootNotice> notices_;   // 알림 줄에 띄울 일

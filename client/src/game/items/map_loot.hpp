@@ -20,7 +20,8 @@ public:
     static constexpr std::size_t kMaxItems = 64;  // 맵 하나의 바닥 아이템 상한
 
     // 아이템을 놓고 붙인 번호를 돌려줘요. 상한을 넘으면 가장 오래된 것을 지워요.
-    std::uint32_t drop(const items::ItemStack& stack, engine::Vec2 from, engine::Vec2 at);
+    // wait_for_leave: 주인공이 내려놓은 것이면 true (멀어졌다 올 때까지 안 주워요, 14c)
+    std::uint32_t drop(const items::ItemStack& stack, engine::Vec2 from, engine::Vec2 at, bool wait_for_leave = false);
     // 번호로 지워요 (주웠을 때). 없는 번호면 false
     bool remove(std::uint32_t id);
     // 모든 아이템의 나이를 dt만큼 늘려요

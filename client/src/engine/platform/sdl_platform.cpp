@@ -33,6 +33,8 @@ Key translate(SDL_Scancode code) {
         case SDL_SCANCODE_L: return Key::L;
         case SDL_SCANCODE_C: return Key::C;
         case SDL_SCANCODE_E: return Key::E;
+        case SDL_SCANCODE_I: return Key::I;
+        case SDL_SCANCODE_R: return Key::R;
         case SDL_SCANCODE_X: return Key::X;
         case SDL_SCANCODE_LSHIFT:
         case SDL_SCANCODE_RSHIFT: return Key::Shift;

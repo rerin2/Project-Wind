@@ -31,6 +31,8 @@ std::string_view to_string(Key key) {
         case Key::L: return "L";
         case Key::C: return "C";
         case Key::E: return "E";
+        case Key::I: return "I";
+        case Key::R: return "R";
         case Key::X: return "X";
         case Key::Shift: return "Shift";
         case Key::Unknown:
