@@ -455,6 +455,10 @@ Decision and limits: [ADR 0008](DECISIONS/0008-lighting-with-sdl-renderer.md).
 
 `Tween(from, to, seconds, ease)` changes one float over time; `update(dt)` clamps at the end and ignores negative time; a zero-length tween is finished immediately. `ease()` clamps `t` to 0–1, returns 0 at the start and 1 at the end for every curve (`out_back` and `out_elastic` overshoot in between). `parse_ease` maps data names such as `"out_back"`.
 
+## Save files (spec 12, phase 16a)
+
+The format, file names and write order are in [SAVE_FORMAT.md](SAVE_FORMAT.md). Code is in `shared/include/wind/save/` (no SDL, no game objects): `SaveData` (plain values), `save_to_json` / `save_from_json` (shape and range checks, `save_fields` helpers), `migrate_save` (one step per version, current = 1 + steps), `write_file_atomically` / `copy_file_atomically` (`.tmp` then rename), and `SaveSlots` (slot files 1–3, main and auto, `.bak` only from a readable file, refuses to overwrite a newer-version file or to write data it cannot read back, `restore_backup`, `set_aside` to `.corrupt`). `read_json_file` takes an optional size limit (4 MB for saves). Converting game state to and from `SaveData` is phase 16b.
+
 ## Screenshots
 
 F12, or `--screenshot-at N` (repeatable) for automated checks, saves the frame target as a 640×360 BMP named `wind_YYYYMMDD_HHMMSS_mmm.bmp` (local time). The folder is `--screenshot-dir`, or `%APPDATA%\ProjectWIND\screenshots` (`SdlPlatform::user_data_dir`, via `SDL_GetPrefPath`). Pixels are read in `end_frame` before presenting. A white flash and a "screenshot saved" label follow on the next frames.

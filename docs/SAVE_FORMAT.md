@@ -1,0 +1,130 @@
+# 저장 파일 형식 (SAVE_FORMAT)
+
+명세 12장(저장·불러오기)의 정확한 형식이에요. 형식을 바꾸면 이 문서, `schema_version`, 변환 함수, 테스트를 함께 바꿔요.
+
+- 지금 버전: **`schema_version` 1** (16a, 2026-11-24)
+- 코드: `shared/include/wind/save/` (`SaveData` 모양, 읽기·쓰기, 버전 변환, 슬롯 파일). SDL과 게임 화면을 몰라요.
+
+## 1. 파일 위치와 이름
+
+저장 폴더는 `%APPDATA%\ProjectWIND\saves\` 예요(앱이 `SDL_GetPrefPath`로 정해서 `SaveSlots`에 넘겨요).
+파일 이름은 코드가 슬롯 번호로만 만들어요(밖에서 받은 이름을 쓰지 않으니 폴더 밖으로 나갈 수 없어요).
+
+| 파일 | 뜻 |
+|---|---|
+| `slot_<n>.json` | 슬롯 n(1~3)의 본 저장. 쿠션에서 쉬기·쿠션 메뉴 "저장"·쓰러진 직후 |
+| `slot_<n>.auto.json` | 슬롯 n의 자동 저장. 쓰러진 직후·지역 전환 (슬롯마다 하나, 2026-11-24 개발자와 정함) |
+| `<위 파일>.bak` | 바로 전 저장본 하나 (올바르게 읽히던 것만) |
+| `<위 파일>.tmp` | 쓰는 중인 임시 파일. 남아 있어도 읽지 않고, 다음 저장이 덮어써요 |
+| `<위 파일>.corrupt` | 손상되어 옆으로 치운 파일 (새로 시작할 때, 지우지 않고 보관) |
+
+불러올 때 본 저장과 자동 저장 중 `saved_at`이 더 늦은 것을 써요(16b에서 연결).
+
+## 2. 안전한 쓰기 (명세 12.2)
+
+`SaveSlots::write`의 순서:
+
+1. 저장 폴더가 없으면 만들어요.
+2. 지금 파일이 **올바르게 읽히면** 그 내용을 `.bak`으로 복사해요(원자적 쓰기로).
+   손상된 파일은 `.bak`으로 옮기지 않아요. 그래야 좋은 백업이 손상본으로 덮이지 않아요.
+3. 새 내용을 `.tmp`에 다 쓰고 닫은 뒤, 쓰기가 성공했는지 확인해요.
+4. `.tmp`의 이름을 본 파일 이름으로 바꿔 덮어써요(Windows `MoveFileEx` 교체, 같은 폴더 안이라 한 번에 바뀌어요).
+
+어느 단계에서 꺼져도 본 파일은 "이전 저장" 아니면 "새 저장" 하나예요. 반쯤 쓴 내용은 `.tmp`에만 있어요.
+알려진 한계: 디스크 캐시를 강제로 비우지는(`FlushFileBuffers`) 않아서, 프로그램이 아니라 **전원**이 꺼지면 운영체제에 따라 마지막 저장이 빠질 수 있어요(이전 저장은 `.bak`에 남아요).
+
+## 3. 읽기와 검사
+
+`SaveSlots::read` 순서: 크기(최대 **4 MB**) → JSON 해석 → 버전 확인·변환 → 칸 검사. 어디서 실패해도 크래시하지 않고 결과로 알려요.
+
+| 결과 (`SaveStatus`) | 뜻 | 게임이 할 일 (16b) |
+|---|---|---|
+| `Ok` | 읽음 | 불러오기 |
+| `Missing` | 파일 없음 | 새 게임 |
+| `Corrupt` | JSON이 아니거나, 칸이 틀렸거나, 너무 큼 | 확인 창: "Enter 백업 불러오기 / Esc 새 게임" (백업이 `Ok`일 때만 백업 항목) |
+| `TooNew` | 모르는 미래 버전 | 읽지도 덮어쓰지도 않음 |
+
+본 파일이 `Ok`가 아니면 `.bak`도 읽어 보고 그 결과를 함께 알려 줘요(`SlotRead::backup`).
+`restore_backup`은 `.bak`을 본 파일로 원자적으로 복사하고, `set_aside`는 손상본을 `.corrupt`로 옮겨요.
+
+검사는 **모양과 범위**만 봐요(콘텐츠를 모르는 `shared`). 아이템·마술·맵이 실제로 있는지는 게임이 불러올 때 확인해요(16b).
+
+## 4. 버전 변환
+
+- 최상위 `schema_version`(정수)을 먼저 읽어요. 없거나 1보다 작으면 `Corrupt`, 지금보다 크면 `TooNew`.
+- 지금보다 작으면 변환 단계를 차례로 돌려요. 단계 i는 버전 i → i+1 하나만 바꾸는 함수예요(`save_migration.cpp`의 표).
+  한 단계가 실패하면 `Corrupt`예요. 단계마다 테스트를 하나씩 둬요.
+- 지금 버전 = 1 + 변환 단계 수. 버전 1에는 아직 단계가 없어요(변환 틀은 테스트용 가짜 단계로 시험해요).
+- 변환은 메모리 안에서만 해요. 파일은 다음 저장 때 새 버전으로 써져요.
+
+## 5. 버전 1 칸
+
+비어 있는 칸(빈 마술 칸, 빈 장비 칸, 빈 가방 칸, 없는 흔적)은 `null`이에요. 빈 글자 `""`는 틀린 값이에요.
+id(아이템·마술·쿠션·깃발)는 1~64바이트 글자, 맵은 콘텐츠 폴더 안 위치(`maps/x.json`, `..`·절대 경로 거부)예요.
+
+```json
+{
+  "schema_version": 1,
+  "game_version": "0.1.0",
+  "saved_at": 1795400000,
+  "play_time_seconds": 1234.5,
+  "hero": {
+    "stats": { "vigor": 12, "mind": 10, "endurance": 10, "strength": 11, "intelligence": 20 },
+    "runes": 1500,
+    "hp": 98,
+    "mp": 42.5,
+    "position": { "map": "maps/test_meadow.json", "x": 208.0, "y": 408.0 },
+    "last_cushion": { "map": "maps/test_meadow.json", "id": "meadow_cushion" },
+    "discovered_cushions": ["meadow_cushion"],
+    "rune_trace": { "map": "maps/test_meadow.json", "x": 300.0, "y": 410.0, "amount": 250 }
+  },
+  "spells": {
+    "learned": ["star_shard", "moon_blade"],
+    "slots": ["star_shard", "moon_blade", null, null],
+    "selected": 1
+  },
+  "inventory": [ { "item": "red_potion", "count": 3 }, null, null ],
+  "equipment": { "weapon": "longsword", "head": null, "body": null, "accessory": null },
+  "quick_slots": ["red_potion", null, null, null],
+  "ground_items": [
+    { "map": "maps/test_meadow.json", "items": [ { "item": "slime_gel", "count": 1, "x": 320.0, "y": 400.0 } ] }
+  ],
+  "world_flags": [],
+  "clock": { "day": 2, "hour": 18.5 }
+}
+```
+
+| 칸 | 모양·범위 | 비고 |
+|---|---|---|
+| `game_version` | 글자 1~32 | 저장한 게임 버전 (읽기만, 판단에 안 씀) |
+| `saved_at` | 정수 0~2^53 | 저장한 때 (유닉스 초, UTC). 본/자동 중 새것 고르기 |
+| `play_time_seconds` | 0~10^9 | 플레이 시간 |
+| `hero.stats` | 다섯 칸 모두 1~60 | 레벨·파생값은 저장하지 않고 계산 |
+| `hero.runes` | 0~999,999,999 | 룬 지갑 상한 |
+| `hero.hp` | 정수 0~100,000 | |
+| `hero.mp` | 0~100,000 | 스태미나는 저장하지 않음(불러오면 가득) |
+| `hero.position` | 맵 + 픽셀 x,y (0~10^6) | 쓰러진 직후 저장은 "깨어난 뒤" 자리(마지막 쿠션), 아래 6절 |
+| `hero.last_cushion` | `null` 또는 맵 + id | 있으면 `discovered_cushions`에도 있어야 함 |
+| `hero.discovered_cushions` | id 목록, 최대 512, 겹침 없음 | |
+| `hero.rune_trace` | `null` 또는 맵 + x,y + 양(1~999,999,999) | 명세 8.3.1 |
+| `spells.learned` | id 목록, 최대 64, 겹침 없음 | 배운 순서 |
+| `spells.slots` | 정확히 4칸, id 또는 `null` | 든 마술은 `learned`에 있어야 하고 겹침 없음. 잠긴 칸 여부는 지능으로 계산 |
+| `spells.selected` | 0~3 | 고른 칸 |
+| `inventory` | 칸 목록 1~256칸, 묶음 또는 `null` | 묶음: `item` + `count` 1~999 |
+| `equipment` | 네 칸 `weapon`·`head`·`body`·`accessory`, id 또는 `null` | |
+| `quick_slots` | 정확히 4칸, id 또는 `null`, 겹침 없음 | |
+| `ground_items` | 맵마다 하나(최대 256, 맵 겹침 없음), 맵마다 묶음 최대 512 | 튀어 오름·알림 같은 연출 상태는 저장하지 않음 |
+| `world_flags` | id 목록, 최대 4096, 겹침 없음 | 열린 상자·처치한 보스 (18~19단계부터 씀) |
+| `clock` | `day` 0~10^6, `hour` 0 이상 24 미만 | 게임 시계 |
+
+모르는 칸이 더 있어도 무시해요(앞으로 더할 칸을 옛 게임이 읽어도 깨지지 않게). 퀘스트 상태는 18단계에서 버전 2로 더해요.
+
+## 6. 언제 무엇을 쓰나 (명세 12.3, 16b·16c에서 연결)
+
+| 때 | 파일 | 위치·상태 |
+|---|---|---|
+| 쿠션에서 쉬기 | 본 | 쿠션 자리, 회복된 상태 |
+| 쿠션 메뉴 "저장" | 본 | 쿠션 자리 |
+| 쓰러진 직후 | 본 + 자동 | **깨어난 뒤 상태**: 마지막 쿠션 자리(없으면 맵 기본 자리), HP·MP 가득, 룬은 잃은 뒤, 새 흔적 (2026-11-24 개발자와 정함) |
+| 지역 전환 | 자동 | 새 지역 입구 |
+| 룬 흔적 되찾기 | 저장 안 함 | 명세 12.3 |

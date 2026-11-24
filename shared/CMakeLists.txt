@@ -13,6 +13,7 @@ configure_file(
 #   combat/  : 공격·무기·마술·몬스터 데이터, 피해 계산 (SDL 없는 순수 규칙)
 #   progression/ : 능력치·곡선·파생값 계산·레벨 비용·룬 지갑 (13a, 순수 규칙)
 #   items/   : 아이템 도감·인벤토리 규칙 (14a, 순수 규칙)
+#   save/    : 저장 파일 모양·읽기/쓰기·버전 변환·슬롯 파일 (16a, docs/SAVE_FORMAT.md)
 add_library(wind_shared STATIC
     src/log.cpp
     src/cli.cpp
@@ -53,7 +54,13 @@ add_library(wind_shared STATIC
     src/items/item_catalog.cpp
     src/items/inventory.cpp
     src/items/equipment.cpp
-    src/items/quick_slots.cpp)
+    src/items/quick_slots.cpp
+    src/save/save_fields.cpp
+    src/save/save_writer.cpp
+    src/save/save_reader.cpp
+    src/save/save_migration.cpp
+    src/save/atomic_file.cpp
+    src/save/save_slots.cpp)
 add_library(wind::shared ALIAS wind_shared)
 
 # 사용하는 쪽은 #include "wind/..." 형태로 헤더를 쓴다 (생성된 헤더 포함).
@@ -103,7 +110,12 @@ if(WIND_BUILD_TESTS)
         tests/equipment_tests.cpp
         tests/heavy_weapon_tests.cpp
         tests/spell_book_tests.cpp
-        tests/quick_slots_tests.cpp)
+        tests/quick_slots_tests.cpp
+        tests/save_writer_tests.cpp
+        tests/save_reader_tests.cpp
+        tests/save_migration_tests.cpp
+        tests/atomic_file_tests.cpp
+        tests/save_slots_tests.cpp)
     target_link_libraries(wind_shared_tests PRIVATE wind::shared GTest::gtest_main)
     # 진짜 시험 맵을 검사하는 시험이 저장소의 content 폴더 위치를 알 수 있게 알려 준다.
     target_compile_definitions(wind_shared_tests PRIVATE

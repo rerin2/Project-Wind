@@ -22,9 +22,11 @@ inline constexpr std::uintmax_t kMaxContentFileBytes = 8u * 1024u * 1024u;
 
 // 파일을 읽어 JSON으로 바꿔요. 실패하면 이유를 공책에 적어요.
 // display_name: 오류 메시지에 보여 줄 파일 이름 (보통 콘텐츠 폴더 기준 위치)
+// max_bytes: 이보다 큰 파일은 읽지 않아요 (저장 파일은 4MB, 16a)
 [[nodiscard]] std::optional<nlohmann::json> read_json_file(const std::filesystem::path& path,
                                                            const std::string& display_name,
-                                                           ErrorList& errors);
+                                                           ErrorList& errors,
+                                                           std::uintmax_t max_bytes = kMaxContentFileBytes);
 
 // 글자를 바로 JSON으로 바꿔요 (테스트나 도구에서 써요).
 [[nodiscard]] std::optional<nlohmann::json> parse_json_text(std::string_view text,

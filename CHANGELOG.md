@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Phase 16a — save format and slot files
+- `docs/SAVE_FORMAT.md` (schema version 1). `shared/…/save/`: `SaveData`, `save_to_json` / `save_from_json`
+  (shape, ranges, duplicates, paths inside the content folder), `migrate_save` (one step per version),
+  `write_file_atomically` / `copy_file_atomically`, `SaveSlots` (slots 1–3, main + auto, `.bak` only from a
+  readable file, newer-version files are not overwritten, `restore_backup`, `set_aside` to `.corrupt`).
+- `read_json_file` takes an optional size limit (saves: 4 MB). Nothing is connected to the game yet (16b).
+- 820 CTest tests.
+
 ### Phase 14e — rune trace (phase 14 complete)
 - Lost runes now stay where the hero fell (spec 8.3.1, decision 0010). `HeroProgress::fall(map, at)` leaves one
   `RuneTrace` (the old one vanishes, remembered as `last_vanished`), `recover_trace` gives everything back once.

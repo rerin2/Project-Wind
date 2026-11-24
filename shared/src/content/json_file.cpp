@@ -26,7 +26,7 @@ std::optional<nlohmann::json> parse_json_text(std::string_view text,
 
 std::optional<nlohmann::json> read_json_file(const std::filesystem::path& path,
                                              const std::string& display_name,
-                                             ErrorList& errors) {
+                                             ErrorList& errors, std::uintmax_t max_bytes) {
     // 1) 파일 크기부터 확인해요. 파일이 없으면 여기서 알게 돼요.
     std::error_code ec;
     const auto size = std::filesystem::file_size(path, ec);
@@ -34,7 +34,7 @@ std::optional<nlohmann::json> read_json_file(const std::filesystem::path& path,
         errors.add(display_name, "", "cannot read file (" + path.string() + "): " + ec.message());
         return std::nullopt;
     }
-    if (size > kMaxContentFileBytes) {
+    if (size > max_bytes) {
         errors.add(display_name, "", "file is too large (" + std::to_string(size) + " bytes)");
         return std::nullopt;
     }

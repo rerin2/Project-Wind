@@ -1516,6 +1516,18 @@ FPS, 프레임 시간, 시뮬레이션 시간, 놓친 박자, 그리기 호출 �
 - 손상된 파일에서 크래시하지 않고 백업 복구를 제안함(테스트)
 - 저장 도중 강제 종료해도 이전 저장이 남음(테스트)
 
+### 16단계 진행 (작은 작업 3개로 나눔, 2026-11-24 개발자와 정함)
+
+개발자와 정함: 자동 저장은 **슬롯마다 하나**(`slot_<n>.auto.json`, 불러올 때 더 새것), 타이틀이 없는 16단계에서 손상 파일은 **작은 확인 창**("Enter 백업 불러오기 / Esc 새 게임", 새 게임이면 손상본은 `.corrupt`로 보관해 `.bak`을 지킴), 쓰러진 직후 저장은 **깨어난 뒤 상태**(마지막 쿠션 자리, HP·MP 가득, 룬은 잃은 뒤). 형식은 `docs/SAVE_FORMAT.md`.
+
+| 작업 | 내용 | 상태 |
+|---|---|---|
+| 16a | `SAVE_FORMAT.md`, `shared` 저장 모양(`SaveData`)·JSON 읽기/쓰기·검사, 버전 변환 틀, 슬롯 파일(원자적 쓰기·`.bak`·손상/미래 버전 구분·백업 되살리기·손상본 치우기) | ✅ 완료 (2026-11-24) |
+| 16b | 게임 상태 ⇄ 저장 모양, 시작할 때 불러오기와 손상 확인 창, 쿠션에서 쉬면 자동 저장 | 대기 |
+| 16c | 쿠션 메뉴 "저장"·저장 아이콘, 쓰러진 직후 저장, 지역 전환 자동 저장 | 대기 |
+
+> 16a 메모 (2026-11-24): 모두 `shared/…/save/`(SDL·게임 객체 없음). `SaveData`는 숫자·글자 묶음(빈 칸은 빈 글자, 파일에는 `null`)이고 게임 상태 ⇄ `SaveData` 바꾸기는 16b에서 한다. `save_to_json`/`save_from_json`(칸 이름·상한은 `SAVE_FORMAT.md` 5절, 하나라도 틀리면 통째로 거절, 모르는 칸은 무시, 칸 읽기 도우미는 `save_fields`로 뺌), `migrate_save`(단계 i = 버전 i → i+1, 지금 버전 = 1 + 단계 수를 `static_assert`로 맞춤, 버전 1이라 진짜 단계는 없고 틀은 가짜 단계 두 개로 테스트), `write_file_atomically`(`.tmp`에 다 쓰고 닫아 확인한 뒤 이름 바꿔 덮어쓰기)·`copy_file_atomically`, `SaveSlots`(슬롯 1~3 본/자동, 이름은 번호로만 만듦, `.bak`은 **올바르게 읽히는 파일만**, **미래 버전 파일은 덮어쓰지 않음**, **다시 읽을 수 없는 내용은 쓰지 않음**, `restore_backup`은 손상본을 `.corrupt`로 치우고 백업을 복사, `set_aside`). `read_json_file`에 크기 상한 인자를 더했다(기본은 그대로 8MB, 저장은 4MB). `saved_at`은 유닉스 초 정수로 정했다(본/자동 중 새것 고르기를 숫자 비교로). 완료 기준 "저장 도중 강제 종료해도 이전 저장이 남음"은 `SaveSlots.CrashMidSaveKeepsThePreviousSave`·`FailedWriteKeepsThePreviousSave`·`AtomicFile.*`, "손상된 파일에서 크래시하지 않고 백업 복구를 제안함"은 `SaveSlots.CorruptFileOffersBackupAndRestoresIt`·`ManyKindsOfDamageAreCorruptNotCrashes`·`SaveReader.SurvivesWrongTypesEverywhere`로 확인(확인 창 화면은 16b). 알려진 한계: 전원이 꺼지는 경우를 위한 `FlushFileBuffers`는 하지 않는다(프로그램 종료에는 안전).
+
 ## 단계 17 — 타이틀·설정·오디오
 작업:
 - 타이틀 화면(살아 있는 배경, 로고 트윈)
