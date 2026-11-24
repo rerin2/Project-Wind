@@ -376,6 +376,18 @@ Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentati
 - Moon blade: the sword's slash-arc sprite (`fx/slash_arc.bmp`) played once on the cut box, tinted moon blue `#aacdff`, additive on the Glow layer, visible 0.24 s (a little longer than a sword arc so the spell reads as magic). The spell's light (`#dce8ff`, radius 44) sits on the box centre and fades with the arc. Code: `SlashArc::play` / `advance`, owned by `FieldCombatFx`.
 - Star swarm stars are ordinary shards to the renderer (glow, trail, end sparkle, light carried per shard), so circling and curving need no new drawing code. Their small size (6 px) and dimmer light (`#9cc8ff`, radius 28, 0.6) keep five of them from washing out the screen.
 
+## Comet beam (phase 15d)
+
+Code: `client/src/game/presentation/beam_view.*` (owned by `FieldCombatFx`), shape from the simulation's `HeroBeam`; tested in `beam_view_tests`.
+
+- Charging (0.5 s) uses the normal hand glow; while the beam is on, `BeamView` draws instead.
+- Body: the round glow sprite every 4 px from the hand to the (wall-clipped) end, three additive layers on the Glow layer: outer ice `#a8dcef` at 51 % alpha, 2.0 × width; middle in the spell light colour (`#c8f0ff`) at 78 %, 1.15 × width; white core `#f2f6f7`, 0.55 × width. A per-bead size wave (±18 %, 0.09 rad/px, moving 22 rad/s outward) makes the energy look like it flows out of the hand. A free end tapers over the last 18 px; an end blocked by a wall stays full width.
+- Opening and closing: width eases in over 0.08 s and out over 0.12 s (smoothstep), so a release fades instead of popping. The opening also adds a 0.25 screen-shake kick (about 1.5 px for a moment).
+- Hand flare 2.6 × width and a wall-impact flare 3.0 × width, both flickering 8 % at 31 Hz; at a wall `star_burst` sparks every 0.07 s. `star_trail` sparkles drift off the whole beam at 3 × its normal rate.
+- Light (spec "주변을 강하게 밝힘"): three lights from the spell data (`#c8f0ff`, radius 110, intensity 1.0) at the hand, the middle (1.2 × radius) and the end, scaled by the open/close strength and the same flicker. Screen check at night: the wall bricks and the grass around the heroine lit up clearly.
+- Hit feel: each 0.1 s strike carries the spell's `shake` 0.06. The trauma model adds `2 × shake` per hit and decays 1.6/s, so 0.1 (the first value) would add 0.2 every 0.1 s, faster than it decays, and pin the shake at full strength while the beam touched anything; 0.06 stays a faint tremor. Damage numbers appear for every strike.
+- F4: the hit band is drawn in the shard purple.
+
 ## Hands HUD (phase 15b)
 
 Code: `client/src/app/hands_hud.*` (owned by `ItemHud`). Spell icons: `ui/spell_icons.bmp`, 128×16, cell = spell `icon` (generator section "마술 아이콘"): 0 star shard, 1 great star shard, 2 star swarm, 3 moon blade, 4 comet beam, each on a navy night-sky disc so they never read as item icons.
@@ -383,7 +395,7 @@ Code: `client/src/app/hands_hud.*` (owned by `ItemHud`). Spell icons: `ui/spell_
 - Bottom-left corner (8 px from the left and bottom edges, spec 13.2): a 24 px weapon cell, 4 px gap, a 24 px spell cell, then the spell name (regular text, 110 px wide) with one 4 px dot per open spell slot under it (7 px apart).
 - Cells: `#00000078` fill (same darkness as the notice band) with a 1 px `#5a6070c8` border; the 16 px icon is centred. An empty weapon cell means bare hands; no spell shows "마술 없음" in dim text.
 - Slot dots: selected slot in strong gold `#ffcc5c`, other filled slots `#9aa3b5`, empty slots outline only. The first try used the theme's focused gold for the selected dot, which was too close to the cream filled dots to tell apart on screen.
-- Not enough MP for one cast (beam: one second of MP): spell icon and name drop to 40 % (the same dimming as unavailable bag menu items).
+- Not enough MP to start (`combat::start_mp`: one cast, or for a beam one 0.1 s strike = 1.2 MP, 15d): spell icon and name drop to 40 % (the same dimming as unavailable bag menu items).
 - Q: the spell icon pops to 1.3× and eases back over 0.18 s (OutCubic, spec 6.9 range).
 - The item notice line now sits 32 px higher so it stacks above these cells (decided with the developer).
 

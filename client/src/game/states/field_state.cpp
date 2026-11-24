@@ -158,6 +158,7 @@ void FieldState::fixed_update(double dt_seconds, const engine::InputState& input
     const engine::Vec2 direction = intent_.direction(bindings, input);
     // 구르기·달리기는 스태미나 규칙에 맞을 때만 돼요 (PlayerMotion이 확인해요).
     const bool run = bindings.held(Action::Run, input);
+    player_.hold_cast(bindings.held(Action::Cast, input));  // 혜성 광선은 누르고 있는 동안만 (15d)
     // 시뮬레이션 시간 = 박자 × 배수 (멈칫 중이면 0, 쓰러진 직후면 0.3~1). 시간을 바꾸는 유일한 길이에요 (명세 3.2).
     const double sim_dt = dt_seconds * time_scale_.scale();
     if (player_.step(sim_dt, direction, run, map_.map)) {

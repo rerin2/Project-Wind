@@ -95,7 +95,7 @@ Code: `client/src/game/combat/spell_caster.*`, `projectile.*`, `client/src/game/
 - **Start:** allowed from idle, moving or running (state table). Not while attacking, dodging or already casting; the press then waits in the buffer and expires. The spell cast is the one in the selected spell slot (see "Spell slots and Q").
 - **MP is paid at the start, all or nothing.** With enough MP it is spent and the cast starts. With too little, nothing is spent, no cast starts, the press is used up (it does not fire later by itself), and a counter goes up so the HUD MP bar blinks.
 - **Cast time:** `cast_seconds` (0.25 s = 15 fixed steps). The spell goes off on the step the time is reached. The direction is fixed when the cast starts (the pressed direction, else the facing) and the hero keeps facing it while casting.
-- **While casting:** walk at 0.4 × speed, no running, no attack, no dodge (spec 8.5: only before a cast or while holding a beam; beams come later). Only single straight-shot spells can be cast yet (star shard, great star shard). Moon blade, star swarm and comet beam can be learned and slotted, but L/C does nothing for them and spends no MP until 15c/15d.
+- **While casting:** walk at 0.4 × speed, no running, no attack, no dodge (spec 8.5: only before a cast or while holding a beam; a dodge while holding the comet beam is allowed and ends it, 15d). All five spells can be cast since 15d.
 
 ## Spell motions (phase 15c, spec 8.6)
 
@@ -108,7 +108,18 @@ Code: `game/combat/hero_magic.*` (owned by `FieldCombat`), orbit/aim/steer in `g
   - **While circling** a star that touches an enemy hits it and vanishes (decided with the developer), so the swarm also guards her briefly.
   - **Leaving:** if an enemy (standing dummy or living monster) is within `range` (260 px) of the star, it aims straight at the nearest one; otherwise it flies in the cast direction (decided with the developer).
   - **Flying:** each step it turns toward the nearest enemy within range by at most `homing` × 8 rad/s (0.8 → about 370°/s), so it curves onto moving targets but can still miss a sharp dodge. It stops at walls and after 260 px like any shard.
-- Comet beam still cannot be cast (15d); pressing L/C with it selected spends nothing.
+- Comet beam: see "Comet beam (phase 15d)".
+
+## Comet beam (phase 15d, spec 8.5, 8.6)
+
+Code: `game/combat/spell_caster.*` (beam phase), `game/entities/player_motion.*` (hold, MP), `game/combat/hero_beam.*` (owned by `HeroMagic`); tested in `spell_caster_tests`, `hero_beam_tests`, `field_spells_tests`.
+
+- **Start:** press L/C like any spell. It needs at least one strike's worth of MP (`mp_per_second × tick_seconds` = 12 × 0.1 = 1.2; `combat::start_mp`, also used by the HUD). Nothing is paid at the start.
+- **Charge:** 0.5 s, walking at the spell's `cast_move_scale` (default 0.4), no dodge. Letting go during the charge cancels it and costs nothing (decided with the developer).
+- **Holding:** after the charge the beam stays on while L/C is held. It costs 12 MP per second, paid every fixed step, and **MP does not regenerate while the beam is on** (decided with the developer), so 50 MP lasts about 4 s. Walking stays slowed, the direction stays fixed.
+- **Ends when:** the key is released; MP cannot pay this step (the MP bar blinks, like a refused cast); the heroine dodges (allowed while holding, spec 8.5: the dodge breaks the beam); she is hit; she falls.
+- **Shape:** a band from the hand (10 px ahead of the feet, 14 px up) in the cast direction, `length` 220 × `width` 14. It is **cut at the first wall** (same wall rule as shards: terrain walls, not tiles blocked only by a dummy), checked in 2 px steps on the ground (decided with the developer).
+- **Hits:** on the step the beam opens and then every `tick_seconds` (0.1 s), every standing dummy and living monster inside the band is hit once (**it passes through enemies**, decided with the developer). Power is per second, so one strike uses `power × tick_seconds` = 3.0 × 0.1 = 0.3: magic attack 12 × 0.3 = 3.6 → **3** after rounding down (30 per second at intelligence 10, not 36; higher intelligence closes the gap). Each strike rolls its own crit and pushes 20 px/s along the beam; there is no hitstop.
 
 ## Spell slots and Q (phase 15b, spec 8.2, 8.6)
 
@@ -496,4 +507,4 @@ For now the hero uses idle, moving, running, attacking, casting, drinking (14d),
 
 ## Not yet defined
 
-Moving moon blade, star swarm (15c) and comet beam (15d), the pause menu and equipment screen (15e), quick item slots (15f), head/body/accessory gear (expansion), and saves (16) are defined later (spec section 19).
+The pause menu and equipment screen (15e), quick item slots (15f), head/body/accessory gear (expansion), and saves (16) are defined later (spec section 19).

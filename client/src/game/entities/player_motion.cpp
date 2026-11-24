@@ -71,14 +71,15 @@ CharacterState PlayerMotion::state() const {
 // 모자라면 메모는 남아 있다가(0.15초 안에 조건이 맞으면 그때 굴러요) 사라져요.
 bool PlayerMotion::try_dodge() {
     const bool attack_allows = !attack_.busy() || attack_.in_cancel_window();
-    // 시전 중에는 못 굴러요 (명세 8.5: 시전 시작 전 또는 광선 유지 중에만. 광선은 15단계)
-    const bool cast_allows = !caster_.busy();
+    // 모으는 중에는 못 굴러요. 광선을 쏘는 중에는 굴러요 (명세 8.5: 시전 시작 전 또는 광선 유지 중에만, 15d)
+    const bool cast_allows = !caster_.busy() || caster_.beaming();
     const bool ok = can_transition(state(), CharacterState::Dodging) && attack_allows && cast_allows &&
                     mover_.can_dodge() && stamina_.can_afford(stamina_.tuning().dodge_cost);
     if (!ok || !buffer_.consume(Action::Dodge)) {
         return false;
     }
     attack_.cancel();  // 공격 중이었으면 후딜을 끊고 굴러요
+    caster_.cancel();  // 광선을 쏘던 중이면 광선이 끊겨요 (15d)
     return true;
 }
 
@@ -109,7 +110,8 @@ void PlayerMotion::try_cast(engine::Vec2 move) {
         return;  // 지금은 못 써요. 메모는 0.15초 동안 남아 있다가 사라져요
     }
     (void)buffer_.consume(Action::Cast);  // 이번 누름은 여기서 처리 끝
-    if (!mana_.try_spend(caster_.mp_cost())) {
+    // 시작할 MP가 있어야 하고(광선은 한 번 맞히는 동안의 MP), 빛 탄·근접은 여기서 MP를 내요 (광선은 0)
+    if (!mana_.can_afford(caster_.mp_to_start()) || !mana_.try_spend(caster_.mp_cost())) {
         ++mana_denied_count_;  // MP 모자람: HUD MP 바가 깜빡여요
         return;
     }
@@ -144,18 +146,16 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     }
     // 4) 공격 중에는 다리가 멈추고(서서히, 단검은 덜 멈춰요 15a), 시전 중에는 천천히 걸어요. 둘 다 달리지 않아요.
     const bool attacking = attack_.busy();
-    // 시전·마시기 중에는 천천히 걸어요 (14d: 마시기도 시전과 같은 0.4배)
-    const bool slow = caster_.busy() || drinker_.busy();
-    const bool casting = caster_.busy();
+    const bool casting = caster_.busy();                 // 모으기·광선 유지 중 (15d)
+    const bool slow = casting || drinker_.busy();        // 시전·마시기 중에는 천천히 걸어요
     const bool staggered = hit_.staggered();  // 경직 중이면 다리도 멈춰요 (11c)
-    // 시전 중 걷기는 마술마다 달라요 (큰 별빛 조각은 멈춤, 15c). 마시기는 0.4배 그대로
+    // 시전 중 걷기는 마술마다 달라요 (큰 별빛 조각은 멈춤 15c, 광선도 같은 칸). 마시기는 0.4배 그대로
     const float slow_scale = casting && caster_.spell() != nullptr ? caster_.spell()->cast_move_scale : kCastWalkScale;
     const float scale = attacking ? attack_.weapon().attack_move_scale : (slow ? slow_scale : 1.0f);
     const engine::Vec2 legs = staggered ? engine::Vec2{} : move * scale;
     // 5) 달리기: Shift + 방향키 + 지침 아님
     const bool run = !attacking && !slow && !staggered && run_held && engine::length(move) > 0.0f &&
                      stamina_.can_run();
-
     const bool started = mover_.step(dt_seconds, legs, dodge, map, run);
     // 넉백: 경직 동안 맞은 쪽으로 밀려나요. 벽에 닿으면 벽을 따라 미끄러져요 (11c). 무적 시간도 여기서 줄어요
     mover_.shove(hit_.step(dt), map);
@@ -171,10 +171,15 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     attack_.step(dt);
     // 6) 스태미나: 이번 박자에 썼으면 기다리는 시간이 다시 시작돼서, 이 update는 채우지 않아요.
     stamina_.update(dt);
-    //    MP는 기다림 없이 늘 조금씩 차요 (1초에 2).
-    mana_.update(dt);
-    // 7) 시전 시간이 다 차면 이번 박자에 마술이 나가요
-    spell_released_ = caster_.step(dt);
+    // 7) 시전 시간이 다 차면 이번 박자에 마술이 나가요. 광선은 버튼을 떼면 여기서 끝나요 (15d)
+    spell_released_ = caster_.step(dt, cast_held_);
+    //    광선을 쏘는 동안 이번 박자 MP를 내요. 모자라면 끊기고 MP 바가 깜빡여요 (15d)
+    if (caster_.beaming() && !mana_.try_spend(caster_.spell()->mp_per_second * dt)) {
+        caster_.cancel();
+        ++mana_denied_count_;
+    }
+    //    MP는 기다림 없이 늘 조금씩 차요 (1초에 2). 광선을 쏘는 동안은 차지 않아요 (15d, 개발자와 정함)
+    if (!caster_.beaming()) mana_.update(dt);
     // 11) 마시기: 꿀꺽 박자에 HP·MP를 채워요 (최대에서 잘려요, 14d)
     if (const auto effect = drinker_.step(dt)) {
         health_.restore(health_.current() + effect->heal_hp);

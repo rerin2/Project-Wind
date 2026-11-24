@@ -113,6 +113,7 @@ add_library(wind_game_core STATIC
     src/game/presentation/field_effects.cpp
     src/game/presentation/field_camera.cpp
     src/game/presentation/spell_view.cpp
+    src/game/presentation/beam_view.cpp
     src/game/presentation/shadow_drawing.cpp
     src/game/presentation/screen_shake.cpp
     src/game/presentation/damage_numbers.cpp
@@ -154,6 +155,7 @@ add_library(wind_game_core STATIC
     src/game/items/weapon_rack.cpp
     src/game/combat/spell_shelf.cpp
     src/game/combat/hero_magic.cpp
+    src/game/combat/hero_beam.cpp
     src/game/items/field_loot.cpp
     src/game/progression/hero_progress.cpp
     src/game/progression/hero_tuning.cpp)
@@ -225,6 +227,7 @@ if(WIND_BUILD_TESTS)
         tests/training_dummy_tests.cpp
         tests/projectile_tests.cpp
         tests/spell_view_tests.cpp
+        tests/beam_view_tests.cpp
         tests/screen_shake_tests.cpp
         tests/damage_numbers_tests.cpp
         tests/spell_caster_tests.cpp
@@ -259,6 +262,7 @@ if(WIND_BUILD_TESTS)
         tests/field_arms_tests.cpp
         tests/field_spells_tests.cpp
         tests/hero_magic_tests.cpp
+        tests/hero_beam_tests.cpp
         tests/field_runes_tests.cpp
         tests/rune_trace_view_tests.cpp
         tests/enemy_shots_tests.cpp

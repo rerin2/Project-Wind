@@ -56,4 +56,12 @@ struct Spell {
     std::optional<SpellLight> light;           // 마술이 내는 빛 (선택)
 };
 
+// 시전을 시작하려면 MP가 적어도 이만큼 있어야 해요 (15d).
+// 빛 탄·근접은 한 번 쓰는 MP, 광선은 한 번 맞히는 동안(tick_seconds)의 MP예요 (혜성 광선 12 × 0.1 = 1.2).
+// 시전기와 HUD(MP 모자라면 아이콘 흐림)가 같은 값을 써요.
+[[nodiscard]] inline float start_mp(const Spell& spell) {
+    if (spell.motion == SpellMotion::Beam && spell.beam) return spell.mp_per_second * spell.beam->tick_seconds;
+    return static_cast<float>(spell.mp_cost);
+}
+
 }  // namespace wind::combat

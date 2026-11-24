@@ -1,6 +1,6 @@
 // 이 파일은 무엇을 하나요?
 // 필드의 마술 담당(15b)과 마술 선반을 숙제 검사(테스트)해요:
-// 고른 마술 쥐여 주기, Q로 다음 칸(시전 중이면 무시), 지능이 오르면 칸이 열림, 아직 못 쓰는 마술은 MP를 안 씀.
+// 고른 마술 쥐여 주기, Q로 다음 칸(시전 중이면 무시), 지능이 오르면 칸이 열림, 혜성 광선도 모으기 시작함(15d).
 #include "game/states/field_spells.hpp"
 
 #include "game/combat/spell_shelf.hpp"
@@ -112,14 +112,17 @@ TEST(FieldSpells, StartingIntelligenceCannotSlotNewSpells) {
     EXPECT_FALSE(f.spells->step(f.hero));  // 칸에는 별빛 조각뿐
 }
 
-// 아직 움직일 수 없는 마술(광선은 15d)은 L을 눌러도 나가지 않고 MP도 그대로예요
-TEST(FieldSpells, NotYetCastableSpellKeepsMana) {
+// 혜성 광선(15d)도 칸에서 고르면 L로 모으기 시작해요. 모으는 동안은 MP를 안 써요
+TEST(FieldSpells, CometBeamStartsChargingWithoutSpendingMana) {
     Fixture f(40);  // 지능 40: 칸 4개, 혜성 광선(36)도 돼요
-    f.learn("comet_beam");
+    f.learn("comet_beam");  // 빈 공책이라 첫 칸에 들어가요
     f.spells->arm(f.hero);
+    ASSERT_EQ(f.hero.caster().spell()->id, "comet_beam");
     const float mana = f.hero.mana().current();
     f.hero.press_cast();
+    f.hero.hold_cast(true);
     f.step();
-    EXPECT_FALSE(f.hero.caster().busy());
-    EXPECT_FLOAT_EQ(f.hero.mana().current(), mana);
+    EXPECT_TRUE(f.hero.caster().busy());
+    EXPECT_FALSE(f.hero.caster().beaming());
+    EXPECT_GE(f.hero.mana().current(), mana);  // 안 줄었어요 (조금 차기만 해요)
 }

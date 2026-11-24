@@ -76,6 +76,7 @@ void HeroMagic::step(float dt_seconds, const PlayerMotion& player, const world::
     ended_.clear();
     slashes_.clear();
     release(player, dummies, monsters, random);  // 1) 이번 박자에 나간 마술
+    beam_.step(dt_seconds, player, map, dummies, monsters, random, magic_power(), base_crit_chance_, hits_);  // 광선 (15d)
     const engine::Vec2 hub = player.mover().feet();
     for (auto& shot : projectiles_) {
         const auto hit_test = [&](const engine::RectF& rect) { return hit_first(shot, rect, dummies, monsters, random); };

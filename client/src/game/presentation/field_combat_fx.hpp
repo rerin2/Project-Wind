@@ -4,7 +4,7 @@
 // 필드 싸움 연출을 한데 모은 담당이에요. (9c, 9e, 10b, 11a) 보여 주기만 하고 게임 결과는 바꾸지 않아요.
 // - 허수아비 그림·HP 바·번쩍임 (CombatView)
 // - 몬스터 그림: 숨쉬기·통통 뛰기, 느낌표, 공격 예고 바닥 표시 (MonsterView, 11a·11b)
-// - 칼자국 (SlashArc), 손끝 빛·빛 탄·꼬리 (SpellView)
+// - 칼자국 (SlashArc), 손끝 빛·빛 탄·꼬리 (SpellView), 혜성 광선 (BeamView, 15d)
 // - 타격감 (10b): 화면 흔들림(ScreenShake), 피해 숫자(DamageNumbers), 타격 불꽃(hit_spark 파티클)
 // - 주인공이 맞을 때 (11c): 화면 흔들림과 화면 가장자리 붉은 비네트(HurtVignette). 깜빡임은 PlayerSprite가 그려요
 // - 몬스터가 맞을 때·사라질 때 (11d): 번쩍임·숫자·불꽃은 허수아비와 같고, 사라지는 순간 death_fx 파티클이 터져요
@@ -20,6 +20,7 @@
 #include "engine/fx/particle_random.hpp"
 #include "engine/light/light.hpp"
 #include "engine/render/render_queue.hpp"
+#include "game/presentation/beam_view.hpp"
 #include "game/presentation/combat_view.hpp"
 #include "game/presentation/damage_numbers.hpp"
 #include "game/presentation/feel_settings.hpp"
@@ -95,6 +96,7 @@ private:
     std::optional<combat::SpellLight> moon_light_;  // 달빛 칼날 빛 (15c)
     engine::Vec2 moon_at_;                        // 벤 자리 가운데
     SpellView spell_;
+    BeamView beam_;                               // 혜성 광선 (15d)
     ScreenShake shake_;
     HurtVignette vignette_;                       // 주인공 피격 붉은 가장자리 (11c)
     engine::TextureHandle vignette_texture_;      // 비네트 그림

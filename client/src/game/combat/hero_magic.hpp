@@ -8,11 +8,13 @@
 //     떠날 때 range 안에 적이 있으면 가장 가까운 적 쪽으로, 없으면 시전 방향으로 날아가요.
 //     날아가는 동안 가장 가까운 적 쪽으로 휘어요(homing). 도는 동안 닿은 적도 맞히고 그 별은 사라져요.
 //   - 달빛 칼날(근접): 그 박자에 앞쪽 상자(melee)에 닿은 대상을 한 번씩 베요.
+//   - 혜성 광선(15d): 쏘는 동안 HeroBeam이 0.1초마다 띠 안의 적을 모두 맞혀요.
 // 피해 = 마법 공격력(지능) × 위력, 그다음은 칼과 같은 규칙(resolve_swing)이에요.
 // 적 = 서 있는 허수아비와 쓰러지지 않은 몬스터. 연출용으로 이번 박자의 맞은 일·사라진 탄·벤 자리를 남겨요.
 // SDL을 몰라서 창 없이 테스트할 수 있어요.
 
 #include "engine/core/math.hpp"
+#include "game/combat/hero_beam.hpp"
 #include "game/combat/hit_resolution.hpp"
 #include "game/combat/projectile.hpp"
 
@@ -54,6 +56,8 @@ public:
     [[nodiscard]] const std::vector<HitEvent>& hits() const { return hits_; }
     [[nodiscard]] const std::vector<ProjectileEndEvent>& ended() const { return ended_; }
     [[nodiscard]] const std::vector<SpellSlashEvent>& slashes() const { return slashes_; }
+    // 혜성 광선 (켜져 있나, 모양, 15d)
+    [[nodiscard]] const HeroBeam& beam() const { return beam_; }
 
     // 손끝 (빛 탄이 나오는 곳, 몸 높이): 발에서 앞으로 10픽셀, 위로 14픽셀
     [[nodiscard]] static engine::Vec2 spell_hand(engine::Vec2 feet, world::Direction facing);
@@ -75,6 +79,7 @@ private:
     std::vector<HitEvent> hits_;              // 이번 박자
     std::vector<ProjectileEndEvent> ended_;   // 이번 박자
     std::vector<SpellSlashEvent> slashes_;    // 이번 박자
+    HeroBeam beam_;                           // 혜성 광선 (15d)
 };
 
 // 가장 가까운 적의 몸 가운데 (from에서 max_distance 안, 없으면 nullopt). 별무리 조준·휘기에 써요 (15c)

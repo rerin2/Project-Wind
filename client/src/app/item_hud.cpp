@@ -96,9 +96,8 @@ HandsInfo ItemHud::hands_info(const game::FieldState& field) const {
     if (const combat::Spell* spell = field.spells().selected()) {
         info.spell_icon = spell->icon;
         info.spell_name = spell->name;
-        // 한 번 쓸 MP (광선은 1초 동안 쓸 MP)가 있어야 흐리지 않아요
-        const float cost = spell->mp_cost > 0 ? static_cast<float>(spell->mp_cost) : spell->mp_per_second;
-        info.spell_affordable = field.mana().current() >= cost;
+        // 시작할 MP (빛 탄·근접은 한 번 쓸 MP, 광선은 한 번 맞히는 동안의 MP)가 있어야 흐리지 않아요
+        info.spell_affordable = field.mana().current() >= combat::start_mp(*spell);  // 시전기와 같은 기준 (15d)
     }
     const auto& book = progress_.spells();
     info.open_slots = std::min<std::size_t>(static_cast<std::size_t>(progress_.derived().spell_slots),

@@ -60,6 +60,8 @@ public:
     [[nodiscard]] const std::vector<Projectile>& projectiles() const { return magic_.projectiles(); }
     // 이번 박자에 달빛 칼날이 벤 자리 (연출: 푸른 칼자국, 15c)
     [[nodiscard]] const std::vector<SpellSlashEvent>& spell_slashes() const { return magic_.slashes(); }
+    // 혜성 광선 (연출이 모양을 보고 그려요, 15d)
+    [[nodiscard]] const HeroBeam& beam() const { return magic_.beam(); }
     // 몬스터가 쏜 침들 (13c, 그리기용)
     [[nodiscard]] const EnemyShots& enemy_shots() const { return enemy_shots_; }
     // 이번 박자에 맞은 일들 (다음 박자에 지워져요)

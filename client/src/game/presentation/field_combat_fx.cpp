@@ -5,6 +5,7 @@
 #include "game/presentation/field_combat_fx.hpp"
 
 #include "engine/fx/particle_spawn.hpp"
+#include "game/entities/facing.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -29,6 +30,22 @@ constexpr engine::Color kSpitCoreColor{220, 255, 170, 255};
 // 달빛 칼날 칼자국 (15c): 칼보다 푸른 달빛 색, 조금 더 오래 보여요. docs/VISUALS.md "Moon blade" 절
 constexpr engine::Color kMoonSlashTint{170, 205, 255, 255};
 constexpr float kMoonSlashSeconds = 0.24f;
+// 혜성 광선이 켜지는 순간 흔들림 (트라우마로 0.5, 약 1.5픽셀 잠깐). docs/VISUALS.md "Comet beam" 절
+constexpr float kBeamOpenShake = 0.25f;
+
+// 시뮬레이션 광선(HeroBeam)을 그릴 모양으로: 손끝은 그리는 발 위치(부드럽게 이어진 곳)에서 다시 재요
+BeamShape beam_shape(const HeroBeam& beam, engine::Vec2 drawn_feet) {
+    BeamShape shape;
+    shape.active = beam.active();
+    shape.hand = FieldCombat::spell_hand(drawn_feet, beam.facing());
+    shape.direction = direction_vector(beam.facing());
+    shape.length = beam.length();
+    shape.width = beam.width();
+    shape.blocked = beam.blocked();
+    shape.hit_rect = beam.rect();
+    shape.light = beam.light();
+    return shape;
+}
 
 }  // namespace
 
@@ -38,6 +55,7 @@ FieldCombatFx::FieldCombatFx(CombatFxSetup setup)
       slash_(setup.slash),
       moon_slash_(setup.slash, kMoonSlashTint),
       spell_(setup.star_trail, setup.star_burst, setup.glow),
+      beam_(setup.star_trail, setup.star_burst, setup.glow),
       vignette_texture_(setup.vignette),
       hit_spark_(setup.hit_spark),
       monster_fx_(setup.monster_fx),
@@ -96,13 +114,16 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
     runes_.update(dt_seconds, {drawn_feet.x, drawn_feet.y - kHeroBodyLift});  // 주인공 몸 가운데로 빨려 들어요
     // 2) 마술: 시전 중이면 손끝 빛, 빛 탄 꼬리, 사라진 자리 반짝
     std::optional<CastGlow> cast;
-    if (player.caster().busy()) {
+    if (player.caster().busy() && !player.caster().beaming()) {  // 모으는 동안만 (광선은 BeamView가 그려요)
         const auto* spell = player.caster().spell();  // 시전 중인 마술의 빛 (15b)
         cast = CastGlow{FieldCombat::spell_hand(drawn_feet, player.cast_facing()), player.caster().progress(),
                         spell != nullptr ? spell->light : std::nullopt};
     }
     spell_.update(dt_seconds, combat.projectiles(), alpha, pending_ends_, cast, random, air_fx);
     pending_ends_.clear();
+    if (beam_.update(dt_seconds, beam_shape(combat.beam(), drawn_feet), random, air_fx)) {
+        shake_.add(kBeamOpenShake);  // 혜성 광선이 켜지는 순간 쿵 (15d)
+    }
     // 3) 나머지 연출의 시간 흘리기: HP 바·번쩍임, 칼자국, 흔들림, 숫자
     view_.update(dt_seconds, combat.dummies());
     monster_view_.update(dt_seconds, combat.monsters());  // 숨쉬기·뜀 세기 (11a)
@@ -150,6 +171,7 @@ void FieldCombatFx::queue(const engine::Camera2D& camera, const FieldCombat& com
     slash_.queue(camera, queue);                                        // 칼자국
     moon_slash_.queue(camera, queue);                                   // 달빛 칼날 (15c)
     spell_.queue(camera, combat.projectiles(), alpha, show_boxes, queue);  // 손끝 빛과 빛 탄
+    beam_.queue(camera, show_boxes, queue);                            // 혜성 광선 (15d)
     runes_.queue(camera, glow_, queue);                                // 빨려 드는 룬 알갱이 (13c)
     queue_enemy_shots(camera, combat, alpha, queue);                   // 몬스터 침 (13c)
     vignette_.queue(vignette_texture_, camera.viewport(), queue);         // 피격 붉은 가장자리 (11c)
@@ -186,6 +208,8 @@ std::vector<engine::Light> FieldCombatFx::lights(const FieldCombat& combat, floa
         result.push_back(light);
     }
     result.insert(result.end(), warnings.begin(), warnings.end());
+    const auto beam = beam_.lights();  // 혜성 광선: 손끝·가운데·끝 (15d)
+    result.insert(result.end(), beam.begin(), beam.end());
     return result;
 }
 
