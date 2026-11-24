@@ -8,6 +8,7 @@
 namespace wind::items {
 class Inventory;
 class ItemCatalog;
+class QuickSlots;
 }  // namespace wind::items
 
 namespace wind::game {
@@ -18,6 +19,7 @@ struct ItemWorld {
     items::Inventory& bag;              // 주인공 가방
     const items::ItemCatalog& catalog;  // 아이템 도감
     LootStore& loot;                    // 맵마다의 바닥 아이템
+    const items::QuickSlots* quick = nullptr;  // 단축 칸 1~4 (15f, 없으면 1~4 키가 아무 일도 안 해요)
 };
 
 }  // namespace wind::game

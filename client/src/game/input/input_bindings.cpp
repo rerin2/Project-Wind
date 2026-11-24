@@ -51,6 +51,10 @@ InputBindings InputBindings::defaults() {
     b.bind(Action::Menu, Key::Escape);    // 필드에서 일시정지 메뉴 열기 (명세 13.4: Esc / Tab, 15e)
     b.bind(Action::Menu, Key::Tab);
     b.bind(Action::NextTab, Key::Tab);    // 메뉴 안에서 다음 탭 (15e)
+    b.bind(Action::QuickSlot1, Key::Num1);  // 단축 아이템 칸 (명세 13.4: 1~4, 15f)
+    b.bind(Action::QuickSlot2, Key::Num2);
+    b.bind(Action::QuickSlot3, Key::Num3);
+    b.bind(Action::QuickSlot4, Key::Num4);
     return b;
 }
 

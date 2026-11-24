@@ -366,7 +366,7 @@ Code: `client/src/app/pause_menu_view.*` (window, tabs, system tab, hints), page
 - Same place and entrance as the 14c bag screen (decided with the developer: a left window keeps the heroine and approaching monsters visible while time runs): 16 px from the left, centred vertically, sliding 12 px in from the left over 0.18 s (OutCubic) while fading in.
 - Size: 196 px of content + 10 px padding; the height always fits the bag page (the tallest), so the window does not jump when the tab changes.
 - Tab row: five equal cells; the chosen tab is bold `text_focused` gold with a 2 px gold underline over a 1 px grey rule (`#5a6070a0`); the others are `text_dim`. Switching tabs fades the page in over 0.12 s while it rises 4 px. The bag's small menu only appears once both the window and the page have fully appeared.
-- Hint line at the bottom, centred, dim: "R 정렬 · Tab 다음 탭 · Esc 닫기" on the bag tab, "Tab 다음 탭 · Esc 닫기" elsewhere. A first version with "Enter 고르기 ·" was about 300 px wide and would not fit.
+- Hint line at the bottom, centred, dim: "R 정렬 · Tab 다음 탭 · Esc 닫기" on the bag tab (since 15f "R 정렬 · 1~4 단축 칸 · Esc 닫기"), "Tab 다음 탭 · Esc 닫기" elsewhere. A first version with "Enter 고르기 ·" was about 300 px wide and would not fit.
 - 장비: "장비 무게 6 / 8" on top (red `#ec6060` with "· 무거움" when heavy), four 24 px rows (20 px cell with rarity border and icon, slot name, item name in rarity colour or dim "비어 있음"); the chosen row gets the cushion menu's pale gold row fill. Below: attack (with the current strength), crit and combo count, stamina per swing, then two lines of item description.
 - 마술: "마술 칸 3/4" in bold gold and four 22 px slot cells on the right (locked slots at 40 %, the selected slot outlined in the HUD's strong gold `#ffcc5c`); a five-row list of learned spells (icon, name, "칸 N" when slotted); details at a fixed height (required intelligence in red when short, MP, cast time, power, motion); bottom note "마술 칸은 캣닢 쿠션에서 바꿔요". The title box was first 60 px and clipped the bold title, so it now takes the width left of the slot cells.
 - 능력치: name left in `text_dim`, value right, sections split by 1 px rules; carry weight turns red when heavy.
@@ -401,6 +401,26 @@ Code: `client/src/game/presentation/beam_view.*` (owned by `FieldCombatFx`), sha
 - Light (spec "주변을 강하게 밝힘"): three lights from the spell data (`#c8f0ff`, radius 110, intensity 1.0) at the hand, the middle (1.2 × radius) and the end, scaled by the open/close strength and the same flicker. Screen check at night: the wall bricks and the grass around the heroine lit up clearly.
 - Hit feel: each 0.1 s strike carries the spell's `shake` 0.06. The trauma model adds `2 × shake` per hit and decays 1.6/s, so 0.1 (the first value) would add 0.2 every 0.1 s, faster than it decays, and pin the shake at full strength while the beam touched anything; 0.06 stays a faint tremor. Damage numbers appear for every strike.
 - F4: the hit band is drawn in the shard purple.
+
+## Cushion spell slots (phase 15f)
+
+Code: `client/src/app/spell_slot_view.*`, drawn by `CushionMenuView` in the level-up window's place and size (300 × 236, right side, the same 0.2 s pop).
+
+- Title "마술 칸" in bold gold, current intelligence on the right in dim text.
+- Left column (132 px): four 22 px rows "칸 N" (30 px label; 26 px made it touch the icon) + spell icon + name, "비어 있음" in dim text, locked slots at 40 % with "잠김". The chosen slot gets the pale gold row fill in step 1 and a gold outline while its spell is being picked.
+- Right column: the learned spells (18 px rows: icon, name, and on the right "칸 N" when slotted or "지능 N" in red `#ec6060` when intelligence is short; short spells are drawn dimmer) and a last "비우기" row. In step 1 the whole list is shown at 50 % as a preview; in step 2 the chosen row gets the pale gold fill. A denial shakes the list like the level-up cost line (0.3 s, 4 px, 18 Hz).
+- Bottom hint: "Enter: 마술 고르기   Esc: 돌아가기" / "Enter: 넣기   Esc: 칸 고르기".
+- Screen check (noon, intelligence 20 with moon blade and comet beam learned): slot 2 outlined while picking, comet beam shown with a red "지능 36"; no clipped text in the log.
+
+## Quick slots (phase 15f)
+
+Code: `client/src/app/quick_slots_hud.*` (owned by `ItemHud`); bag badges in `bag_screen_view.cpp`.
+
+- Bottom centre (decided with the developer), 8 px from the bottom edge like the hands HUD, four 24 px cells 4 px apart, same fill and border as the weapon/spell cells.
+- Each cell: the slot number top-left in strong gold `#ffcc5c` on a small dark band; the item icon centred; the bag count bottom-right (white, red `#ec6060` at 0 with the icon at 40 %). Empty slots are only number and outline at 40 %.
+- When the count drops (an item was used) the cell pops to 1.25× and eases back over 0.18 s (OutCubic), like the spell cell's Q pop.
+- In the bag tab a registered item shows the same gold slot number in its cell's top-left corner, and the hint line reads "R 정렬 · 1~4 단축 칸 · Esc 닫기".
+- Screen check: two potions registered from the bag tab (badges 1 and 2), then the HUD showed them with counts 2 and 1 and slots 3–4 dimmed.
 
 ## Hands HUD (phase 15b)
 

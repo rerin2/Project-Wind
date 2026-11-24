@@ -29,7 +29,7 @@ TEST(CushionMenu, OpensOnLevelUpAndSkipsDisabledItems) {
     EXPECT_FALSE(menu.is_open());
     menu.open();
     EXPECT_EQ(menu.focused_item(), CushionMenu::Item::LevelUp);
-    EXPECT_FALSE(menu.item_enabled(CushionMenu::Item::SpellSlots));  // 15단계
+    EXPECT_FALSE(menu.item_enabled(CushionMenu::Item::SpellSlots));  // 마술 선반을 알려 주기 전 (15f)
     EXPECT_FALSE(menu.item_enabled(CushionMenu::Item::Save));        // 16단계
     (void)menu.handle(MenuInput::Down, progress);
     EXPECT_EQ(menu.focused_item(), CushionMenu::Item::Leave);        // 흐린 두 항목은 건너뛰어요

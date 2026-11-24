@@ -5,6 +5,7 @@
 // 게임 코드는 "W 키가 눌렸니?"가 아니라 "위로 가기가 눌렸니?"라고 물어봐요.
 // 어떤 키가 어떤 동작인지는 InputBindings(키 연결표)가 정해요.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -33,9 +34,17 @@ enum class Action : std::uint8_t {
     Back,             // UI에서 뒤로·닫기 (Esc). 15e 전에는 "게임 끄기"였어요
     Menu,             // 일시정지 메뉴 열기 (Esc / Tab, 15e)
     NextTab,          // 메뉴 안에서 다음 탭 (Tab, 15e)
+    QuickSlot1,       // 단축 아이템 칸 1~4 (필드: 쓰기, 가방 탭: 등록, 15f)
+    QuickSlot2,
+    QuickSlot3,
+    QuickSlot4,
     Count  // 개수 표시용 (진짜 동작은 아니고, 동작이 몇 개인지 세는 데 써요)
 };
 
 inline constexpr std::size_t kActionCount = static_cast<std::size_t>(Action::Count);
+
+// 단축 칸 키 1~4 (15f): 순서 = 칸 번호. 필드(쓰기)와 메뉴 가방 탭(등록)이 같이 써요
+inline constexpr std::array<Action, 4> kQuickSlotActions{Action::QuickSlot1, Action::QuickSlot2, Action::QuickSlot3,
+                                                         Action::QuickSlot4};
 
 }  // namespace wind::game

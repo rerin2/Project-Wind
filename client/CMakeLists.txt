@@ -142,6 +142,7 @@ add_library(wind_game_core STATIC
     src/game/ui/loot_toasts.cpp
     src/game/ui/bag_screen.cpp
     src/game/ui/pause_menu.cpp
+    src/game/ui/spell_slot_sheet.cpp
     src/game/ui/rune_counter.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp
@@ -186,6 +187,8 @@ add_executable(wind_client
     src/app/menu_stats_page.cpp
     src/app/ui_text.cpp
     src/app/hud_info_source.cpp
+    src/app/quick_slots_hud.cpp
+    src/app/spell_slot_view.cpp
     src/app/hands_hud.cpp
     src/app/item_setup.cpp
     src/app/ui_test_panel.cpp
@@ -267,6 +270,7 @@ if(WIND_BUILD_TESTS)
         tests/bag_screen_tests.cpp
         tests/pause_menu_tests.cpp
         tests/input_gate_tests.cpp
+        tests/spell_slot_sheet_tests.cpp
         tests/potion_drinker_tests.cpp
         tests/field_items_tests.cpp
         tests/field_arms_tests.cpp

@@ -9,14 +9,29 @@
 
 #include "wind/items/inventory.hpp"
 #include "wind/items/item_catalog.hpp"
+#include "wind/items/quick_slots.hpp"
 #include "wind/log.hpp"
 
 namespace wind::game {
 namespace {
 
 constexpr float kBodyLift = 10.0f;  // 발에서 몸 가운데까지 (아이템이 빨려 드는 곳)
+static_assert(kQuickSlotActions.size() == items::QuickSlots::kCount);  // 키 수 = 단축 칸 수
 
 }  // namespace
+
+void FieldItems::handle_quick_keys(const engine::InputState& input, const InputBindings& bindings) {
+    for (std::size_t i = 0; i < kQuickSlotActions.size(); ++i) {
+        if (bindings.pressed(kQuickSlotActions[i], input)) requests_.push_back({Request::Kind::Quick, i});
+    }
+}
+
+void FieldItems::use_quick(std::size_t quick_slot, PlayerMotion& hero) {
+    if (items_.quick == nullptr) return;                                     // 단축 칸이 없는 필드 (테스트 등)
+    const auto bag_slot = items_.quick->stack_for(quick_slot, items_.bag);  // 가방의 첫 묶음
+    if (!bag_slot) return;                                                   // 비었거나 다 썼어요 (HUD가 흐리게 보여 줘요)
+    use(*bag_slot, hero);                                                    // 물약 쓰기와 같은 규칙 (못 마시면 알림)
+}
 
 FieldItems::FieldItems(const ItemWorld& items, MapLoot& loot, const LootViewSetup& view, std::uint64_t seed)
     : items_(items), loot_(loot, seed), view_(view, items.catalog), drink_view_(view) {}
@@ -36,6 +51,7 @@ void FieldItems::step(float dt_seconds, const FieldCombat& combat, PlayerMotion&
         if (request.kind == Request::Kind::PutDown) (void)loot_.put_down(request.slot, hero, map, items_.bag);
         if (request.kind == Request::Kind::Sort) (void)items_.bag.sort(items_.catalog);  // 칸이 모자랄 일은 없어요
         if (request.kind == Request::Kind::Use) use(request.slot, hero);
+        if (request.kind == Request::Kind::Quick) use_quick(request.slot, hero);  // 1~4 (15f)
     }
     requests_.clear();
     loot_.step(dt_seconds, combat, hero, map, items_.bag, items_.catalog);

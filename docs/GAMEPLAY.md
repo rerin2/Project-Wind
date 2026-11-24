@@ -121,13 +121,35 @@ Code: `game/combat/spell_caster.*` (beam phase), `game/entities/player_motion.*`
 - **Shape:** a band from the hand (10 px ahead of the feet, 14 px up) in the cast direction, `length` 220 × `width` 14. It is **cut at the first wall** (same wall rule as shards: terrain walls, not tiles blocked only by a dummy), checked in 2 px steps on the ground (decided with the developer).
 - **Hits:** on the step the beam opens and then every `tick_seconds` (0.1 s), every standing dummy and living monster inside the band is hit once (**it passes through enemies**, decided with the developer). Power is per second, so one strike uses `power × tick_seconds` = 3.0 × 0.1 = 0.3: magic attack 12 × 0.3 = 3.6 → **3** after rounding down (30 per second at intelligence 10, not 36; higher intelligence closes the gap). Each strike rolls its own crit and pushes 20 px/s along the beam; there is no hitstop.
 
+## Cushion spell slots (phase 15f, spec 8.6, 8.7)
+
+Code: `game/ui/spell_slot_sheet.*` (inside `CushionMenu`), `wind/progression/spell_book` (`place`); tested in `spell_slot_sheet_tests`, `spell_book_tests`.
+
+- The cushion menu's **마술 칸** item is now enabled (it needs the spell shelf, which the app hands over at start). Game time is stopped as for the whole cushion menu.
+- **Step 1, pick a slot:** Up/Down over the open slots (locked slots past the intelligence curve cannot be picked). Enter → step 2; Esc → back to the cushion menu.
+- **Step 2, pick a spell:** the learned spells plus a last row **비우기** (empty the slot). It starts on the spell already in that slot. Enter:
+  - a spell whose required intelligence is met goes into the slot; if it was already in another slot, **the two slots swap** (decided with the developer), so the Q order is easy to rearrange;
+  - too little intelligence: nothing changes, the list shakes (the same denial shake as level-up);
+  - 비우기 empties the slot (an empty spell book is allowed).
+  - Esc → back to step 1.
+- Every change re-arms the heroine's hand (`FieldState::rearm_spells`), so the HUD spell cell is right when she stands up.
+
+## Quick item slots (phase 15f, spec 13.2, 13.4)
+
+Code: `wind/items/quick_slots` (rules), `game/states/field_items` (use), `app/pause_menu_panel` (registering), `app/quick_slots_hud`; tested in `quick_slots_tests`, `field_items_tests`.
+
+- **Registering:** in the pause menu's bag tab, put the cursor on an item and press **1–4** (decided in phase 15 planning). Only usable items (with a `use` effect, i.e. potions) can be registered (decided with the developer). An item lives in one slot only: registering it elsewhere moves it; pressing the same number again unregisters it. Empty cells and materials do nothing.
+- **Using:** in the field, **1–4** uses the registered item: the first bag stack holding it goes through the same rules as 사용 in the bag (14d: only when she can drink, not when the bar is already full, notices otherwise).
+- **Running out:** at 0 in the bag the registration stays (decided with the developer); the HUD dims it and picking one up again makes it usable at once.
+- The slots hold item ids only; the items stay in the bag. They are kept by the app across maps and will be saved in phase 16.
+
 ## Spell slots and Q (phase 15b, spec 8.2, 8.6)
 
 Code: `wind/progression/spell_book`, `game/states/field_spells`, `game/combat/spell_shelf`; tested in `spell_book_tests`, `field_spells_tests`.
 
 - **Spell book** (in `HeroProgress`): learned spells, up to 4 slots, and the selected slot. The number of open slots comes from intelligence (`spell_slots` curve: 2 at 10, 3 at 20, 4 at 40); slots past that count are locked and behave as empty until intelligence rises.
 - **Slotting:** only a learned spell, only if intelligence ≥ its `intelligence_required`, and never in two slots at once. A refused slotting changes nothing.
-- **Start:** star shard learned and in slot 1 (spec 8.1). Learning a spell puts it in the first free open slot if intelligence allows (decided with the developer); otherwise it is only learned (slot changes at the cushion come in 15f).
+- **Start:** star shard learned and in slot 1 (spec 8.1). Learning a spell puts it in the first free open slot if intelligence allows (decided with the developer); otherwise it is only learned (slots can be changed at the cushion since 15f, see "Cushion spell slots").
 - **Q:** selects the next filled slot, wrapping around and skipping empty or locked slots. A Q pressed while casting is dropped, not remembered (decided with the developer). If the selected slot becomes empty or locked, the first filled slot is used.
 - **Test options:** `--stat intelligence=20` (any stat, 1–60) and `--learn <spell id>` (repeatable). Where spells are found in the world is decided with the region design (phases 18–19).
 - **The shard** starts 10 px in front of the feet and flies at chest height (14 px above its ground point). Damage = magic attack 12 × (1 + intelligence bonus 0) × power, then spec 9.3 (`magic_attack_power`, `compute_damage`).
@@ -403,7 +425,7 @@ Code: `client/src/game/world/rest_rules.*`, `cushion.hpp`, `travel_targets.*`, `
 
 Code: `client/src/game/ui/cushion_menu.*`, `level_up_sheet.*`, `client/src/app/cushion_menu_panel.*`, `cushion_menu_view.*`, `FieldState::refresh_hero_stats`, `PlayerMotion::raise_maximums`. Tested in `cushion_menu_tests.cpp`, `level_up_sheet_tests.cpp`, `health_tests.cpp`, `hud_bar_layout_tests.cpp`.
 
-- Opens by itself after the rest fade. Items: 레벨업, 마술 칸 (dimmed until 15), 저장 (dimmed until 16), 떠나기. Up/Down skip dimmed items; Enter, E or J confirm; Esc leaves. **Game time stops** while it is open.
+- Opens by itself after the rest fade. Items: 레벨업, 마술 칸 (15f, see "Cushion spell slots"), 저장 (dimmed until 16), 떠나기. Up/Down skip dimmed items; Enter, E or J confirm; Esc leaves. **Game time stops** while it is open.
 - **Level-up screen:** five stat rows and a 확정 row. Left/Right (or Enter on a stat row) lower/raise the target between the current value and 60; lowering below the current value is impossible. Each changed row previews its derived value ("최대 HP 100 → 118", weight with one decimal, magic attack). Cost = the sum of each level step (13a); shown red when short. 확정 is all-or-nothing (`HeroProgress::try_raise`); a refusal shakes the cost line. Esc returns to the menu and drops the unconfirmed change.
 - **After a level-up:** new max HP/MP/stamina apply at once and refill (she is resting), the sword and spell bonuses update, a "레벨 N" banner shows, the bars grow over about 0.4 s.
 

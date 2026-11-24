@@ -18,6 +18,10 @@ class UiPainter;
 }
 namespace wind::game {
 class HeroProgress;
+class WeaponRack;
+}  // namespace wind::game
+namespace wind::items {
+class QuickSlots;
 }
 
 namespace wind::client {
@@ -30,6 +34,12 @@ public:
     // icons: 아이템 아이콘 판, spell_icons: 마술 아이콘 판
     PauseMenuView(engine::TextureHandle icons, engine::TextureHandle spell_icons);
 
+    // 가방 탭이 쓸 정보: 무기 무게·무거움 줄(15a), 단축 칸 번호(15f). 모두 이 화면보다 오래 살아 있어야 해요.
+    void set_bag_info(const game::WeaponRack* weapons, const game::HeroProgress* progress,
+                      const items::QuickSlots* quick) {
+        bag_view_.set_weapon_info(weapons, progress);
+        bag_view_.set_quick_slots(quick);
+    }
     // 화면 한 장마다: 나타나기·탭 바꾸기 시계를 돌려요 (닫히면 0으로)
     void update(float dt_seconds, const game::PauseMenu& menu);
     void draw(engine::UiPainter& painter, engine::Vec2 screen, const game::PauseMenu& menu, const ItemSetup& items,

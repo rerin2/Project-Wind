@@ -17,17 +17,32 @@ namespace wind::client {
 
 ItemHud::ItemHud(ItemSetup& items, const game::HeroProgress& progress, engine::TextureHandle icons,
                  engine::TextureHandle spell_icons)
-    : items_(items), progress_(progress), icons_(icons), hands_(icons, spell_icons) {}
+    : items_(items), progress_(progress), icons_(icons), hands_(icons, spell_icons), quick_(icons) {}
 
 void ItemHud::update(float dt_seconds, game::FieldState& field) {
     for (const auto& notice : field.take_loot_notices()) toasts_.push(notice, items_.catalog);  // 주움·가득 참 (14b)
     toasts_.update(dt_seconds);
     hands_.update(dt_seconds, hands_info(field));  // 무기·마술 칸 (15b)
+    quick_.update(dt_seconds, quick_info());        // 단축 칸 (15f)
+}
+
+std::array<QuickSlotInfo, QuickSlotsHud::kCount> ItemHud::quick_info() const {
+    std::array<QuickSlotInfo, QuickSlotsHud::kCount> info{};
+    for (std::size_t i = 0; i < info.size(); ++i) {
+        const std::string& id = items_.quick.at(i);
+        if (id.empty()) continue;  // 빈 칸
+        const auto* def = items_.catalog.find(id);
+        info[i].assigned = true;
+        info[i].icon = def != nullptr ? def->icon : 0;
+        info[i].count = items_.bag.count_of(id);  // 0개여도 등록은 남아요 (개발자와 정함)
+    }
+    return info;
 }
 
 void ItemHud::draw(engine::UiPainter& painter, engine::Vec2 screen) const {
     hands_.draw(painter, screen);                                                   // 맨 아래: 무기·마술 칸 (15b)
     draw_loot_toasts(painter, icons_, screen, toasts_, HandsHud::kReservedHeight);  // 그 위: 알림 줄
+    quick_.draw(painter, screen);                                                   // 아래 가운데: 단축 칸 (15f)
 }
 
 // 무기 칸: 끼고 있는 무기의 아이콘. 마술 칸: 필드가 쥐여 준 마술, MP, 공책의 칸들 (15b)

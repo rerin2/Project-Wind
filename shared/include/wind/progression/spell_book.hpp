@@ -41,6 +41,9 @@ public:
     SlotResult put(std::size_t slot, std::string_view id, int required, int intelligence, std::size_t open_slots);
     // 열린 칸 중 맨 앞 빈 칸에 넣어요 (배울 때 저절로, 개발자와 정함). 빈 칸이 없으면 LockedSlot
     SlotResult put_in_free_slot(std::string_view id, int required, int intelligence, std::size_t open_slots);
+    // 쿠션에서 칸에 놓기 (15f): put과 같은 확인을 하지만, 다른 칸에 이미 있으면 두 칸을 맞바꿔요 (개발자와 정함).
+    // 맞바꿀 때 이 칸에 있던 마술은 그 다른 칸으로 가요 (비어 있었으면 그 칸이 비어요). Done이 아니면 아무것도 안 바뀌어요.
+    SlotResult place(std::size_t slot, std::string_view id, int required, int intelligence, std::size_t open_slots);
     // 칸을 비워요 (15f 쿠션에서 씀)
     void clear(std::size_t slot);
     // 이 칸의 마술 id (비었거나 잠긴 칸이면 빈 글자)

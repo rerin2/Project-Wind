@@ -161,6 +161,8 @@ public:
     }
     // 고른 마술과 Q로 바꾼 횟수 (HUD 마술 칸, 15b)
     [[nodiscard]] const FieldSpells& spells() const { return spells_; }
+    // 쿠션에서 마술 칸이 바뀌었어요 (15f): 주인공 손에 지금 고른 칸의 마술을 다시 쥐여 줘요
+    void rearm_spells() { spells_.arm(player_); }
     // 인벤토리 화면 요청 (14c): 이 칸을 발 앞에 내려놓기, 가방 정렬. 다음 박자에 규칙대로 처리해요
     void request_put_down(std::size_t slot) { items_.request_put_down(slot); }
     void request_sort() { items_.request_sort(); }

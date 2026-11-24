@@ -35,7 +35,7 @@ constexpr std::size_t kMaxLearnSpells = 16;
 // --press로 누를 수 있는 키 이름인가요?
 bool is_scriptable_key(std::string_view name) {
     for (const std::string_view known :
-         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right", "j", "l", "e", "i", "r", "q", "tab"}) {
+         {"f3", "f4", "f5", "f6", "f7", "f12", "space", "shift", "enter", "esc", "up", "down", "left", "right", "j", "l", "e", "i", "r", "q", "tab", "1", "2", "3", "4"}) {
         if (name == known) {
             return true;
         }

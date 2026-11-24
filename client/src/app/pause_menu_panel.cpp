@@ -8,6 +8,7 @@
 #include "game/states/field_state.hpp"
 
 #include "wind/items/equip_slot.hpp"
+#include "wind/log.hpp"
 
 #include <array>
 #include <utility>
@@ -35,6 +36,7 @@ PauseMenuPanel::PauseMenuPanel(ItemSetup& items, const game::HeroProgress& progr
                                engine::TextureHandle spell_icons)
     : items_(items), progress_(progress), view_(icons, spell_icons) {
     menu_.set_use_available(true);  // 물약 마시기 (14d): "사용"을 고를 수 있어요
+    view_.set_bag_info(&items_.weapons, &progress_, &items_.quick);  // 무기 무게 줄(15a), 단축 칸 번호(15f)
 }
 
 bool PauseMenuPanel::handle_input(const engine::InputState& input, const game::InputBindings& bindings,
@@ -59,6 +61,7 @@ bool PauseMenuPanel::handle_open(const engine::InputState& input, const game::In
         }
         return false;
     }
+    register_quick_slots(input, bindings);  // 가방 탭에서 1~4: 커서 아이템을 단축 칸에 (15f)
     const std::size_t spell_rows = progress_.spells().learned().size();
     for (const auto& [action, menu_input] : kKeys) {
         if (!menu_.is_open() || !bindings.pressed(action, input)) continue;  // 한 장에 여러 키도 차례로
@@ -81,6 +84,19 @@ bool PauseMenuPanel::handle_open(const engine::InputState& input, const game::In
         }
     }
     return false;
+}
+
+// 가방 탭에서 작은 메뉴가 닫혀 있을 때만 (명세 15단계 메모: 아이템에 커서를 두고 1~4).
+// 쓸 수 있는 아이템만 등록되고, 같은 칸에 한 번 더 누르면 풀려요 (QuickSlots 규칙). 빈 칸이나 재료는 아무 일도 없어요.
+void PauseMenuPanel::register_quick_slots(const engine::InputState& input, const game::InputBindings& bindings) {
+    if (menu_.tab() != game::MenuTab::Bag || menu_.bag_screen().menu_open()) return;
+    const auto& stack = items_.bag.at(menu_.bag_screen().cursor());
+    if (!stack) return;  // 빈 칸
+    for (std::size_t i = 0; i < game::kQuickSlotActions.size(); ++i) {
+        if (!bindings.pressed(game::kQuickSlotActions[i], input)) continue;
+        const auto result = items_.quick.assign(i, stack->item_id, items_.catalog);
+        log::debug("Quick slot {} <- {}: {}", i + 1, stack->item_id, static_cast<int>(result));
+    }
 }
 
 void PauseMenuPanel::update(float dt_seconds, bool can_open) {

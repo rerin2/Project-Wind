@@ -4,7 +4,7 @@
 // 일시정지 메뉴를 게임 루프에 잇는 곳이에요. (명세 13.1, 13.4, 15e)
 // - 닫혀 있을 때: Esc·Tab이면 마지막으로 보던 탭으로, I면 가방 탭으로 열어요 (열 수 있을 때만).
 // - 열려 있을 때: 방향키·Enter·E·J(확인)·R(정렬)·Esc(뒤로)·Tab(다음 탭)을 game::PauseMenu에 넘기고,
-//   I는 가방 탭이면 닫고 다른 탭이면 가방 탭으로 옮겨요.
+//   I는 가방 탭이면 닫고 다른 탭이면 가방 탭으로 옮겨요. 가방 탭에서 1~4는 커서 아이템을 단축 칸에 등록해요 (15f).
 // - 가방의 "사용"·"장착"·"버리기"·"정렬"은 필드에 요청하고, 필드가 다음 박자에 규칙대로 처리해요.
 //   "사용"·"장착"을 고르면 메뉴가 닫혀서 마시는 모습·알림이 보여요 (14c부터 같은 규칙).
 // - 쓰러지거나, 쉬거나, 맵을 옮기거나, 쿠션 메뉴가 열리면 저절로 닫혀요 (can_open = false).
@@ -48,6 +48,8 @@ public:
 private:
     // 열려 있을 때 키 하나씩 메뉴에 넘기고, 가방 명령을 필드에 요청해요
     bool handle_open(const engine::InputState& input, const game::InputBindings& bindings, game::FieldState& field);
+    // 가방 탭에서 1~4: 커서 아이템을 단축 칸에 등록·풀기 (15f)
+    void register_quick_slots(const engine::InputState& input, const game::InputBindings& bindings);
 
     ItemSetup& items_;
     const game::HeroProgress& progress_;

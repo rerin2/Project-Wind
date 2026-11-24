@@ -13,6 +13,7 @@
 
 #include "wind/items/inventory.hpp"
 #include "wind/items/item_catalog.hpp"
+#include "wind/items/quick_slots.hpp"
 
 #include <algorithm>
 #include <array>
@@ -39,6 +40,7 @@ constexpr engine::Color kEffectColor{142, 220, 128, 255}; // 효과 글자 (연�
 constexpr engine::Color kCountBack{0, 0, 0, 150};         // 개수 글자 뒤 작은 띠 (아이콘 위에서도 읽히게)
 
 constexpr engine::Color kHeavyColor{236, 96, 96, 255};    // 무거움 글자 (빨강, 15a)
+constexpr engine::Color kQuickNumber{255, 204, 92, 255};  // 단축 칸 번호 (진한 금빛, 15f)
 
 constexpr std::array<std::string_view, BagScreen::kActionCount> kActionLabels{"사용", "버리기", "취소"};
 constexpr std::string_view kEquipLabel = "장착";  // 장비 칸에서는 "사용" 자리에 (15a)
@@ -167,6 +169,15 @@ void BagScreenView::draw_slot(engine::UiPainter& painter, engine::RectF cell, st
         renderer.fill_rect({cell.x + cell.w - text_w - 2.0f, text_y + 2.0f, text_w + 1.0f, line_h - 3.0f},
                            engine::with_alpha(kCountBack, alpha));
         line(painter, {cell.x, text_y, cell.w - 1.0f, line_h}, count, painter.theme().text, alpha, engine::TextAlign::Right);
+    }
+    // 단축 칸 번호 (15f): 왼쪽 위 구석에 진한 금빛 숫자 (HUD 단축 칸 번호와 같은 색)
+    const auto quick = quick_ != nullptr ? quick_->slot_of(stack->item_id) : std::nullopt;
+    if (quick) {
+        const float line_h = painter.line_height(engine::FontStyle::Regular);
+        const std::string number = std::to_string(*quick + 1);
+        const float text_w = painter.measure(engine::FontStyle::Regular, number);
+        renderer.fill_rect({cell.x + 1.0f, cell.y + 1.0f, text_w + 2.0f, line_h - 4.0f}, engine::with_alpha(kCountBack, alpha));
+        line(painter, {cell.x + 2.0f, cell.y - 1.0f, text_w + 2.0f, line_h}, number, kQuickNumber, alpha);
     }
 }
 

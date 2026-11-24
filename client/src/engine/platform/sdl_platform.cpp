@@ -37,6 +37,10 @@ Key translate(SDL_Scancode code) {
         case SDL_SCANCODE_R: return Key::R;
         case SDL_SCANCODE_Q: return Key::Q;
         case SDL_SCANCODE_TAB: return Key::Tab;
+        case SDL_SCANCODE_1: return Key::Num1;  // 단축 칸 (15f)
+        case SDL_SCANCODE_2: return Key::Num2;
+        case SDL_SCANCODE_3: return Key::Num3;
+        case SDL_SCANCODE_4: return Key::Num4;
         case SDL_SCANCODE_X: return Key::X;
         case SDL_SCANCODE_LSHIFT:
         case SDL_SCANCODE_RSHIFT: return Key::Shift;

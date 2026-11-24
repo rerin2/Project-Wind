@@ -39,7 +39,7 @@ constexpr std::array<std::string_view, game::kSystemItemCount> kSystemLabels{"�
 
 // 탭마다 맨 아래 키 안내 (창 폭 196픽셀 안에 들어가게 짧게)
 std::string_view hint_for(game::MenuTab tab) {
-    if (tab == game::MenuTab::Bag) return "R 정렬 · Tab 다음 탭 · Esc 닫기";
+    if (tab == game::MenuTab::Bag) return "R 정렬 · 1~4 단축 칸 · Esc 닫기";  // 15f: Tab 안내 대신 단축 칸
     return "Tab 다음 탭 · Esc 닫기";
 }
 

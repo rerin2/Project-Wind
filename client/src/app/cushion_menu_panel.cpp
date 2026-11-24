@@ -42,7 +42,10 @@ bool CushionMenuPanel::handle_input(const engine::InputState& input, const game:
                 field.refresh_hero_stats();  // 최대 HP·MP·스태미나와 공격 보너스를 바로 (바가 늘어나요)
                 ui.announce(std::format("레벨 {}", progress.level()));  // 레벨업 배너 (명세 8.3)
                 break;
-            case game::MenuResult::Denied:  // 화면이 비용 줄을 흔들어요 (CushionMenuView)
+            case game::MenuResult::SpellsChanged:  // 마술 칸이 바뀌었어요 (15f): 손의 마술을 다시
+                field.rearm_spells();
+                break;
+            case game::MenuResult::Denied:  // 화면이 비용 줄·마술 칸을 흔들어요 (CushionMenuView)
             case game::MenuResult::None:
                 break;
         }

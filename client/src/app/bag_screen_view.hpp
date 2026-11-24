@@ -17,6 +17,7 @@ class UiPainter;
 namespace wind::items {
 class Inventory;
 class ItemCatalog;
+class QuickSlots;
 }  // namespace wind::items
 namespace wind::game {
 class HeroProgress;
@@ -41,6 +42,8 @@ public:
         weapons_ = weapons;
         progress_ = progress;
     }
+    // 단축 칸 (15f): 등록된 아이템 칸 왼쪽 위에 작은 번호(1~4)를 붙여요 (없으면 안 붙여요)
+    void set_quick_slots(const items::QuickSlots* quick) { quick_ = quick; }
 
 private:
     // 칸 하나 (배경, 테두리, 아이콘, 개수)
@@ -56,6 +59,7 @@ private:
     engine::TextureHandle icons_;
     const game::WeaponRack* weapons_ = nullptr;  // 무기 무게를 찾는 곳 (없으면 무게를 안 보여 줘요)
     const game::HeroProgress* progress_ = nullptr;  // 힘 → 들 수 있는 무게, 무거움
+    const items::QuickSlots* quick_ = nullptr;      // 단축 칸 번호 붙이기 (15f)
 };
 
 }  // namespace wind::client

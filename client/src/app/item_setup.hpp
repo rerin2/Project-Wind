@@ -16,6 +16,7 @@
 #include "wind/items/equipment.hpp"
 #include "wind/items/inventory.hpp"
 #include "wind/items/item_catalog.hpp"
+#include "wind/items/quick_slots.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -38,6 +39,7 @@ struct ItemSetup {
     items::Equipment worn;       // 끼고 있는 장비 (시작: 롱소드, 명세 8.1, 15a)
     game::WeaponRack weapons;    // 무기 아이템 → 미리 읽은 무기 (15a)
     game::SpellShelf spells;     // 배운 마술 → 미리 읽은 마술 (15b)
+    items::QuickSlots quick;     // 단축 아이템 칸 1~4 (15f, 16단계에서 저장)
 };
 
 // 도감을 못 읽으면 이유를 로그에 남기고 nullptr. (LootStore가 참조를 나눠 주니 옮기지 않게 힙에 둬요)

@@ -4,6 +4,7 @@
 #include "app/cushion_menu_view.hpp"
 
 #include "app/menu_page.hpp"  // 능력치 이름 (메뉴 능력치 탭과 같이 써요, 15e)
+#include "app/spell_slot_view.hpp"  // 마술 칸 화면 안쪽 (15f)
 #include "engine/tween/easing.hpp"
 #include "engine/ui/ui_painter.hpp"
 #include "game/progression/hero_progress.hpp"
@@ -97,6 +98,18 @@ void CushionMenuView::draw(engine::UiPainter& painter, engine::Vec2 screen, cons
                            const game::HeroProgress& progress) const {
     if (menu.screen() == CushionMenu::Screen::Main) draw_main(painter, screen, menu, progress);
     if (menu.screen() == CushionMenu::Screen::LevelUp) draw_level_up(painter, screen, menu, progress);
+    if (menu.screen() == CushionMenu::Screen::SpellSlots) draw_spell_slots(painter, screen, menu, progress);
+}
+
+void CushionMenuView::draw_spell_slots(engine::UiPainter& painter, engine::Vec2 screen, const game::CushionMenu& menu,
+                                       const game::HeroProgress& progress) const {
+    const engine::RectF rect = pop_rect(screen.x - kSheetWidth - kMenuRight, std::round((screen.y - kSheetHeight) * 0.5f),
+                                        kSheetWidth, kSheetHeight, appear_);
+    painter.panel(rect, std::min(1.0f, appear_ * 1.5f));
+    if (appear_ < 1.0f) return;  // 글은 다 나타난 뒤에
+    const float shake = shake_ > 0.0f ? std::sin(shake_ * kShakeHz * 6.2832f) * kShakePixels * (shake_ / kShakeSeconds) : 0.0f;
+    const engine::RectF content{rect.x + kPadding, rect.y + kPadding, rect.w - kPadding * 2.0f, rect.h - kPadding * 2.0f};
+    draw_spell_slot_sheet({painter, content, shake, menu.slot_sheet(), progress, shelf_, spell_icons_});
 }
 
 void CushionMenuView::draw_main(engine::UiPainter& painter, engine::Vec2 screen, const game::CushionMenu& menu,

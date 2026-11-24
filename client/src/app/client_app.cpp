@@ -119,7 +119,7 @@ int ClientApp::run() {
     // 아이템 도감·가방·맵마다의 바닥 아이템: 필드 밖에 하나씩 (14b). 도감이 틀리면 시작할 수 없어요
     const auto item_setup = load_item_setup(options_, *progress);  // 도감·장비·마술 (14b, 15a, 15b)
     if (!item_setup) return 1;
-    const game::ItemWorld items{item_setup->bag, item_setup->catalog, item_setup->loot};
+    const game::ItemWorld items{item_setup->bag, item_setup->catalog, item_setup->loot, &item_setup->quick};
     const game::GearWorld gear{item_setup->worn, item_setup->weapons, item_setup->spells};  // 장비·무기·마술 선반
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
@@ -149,6 +149,7 @@ int ClientApp::run() {
     game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
+    cushion_menu.set_spells(item_setup->spells, resources.texture(kSpellIconsTexture));  // "마술 칸" 화면 (15f)
     ItemHud item_hud(*item_setup, *progress, resources.texture(game::kItemIconsTexture),
                      resources.texture(kSpellIconsTexture));  // 무기·마술 칸, 알림 줄 (14b·15b)
     PauseMenuPanel pause_menu(*item_setup, *progress, resources.texture(game::kItemIconsTexture),

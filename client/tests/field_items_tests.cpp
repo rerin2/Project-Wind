@@ -8,6 +8,7 @@
 
 #include "wind/items/inventory.hpp"
 #include "wind/items/item_catalog.hpp"
+#include "wind/items/quick_slots.hpp"
 
 #include <gtest/gtest.h>
 
@@ -126,6 +127,48 @@ TEST(FieldItems, NonConsumableOrEmptySlotDoesNothing) {
     EXPECT_EQ(f.bag.count_of("potion"), 3);
     EXPECT_TRUE(f.items.take_notices().empty());
     EXPECT_NE(f.hero.state(), wind::game::CharacterState::Drinking);
+}
+
+// 단축 칸 (15f): 1을 누르면 등록된 물약이 든 가방 첫 칸에서 하나 꺼내 마셔요. 다 쓰면 아무 일도 없어요
+TEST(FieldItems, QuickSlotDrinksTheRegisteredItem) {
+    wind::items::ItemCatalog catalog = make_catalog();
+    wind::items::Inventory bag;
+    wind::game::LootStore store;
+    wind::items::QuickSlots quick;
+    wind::game::FieldItems items{wind::game::ItemWorld{bag, catalog, store, &quick}, store.on("maps/test.json"), {}, 1};
+    const auto map = open_map();
+    wind::game::FieldCombat combat{{}, 1, 0.0f};
+    PlayerMotion hero{{100.0f, 300.0f}, wind::world::Direction::Right, wind::game::MovementTuning{},
+                      wind::game::StaminaTuning{}, 0.15};
+    auto run = [&](int steps) {
+        for (int i = 0; i < steps; ++i) {
+            hero.step(kDt, {}, false, map);
+            items.step(static_cast<float>(kDt), combat, hero, map);
+        }
+    };
+    bag.try_add(catalog, "jelly", 1);   // 0번 칸
+    bag.try_add(catalog, "potion", 1);  // 1번 칸
+    ASSERT_EQ(quick.assign(0, "potion", catalog), wind::items::QuickSlots::Result::Assigned);
+    (void)hero.take_hit(30, {1.0f, 0.0f}, 0.0f);
+    run(90);  // 경직이 풀릴 때까지
+
+    wind::engine::InputState input;
+    const auto bindings = wind::game::InputBindings::defaults();
+    input.set_key(wind::engine::Key::Num1, true);  // 1 누름
+    items.handle_quick_keys(input, bindings);
+    run(1);
+    EXPECT_EQ(hero.state(), wind::game::CharacterState::Drinking);
+    EXPECT_EQ(bag.count_of("potion"), 0);
+    run(60);  // 다 마셔요
+
+    input.begin_frame();
+    input.set_key(wind::engine::Key::Num1, false);
+    input.begin_frame();
+    input.set_key(wind::engine::Key::Num1, true);  // 다시 1: 이제 0개
+    items.handle_quick_keys(input, bindings);
+    run(1);
+    EXPECT_NE(hero.state(), wind::game::CharacterState::Drinking);
+    EXPECT_EQ(quick.at(0), "potion");  // 등록은 남아요
 }
 
 }  // namespace

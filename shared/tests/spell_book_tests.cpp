@@ -76,3 +76,31 @@ TEST(SpellBook, LockedSelectedSlotFallsBackToTheFirstSpell) {
     book.clear(0);
     EXPECT_TRUE(book.selected(2).empty());
 }
+
+// 쿠션에서 칸에 놓기 (15f): 다른 칸에 이미 있으면 두 칸을 맞바꿔요 (개발자와 정함)
+TEST(SpellBook, PlaceSwapsWithTheOtherSlot) {
+    SpellBook book;
+    for (const char* id : {"a", "b", "c"}) book.learn(id);
+    book.put(0, "a", 1, 10, 3);
+    book.put(1, "b", 1, 10, 3);
+    EXPECT_EQ(book.place(0, "b", 1, 10, 3), SpellBook::SlotResult::Done);
+    EXPECT_EQ(book.in_slot(0, 3), "b");
+    EXPECT_EQ(book.in_slot(1, 3), "a");
+    EXPECT_EQ(book.place(2, "a", 1, 10, 3), SpellBook::SlotResult::Done);  // 빈 칸과 맞바꾸면 옮기기
+    EXPECT_EQ(book.in_slot(2, 3), "a");
+    EXPECT_TRUE(book.in_slot(1, 3).empty());
+    EXPECT_EQ(book.place(1, "c", 1, 10, 3), SpellBook::SlotResult::Done);  // 아무 데도 없으면 그냥 넣기
+    EXPECT_EQ(book.in_slot(1, 3), "c");
+}
+
+// 거절되면 아무것도 안 바뀌어요 (잠긴 칸, 배우지 않음, 지능 모자람)
+TEST(SpellBook, RefusedPlaceChangesNothing) {
+    SpellBook book;
+    for (const char* id : {"a", "b"}) book.learn(id);
+    book.put(0, "a", 1, 10, 2);
+    EXPECT_EQ(book.place(2, "b", 1, 10, 2), SpellBook::SlotResult::LockedSlot);
+    EXPECT_EQ(book.place(0, "z", 1, 10, 2), SpellBook::SlotResult::NotLearned);
+    EXPECT_EQ(book.place(0, "b", 36, 20, 2), SpellBook::SlotResult::NeedsIntelligence);
+    EXPECT_EQ(book.in_slot(0, 2), "a");
+    EXPECT_TRUE(book.in_slot(1, 2).empty());
+}

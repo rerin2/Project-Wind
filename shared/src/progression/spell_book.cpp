@@ -42,6 +42,20 @@ SpellBook::SlotResult SpellBook::put_in_free_slot(std::string_view id, int requi
     return SlotResult::LockedSlot;  // 열린 칸이 모두 찼어요
 }
 
+SpellBook::SlotResult SpellBook::place(std::size_t slot, std::string_view id, int required, int intelligence,
+                                       std::size_t open_slots) {
+    if (slot >= open_count(open_slots)) return SlotResult::LockedSlot;     // 잠긴 칸
+    if (!knows(id)) return SlotResult::NotLearned;                         // 배우지 않은 마술
+    if (intelligence < required) return SlotResult::NeedsIntelligence;     // 지능이 모자라요 (명세 8.6)
+    const auto other = std::ranges::find(slots_, id);                      // 다른 칸에 이미 있나
+    if (other != slots_.end()) {
+        std::swap(*other, slots_[slot]);  // 맞바꾸기: 이 칸의 마술(또는 빈칸)이 그 칸으로 가요
+        return SlotResult::Done;
+    }
+    slots_[slot] = std::string(id);
+    return SlotResult::Done;
+}
+
 void SpellBook::clear(std::size_t slot) {
     if (slot < kMaxSlots) slots_[slot].clear();
 }

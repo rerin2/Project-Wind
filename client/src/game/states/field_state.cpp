@@ -147,6 +147,7 @@ void FieldState::handle_input(const engine::InputState& input, const InputBindin
     if (bindings.pressed(Action::Attack, input)) player_.press_attack();  // 공격도 메모장에 (콤보는 취소 구간에서 이어져요)
     if (bindings.pressed(Action::Cast, input)) player_.press_cast();      // 마술도 메모장에 (L / C)
     if (bindings.pressed(Action::NextSpell, input)) spells_.press_next();  // Q: 다음 마술 칸 (15b)
+    items_.handle_quick_keys(input, bindings);  // 1~4: 단축 칸의 아이템 쓰기 (15f)
     if (bindings.pressed(Action::Interact, input)) rest_.press_interact();  // E: 쿠션에서 쉬기·일어나기 (13b)
     // F4: 못 가는 칸과 발 상자 표시 켜기/끄기
     if (bindings.pressed(Action::ToggleCollision, input)) show_collision_ = !show_collision_;
