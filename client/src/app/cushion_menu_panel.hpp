@@ -6,6 +6,7 @@
 // - 결과를 필드에 적용해요: "떠나기"면 주인공이 기지개 켜고 일어나고,
 //   레벨업이면 새 능력치를 바로 적용하고(바가 늘어나요) 빛기둥과 "레벨 N" 배너를 띄워요.
 //   마술 칸이 바뀌면 주인공 손의 마술을 다시 쥐여 줘요 (15f).
+//   "저장"이면 지금 쿠션 자리를 본 슬롯에 저장해요 (16c, 아이콘은 SaveIcon이 띄워요).
 // - 그리기는 CushionMenuView가 해요. 열려 있는 동안 게임 루프는 박자를 돌리지 않아요(시간 정지).
 
 #include "app/cushion_menu_view.hpp"
@@ -17,13 +18,13 @@ namespace wind::engine {
 class UiPainter;
 }
 namespace wind::game {
-class FieldState;
 class HeroProgress;
 class SpellShelf;
 }  // namespace wind::game
 
 namespace wind::client {
 
+class FieldSession;
 class FieldUi;
 
 class CushionMenuPanel {
@@ -37,7 +38,7 @@ public:
     [[nodiscard]] bool is_open() const { return menu_.is_open(); }
     // 열려 있으면 키를 처리해요. Esc를 메뉴가 썼으면 true (게임을 끄지 않아요)
     bool handle_input(const engine::InputState& input, const game::InputBindings& bindings,
-                      game::HeroProgress& progress, game::FieldState& field, FieldUi& ui);
+                      game::HeroProgress& progress, FieldSession& session, FieldUi& ui);
     void update(float dt_seconds) { view_.update(dt_seconds, menu_); }
     void draw(engine::UiPainter& painter, engine::Vec2 screen, const game::HeroProgress& progress) const {
         view_.draw(painter, screen, menu_, progress);

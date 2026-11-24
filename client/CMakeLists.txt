@@ -132,6 +132,7 @@ add_library(wind_game_core STATIC
     src/game/world/map_travel.cpp
     src/game/world/respawn_trigger.cpp
     src/game/world/travel_targets.cpp
+    src/game/world/start_place.cpp
     src/game/world/rest_rules.cpp
     src/game/world/exit_watcher.cpp
     src/game/ui/area_banner.cpp
@@ -146,6 +147,7 @@ add_library(wind_game_core STATIC
     src/game/ui/spell_slot_sheet.cpp
     src/game/ui/rune_counter.cpp
     src/game/ui/startup_question.cpp
+    src/game/ui/save_icon.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp
     src/game/states/field_rest.cpp
@@ -166,7 +168,8 @@ add_library(wind_game_core STATIC
     src/game/save/save_capture.cpp
     src/game/save/save_apply.cpp
     src/game/save/save_content_check.cpp
-    src/game/save/save_picker.cpp)
+    src/game/save/save_picker.cpp
+    src/game/save/wake_place.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -198,6 +201,7 @@ add_executable(wind_client
     src/app/hands_hud.cpp
     src/app/item_setup.cpp
     src/app/save_keeper.cpp
+    src/app/save_icon_view.cpp
     src/app/game_start.cpp
     src/app/startup_prompt.cpp
     src/app/ui_test_panel.cpp
@@ -318,6 +322,8 @@ if(WIND_BUILD_TESTS)
         tests/save_apply_tests.cpp
         tests/save_content_check_tests.cpp
         tests/save_picker_tests.cpp
+        tests/save_icon_tests.cpp
+        tests/wake_place_tests.cpp
         tests/startup_question_tests.cpp
         tests/particle_effect_loader_tests.cpp
         tests/particle_spawn_tests.cpp

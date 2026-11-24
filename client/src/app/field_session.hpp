@@ -7,12 +7,18 @@
 // - 쓰러진 뒤 Enter 또는 2.5초: 느린 페이드 -> 마지막 쿠션(없으면 지금 맵 기본 자리). 가득 찬 채 깨어나요.
 // - 쿠션에 앉은 지 잠깐 지나면: 페이드 -> 같은 맵을 새로 읽어 몬스터가 다시 나오고, 쿠션에 앉은 채 시작해요.
 //   부활 자리를 이 쿠션으로 정하고, 처음 찾은 쿠션이면 배너를 띄우고, 지금 슬롯에 자동 저장해요 (16b).
+// - 저장 (16c): 쓰러진 박자에 "깨어난 뒤 상태"를 본+자동에, 출구로 새 지역에 들어가면 자동에,
+//   쿠션 메뉴 "저장"이면 본에 저장해요. 실패하면 "저장하지 못했다" 배너.
 // 새 맵을 못 열면 지금 필드는 그대로 두고 화면에 잠깐 알려 줘요 (MapTravel).
 
 #include "engine/core/math.hpp"
+#include "game/save/save_sources.hpp"
 #include "game/world/map_travel.hpp"
 #include "game/world/respawn_trigger.hpp"
 
+#include "wind/save/save_slots.hpp"
+
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -37,8 +43,9 @@ public:
     using MakeField = std::function<std::unique_ptr<game::FieldState>(std::string_view map, std::string_view spawn,
                                                                         std::optional<engine::Vec2> start)>;
 
-    // saver: 쉬면 자동 저장 (16b)
-    FieldSession(MakeField make_field, game::HeroProgress& progress, FieldUi& ui, SaveKeeper& saver);
+    // saver: 저장 담당 (16b·16c), content_root: 깨어날 자리를 찾을 때 맵 파일을 읽는 곳 (16c)
+    FieldSession(MakeField make_field, game::HeroProgress& progress, FieldUi& ui, SaveKeeper& saver,
+                 std::filesystem::path content_root);
     ~FieldSession();
     FieldSession(const FieldSession&) = delete;
     FieldSession& operator=(const FieldSession&) = delete;
@@ -58,17 +65,26 @@ public:
     [[nodiscard]] const std::string& notice() const { return travel_.notice(); }
     // 쉬기 이동이 끝나 쿠션 메뉴를 열 때인가요? (한 번만 true, 13c. 부활로 깨어날 때는 열지 않아요)
     [[nodiscard]] bool take_menu_request() { return std::exchange(menu_request_, false); }
+    // 쿠션 메뉴 "저장" (16c): 쿠션에 앉은 지금 자리를 본 슬롯에. 성공하면 true (실패하면 배너도)
+    bool save_at_cushion();
     // 필드를 정리해요 (게임을 끝낼 때, 그림 관리자보다 먼저)
     void shutdown() { field_.reset(); }
 
 private:
     // 화면이 다 가려졌을 때 새 맵을 열어요. 못 열면 false
     bool enter(const world::MapExit& exit, game::TravelKind kind);
+    // 지금 필드의 주인공 자리·HP·MP
+    [[nodiscard]] game::HeroPlace hero_place() const;
+    // 저장하고, 실패하면 "저장하지 못했다" 배너 (이유는 SaveKeeper가 로그에). 성공하면 true
+    bool save_or_warn(save::SaveKind kind, const game::HeroPlace& place);
+    // 쓰러진 박자: 깨어날 자리·가득 찬 HP·MP로 본과 자동 둘 다 (명세 12.3, 16c)
+    void save_after_fall();
 
     MakeField make_field_;
     game::HeroProgress& progress_;   // 부활 자리·찾은 쿠션 (앱이 가지고 있어요)
     FieldUi& ui_;                    // 지역 이름·쿠션 배너
-    SaveKeeper& saver_;              // 쉬면 자동 저장 (16b)
+    SaveKeeper& saver_;              // 저장 담당 (16b·16c)
+    std::filesystem::path content_root_;  // 깨어날 맵 파일을 읽는 곳 (16c)
     std::unique_ptr<game::FieldState> field_;
     game::MapTravel travel_;         // 화면 가리기 -> 새 맵 -> 보여 주기
     game::RespawnTrigger respawn_;   // 쓰러진 뒤 언제 부활할지 (Enter 또는 2.5초, 12c)

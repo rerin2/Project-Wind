@@ -15,6 +15,7 @@
 #include "app/input_gate.hpp"
 #include "app/item_hud.hpp"
 #include "app/pause_menu_panel.hpp"
+#include "app/save_icon_view.hpp"
 #include "app/screenshot_flash.hpp"
 #include "app/screenshot_name.hpp"
 #include "app/scripted_input.hpp"
@@ -28,6 +29,7 @@
 #include "engine/resources/resource_manager.hpp"
 #include "game/input/input_bindings.hpp"
 #include "game/progression/hero_progress.hpp"
+#include "game/ui/save_icon.hpp"
 #include "game/world/game_clock.hpp"
 #include "app/cushion_menu_panel.hpp"
 #include "app/field_session.hpp"
@@ -141,7 +143,7 @@ int ClientApp::run() {
         return made;
     };
     // 지금 필드와 필드 바꾸기(출구·부활·쉬기)를 맡는 곳 (13b에서 ClientApp에서 떼어 냈어요)
-    FieldSession session(make_field, *progress, field_ui, saver);
+    FieldSession session(make_field, *progress, field_ui, saver, resources.content_root());
     if (!session.start(start->map, start->feet)) {
         log::critical("Client cannot start without a valid map; see errors above");
         return 1;  // 맵이 잘못되면 시작할 수 없어요 (자세한 이유는 위쪽 로그에 있어요)
@@ -154,6 +156,7 @@ int ClientApp::run() {
     DebugOverlay overlay;                                    // F3 정보판
     const auto screenshot_dir = resolve_screenshot_dir(options_);  // 스크린샷 저장 폴더
     ScreenshotFlash screenshot_flash;                        // 찍은 뒤 "찰칵" 효과
+    game::SaveIcon save_icon;                                // 저장하면 오른쪽 위 잎 아이콘 (16c)
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
     cushion_menu.set_spells(item_setup->spells, resources.texture(kSpellIconsTexture));  // "마술 칸" 화면 (15f)
@@ -178,7 +181,7 @@ int ClientApp::run() {
         const UiCommand command = field_ui.handle_input(input, bindings, esc_used);
         // 쿠션 메뉴 (13c): 열려 있으면 키를 메뉴가 써요 (Esc = 떠나기). 이번 장은 게임 입력도 막아요.
         const bool menu_open = cushion_menu.is_open();
-        if (menu_open && cushion_menu.handle_input(input, bindings, *progress, session.field(), field_ui)) esc_used = true;
+        if (menu_open && cushion_menu.handle_input(input, bindings, *progress, session, field_ui)) esc_used = true;
         // 일시정지 메뉴 (15e): 옮기는 중·쓰러짐·쉬는 중·쿠션 메뉴·시험판이 아니면 Esc/Tab(I는 가방 탭)으로 열어요.
         // 이번 장의 Esc를 다른 창이 썼으면 열지 않아요. Esc는 이제 게임을 끄지 않아요 (끄기는 시스템 탭)
         const bool pause_allowed = !session.busy() && !session.field().hero_down() && !session.field().hero_resting() &&
@@ -205,6 +208,7 @@ int ClientApp::run() {
         const double frame_seconds = std::chrono::duration<double>(now - last_frame).count();
         last_frame = now;
         saver.add_play_time(frame_seconds);  // 플레이 시간 (저장 파일, 16b)
+        save_icon.update(static_cast<float>(frame_seconds), saver.saves_done());  // 저장 횟수가 늘면 아이콘 (16c)
 
         // 시험용 --auto-move: 정해진 방향키를 계속 누르고 있는 것처럼 해요.
         if (options_.auto_move) {
@@ -266,6 +270,7 @@ int ClientApp::run() {
         draw_transition(renderer, session.fade(), session.field().focus_on_screen());
         draw_notice(painter, session.notice());
         cushion_menu.draw(painter, screen, *progress);  // 쿠션 메뉴·레벨업 화면 (13c)
+        draw_save_icon(renderer, screen, save_icon);  // 화면 가리기 위에 보여요 (쉬기 저장은 페이드 중, 16c)
         field_ui.draw_panels(painter, screen);  // UI 시험판 (F7)
         // 9. 디버그 정보판은 맵 위에 맨 나중에 그려요 (그래야 가려지지 않아요).
         overlay.record_frame(frame_seconds);

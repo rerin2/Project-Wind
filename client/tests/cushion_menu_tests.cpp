@@ -1,5 +1,5 @@
 // 이 파일은 무엇을 하나요?
-// 쿠션 메뉴 검사 (13c): 흐린 항목 건너뛰기, 레벨업 화면 오가기, 확정·거절, 떠나기.
+// 쿠션 메뉴 검사 (13c): 흐린 항목 건너뛰기, 레벨업 화면 오가기, 확정·거절, 떠나기, 저장(16c).
 #include "game/ui/cushion_menu.hpp"
 
 #include "game/progression/hero_progress.hpp"
@@ -30,9 +30,9 @@ TEST(CushionMenu, OpensOnLevelUpAndSkipsDisabledItems) {
     menu.open();
     EXPECT_EQ(menu.focused_item(), CushionMenu::Item::LevelUp);
     EXPECT_FALSE(menu.item_enabled(CushionMenu::Item::SpellSlots));  // 마술 선반을 알려 주기 전 (15f)
-    EXPECT_FALSE(menu.item_enabled(CushionMenu::Item::Save));        // 16단계
+    EXPECT_TRUE(menu.item_enabled(CushionMenu::Item::Save));         // 16c부터 켜짐
     (void)menu.handle(MenuInput::Down, progress);
-    EXPECT_EQ(menu.focused_item(), CushionMenu::Item::Leave);        // 흐린 두 항목은 건너뛰어요
+    EXPECT_EQ(menu.focused_item(), CushionMenu::Item::Save);         // 흐린 마술 칸은 건너뛰어요
 }
 
 TEST(CushionMenu, LeaveAndBackCloseTheMenu) {
@@ -42,6 +42,7 @@ TEST(CushionMenu, LeaveAndBackCloseTheMenu) {
     EXPECT_EQ(menu.handle(MenuInput::Back, progress), MenuResult::Leave);
     EXPECT_FALSE(menu.is_open());
     menu.open();
+    (void)menu.handle(MenuInput::Down, progress);  // 저장
     (void)menu.handle(MenuInput::Down, progress);  // 떠나기
     EXPECT_EQ(menu.handle(MenuInput::Confirm, progress), MenuResult::Leave);
     EXPECT_FALSE(menu.is_open());
@@ -73,4 +74,17 @@ TEST(CushionMenu, ClosedMenuIgnoresInput) {
     auto progress = make_progress(0);
     CushionMenu menu;
     EXPECT_EQ(menu.handle(MenuInput::Confirm, progress), MenuResult::None);
+}
+
+TEST(CushionMenu, SaveKeepsTheMenuOpenOnSave) {
+    auto progress = make_progress(0);
+    CushionMenu menu;
+    menu.open();
+    (void)menu.handle(MenuInput::Down, progress);  // 저장 (마술 칸은 흐려서 건너뜀)
+    ASSERT_EQ(menu.focused_item(), CushionMenu::Item::Save);
+    EXPECT_EQ(menu.handle(MenuInput::Confirm, progress), MenuResult::Saved);
+    EXPECT_TRUE(menu.is_open());                                   // 열린 채 (16c, 개발자와 정함)
+    EXPECT_EQ(menu.screen(), CushionMenu::Screen::Main);
+    EXPECT_EQ(menu.focused_item(), CushionMenu::Item::Save);       // 커서도 그대로
+    EXPECT_EQ(menu.handle(MenuInput::Confirm, progress), MenuResult::Saved);  // 한 번 더 저장할 수 있어요
 }

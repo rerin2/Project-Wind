@@ -3,6 +3,7 @@
 
 #include "app/cushion_menu_panel.hpp"
 
+#include "app/field_session.hpp"
 #include "app/field_ui.hpp"
 #include "game/progression/hero_progress.hpp"
 #include "game/states/field_state.hpp"
@@ -29,7 +30,8 @@ constexpr std::array<std::pair<game::Action, game::MenuInput>, 8> kKeys{{
 }  // namespace
 
 bool CushionMenuPanel::handle_input(const engine::InputState& input, const game::InputBindings& bindings,
-                                    game::HeroProgress& progress, game::FieldState& field, FieldUi& ui) {
+                                    game::HeroProgress& progress, FieldSession& session, FieldUi& ui) {
+    game::FieldState& field = session.field();
     bool used_quit = false;
     for (const auto& [action, menu_input] : kKeys) {
         if (!menu_.is_open() || !bindings.pressed(action, input)) continue;  // 한 장에 여러 키도 차례로
@@ -44,6 +46,9 @@ bool CushionMenuPanel::handle_input(const engine::InputState& input, const game:
                 break;
             case game::MenuResult::SpellsChanged:  // 마술 칸이 바뀌었어요 (15f): 손의 마술을 다시
                 field.rearm_spells();
+                break;
+            case game::MenuResult::Saved:  // 쿠션 자리를 본 슬롯에 (실패하면 세션이 배너를 띄워요, 16c)
+                (void)session.save_at_cushion();
                 break;
             case game::MenuResult::Denied:  // 화면이 비용 줄·마술 칸을 흔들어요 (CushionMenuView)
             case game::MenuResult::None:

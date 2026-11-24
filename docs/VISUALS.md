@@ -81,6 +81,17 @@ Code: `client/src/app/screenshot_flash.cpp`. The screenshot is saved first; the 
 | White flash | peak alpha 170, fades over 0.30 s (`out_quad`) |
 | Label | "screenshot saved", bottom-right, fades over 1.2 s (`in_cubic`) |
 
+## Save icon (phase 16c)
+
+Code: `client/src/game/ui/save_icon.cpp` (timing) and `client/src/app/save_icon_view.cpp` (drawing). Drawn in code, no image file. Shown after every successful save (rest, cushion menu, fall, region change), above the screen fade.
+
+| Setting | Value |
+|---|---|
+| Place | top-right, 10 px from the right and top edges |
+| Shape | 9 × 11 pixel catnip leaf drawn at 2× (gold 232,190,92; pale vein 255,240,190), 1 px dark shadow (20,14,30, alpha 150) |
+| Motion | bobs ±1 px at 1.5 Hz; a 2 px spark circles it (radius 13 px, 0.9 turns/s) |
+| Timing | fades in over 0.2 s (`out_cubic`), stays until 1.2 s after the last save, fades out over 0.4 s (`in_cubic`). A save while shown extends it |
+
 ## Character shadow
 
 | Setting | Value |

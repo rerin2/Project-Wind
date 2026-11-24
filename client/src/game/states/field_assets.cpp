@@ -5,6 +5,7 @@
 
 #include "engine/animation/sprite_sheet_loader.hpp"
 #include "engine/map/coordinates.hpp"
+#include "game/world/start_place.hpp"
 
 #include "wind/content/day_cycle_loader.hpp"
 #include "wind/content/error_list.hpp"
@@ -70,33 +71,6 @@ std::vector<Monster> load_monsters(const std::filesystem::path& content_root, co
         monsters.emplace_back(entity.id, *it->second, engine::tile_feet(entity.tile, map.tile_size));
     }
     return monsters;
-}
-
-// 맵의 쿠션 자리마다 쿠션 정보를 만들어요 (13b). 이름이 없으면 지역 이름을 써요.
-std::vector<Cushion> load_cushions(const world::MapData& map) {
-    std::vector<Cushion> cushions;
-    for (const auto& entity : map.entities) {
-        if (entity.type != world::EntityType::SavePoint) continue;  // 쿠션만
-        const std::string& name = entity.display_name.empty() ? map.display_name : entity.display_name;
-        cushions.push_back({entity.id, name, entity.tile, engine::tile_feet(entity.tile, map.tile_size)});
-    }
-    return cushions;
-}
-
-// 등장 자리 이름으로 시작 칸을 찾아요. 순서: 등장 자리 -> 쿠션 id(13b: 쉬기·부활) -> "default"면 첫 자리.
-// 쿠션에서 시작하면 그 쿠션 id도 알려 줘요 (주인공이 앉은 채 시작해요).
-struct StartPlace {
-    world::TileCoord tile;
-    std::optional<std::string> cushion;
-};
-std::optional<StartPlace> find_start(const world::MapData& map, const std::vector<Cushion>& cushions,
-                                     std::string_view spawn_id) {
-    if (const world::SpawnPoint* spawn = map.find_spawn(spawn_id)) return StartPlace{spawn->position, {}};
-    for (const auto& cushion : cushions) {
-        if (cushion.id == spawn_id) return StartPlace{cushion.tile, cushion.id};
-    }
-    if (spawn_id == "default" && !map.spawn_points.empty()) return StartPlace{map.spawn_points.front().position, {}};
-    return std::nullopt;  // 맵 자료(또는 저장된 부활 자리)가 틀렸어요
 }
 
 }  // namespace

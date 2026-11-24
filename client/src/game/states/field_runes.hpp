@@ -42,6 +42,8 @@ public:
     void step(const FieldCombat& combat, const PlayerMotion& hero);
     // 지난번 뒤로 흔적을 되찾았으면 그 양을 한 번 돌려줘요 ("룬을 되찾았다" 배너용)
     [[nodiscard]] std::optional<std::int64_t> take_recovered() { return std::exchange(recovered_, std::nullopt); }
+    // 지난번 뒤로 쓰러져 룬을 잃었으면 한 번 true (그 박자에 저장해요, 16c)
+    [[nodiscard]] bool take_fell() { return std::exchange(fell_, false); }
 
     // 화면 한 장마다 (연출). feet: 주인공 발 (그린 위치)
     void update(float dt_seconds, engine::Vec2 feet, engine::ParticleRandom& random, engine::ParticlePool& air_fx);
@@ -56,6 +58,7 @@ private:
     std::string map_;                            // 이 맵 파일 (흔적이 이 맵 것인지 볼 때)
     RuneTraceView view_;
     std::optional<std::int64_t> recovered_;      // 배너용 (앱이 가져가요)
+    bool fell_ = false;                          // 방금 쓰러져 룬을 잃었어요 (저장용, 앱이 가져가요, 16c)
     std::optional<std::pair<engine::Vec2, std::int64_t>> recovered_fx_;  // 다음 화면에 알갱이를 튀길 자리와 양
 };
 

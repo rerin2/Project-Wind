@@ -8,10 +8,8 @@
 namespace wind::game {
 
 CushionMenu::CushionMenu() : focus_(kItemCount) {
-    // 아직 없는 기능은 흐리게(고를 수 없게): 저장은 16단계 (13c, 개발자와 정함).
-    // 마술 칸은 마술 선반을 알려 줄 때 켜져요 (15f)
+    // 저장은 늘 켜져 있어요 (16c). 마술 칸은 마술 선반을 알려 줄 때 켜져요 (15f)
     focus_.set_enabled(static_cast<std::size_t>(Item::SpellSlots), false);
-    focus_.set_enabled(static_cast<std::size_t>(Item::Save), false);
 }
 
 void CushionMenu::set_spell_shelf(const SpellShelf& shelf) {
@@ -52,6 +50,7 @@ MenuResult CushionMenu::handle_main(MenuInput input, HeroProgress& progress) {
                 screen_ = Screen::SpellSlots;
                 return MenuResult::None;
             }
+            if (focused_item() == Item::Save) return MenuResult::Saved;  // 메뉴는 열린 채 (16c)
             if (focused_item() == Item::Leave) {
                 screen_ = Screen::Closed;
                 return MenuResult::Leave;

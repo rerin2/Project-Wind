@@ -29,6 +29,7 @@ void FieldRunes::step(const FieldCombat& combat, const PlayerMotion& hero) {
     const engine::Vec2 feet = hero.mover().feet();
     if (combat.hero_fell()) {               // 2) 쓰러졌어요: 절반을 잃고 쓰러진 자리에 흔적 (14e)
         (void)progress_.fall(map_, feet);
+        fell_ = true;                       //    저장 담당이 이 박자의 "잃은 뒤" 상태를 저장해요 (16c)
         return;
     }
     // 3) 되찾기: 살아 있고 쉬는 중이 아니고, 흔적 가까이 서면 (한 번만, HeroProgress가 지워요)

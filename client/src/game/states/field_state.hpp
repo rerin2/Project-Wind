@@ -173,6 +173,8 @@ public:
     [[nodiscard]] bool hero_resting() const { return player_.rest().active(); }
     // 지난번 뒤로 룬 흔적을 되찾았으면 그 양을 한 번 돌려줘요 ("룬을 되찾았다" 배너용, 14e)
     [[nodiscard]] std::optional<std::int64_t> take_rune_recovered() { return runes_.take_recovered(); }
+    // 지난번 뒤로 쓰러져 룬을 잃었으면 한 번 true (쓰러진 직후 저장, 16c)
+    [[nodiscard]] bool take_hero_fell() { return runes_.take_fell(); }
 
     // 맵의 보여 줄 이름 (지역 이름 배너용, 예: "시험 초원")
     [[nodiscard]] const std::string& display_name() const { return map_.map.display_name; }

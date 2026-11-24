@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Phase 16c — cushion menu save, save icon, fall and region saves
+- The cushion menu's 저장 item now works: it saves to the slot and the menu stays open.
+- A gold catnip-leaf icon appears in the top-right corner after every save (rest, menu, fall, region change).
+- Falling saves main + auto on the same tick the runes are lost, as the woken-up state (last cushion, full HP/MP,
+  new trace), so quitting during the fallen screen cannot bring the runes back.
+- Walking through an exit into another map saves the auto file at the new entrance.
+- Any failed save shows "저장하지 못했다". New: `game/save/wake_place`, `game/world/start_place` (moved out of
+  `field_assets`), `game/ui/SaveIcon`, `app/save_icon_view`; `MenuResult::Saved`, `FieldState::take_hero_fell`.
+- 854 CTest tests.
+
 ### Phase 16b — loading, startup question, rest autosave
 - The game now loads slot 1 (or `--slot N`) on start: the newer of main and auto save. The hero starts at the saved
   spot with saved HP/MP, and stats, runes, trace, cushions, spells, bag, gear, quick slots, ground items, clock and
