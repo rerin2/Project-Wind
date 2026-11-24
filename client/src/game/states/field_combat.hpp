@@ -21,6 +21,7 @@
 
 #include "game/combat/enemy_shots.hpp"
 #include "game/combat/hero_hit_event.hpp"
+#include "game/combat/hero_magic.hpp"
 #include "game/combat/hit_resolution.hpp"
 #include "game/combat/projectile.hpp"
 #include "game/combat/rune_drop_event.hpp"
@@ -56,13 +57,15 @@ public:
     [[nodiscard]] const std::vector<TrainingDummy>& dummies() const { return dummies_; }
     [[nodiscard]] const std::vector<Monster>& monsters() const { return monsters_; }
     // 날고 있는 빛 탄들
-    [[nodiscard]] const std::vector<Projectile>& projectiles() const { return projectiles_; }
+    [[nodiscard]] const std::vector<Projectile>& projectiles() const { return magic_.projectiles(); }
+    // 이번 박자에 달빛 칼날이 벤 자리 (연출: 푸른 칼자국, 15c)
+    [[nodiscard]] const std::vector<SpellSlashEvent>& spell_slashes() const { return magic_.slashes(); }
     // 몬스터가 쏜 침들 (13c, 그리기용)
     [[nodiscard]] const EnemyShots& enemy_shots() const { return enemy_shots_; }
     // 이번 박자에 맞은 일들 (다음 박자에 지워져요)
     [[nodiscard]] const std::vector<HitEvent>& hits() const { return hits_; }
     // 이번 박자에 사라진 빛 탄들 (다음 박자에 지워져요)
-    [[nodiscard]] const std::vector<ProjectileEndEvent>& projectile_ends() const { return ended_; }
+    [[nodiscard]] const std::vector<ProjectileEndEvent>& projectile_ends() const { return magic_.ended(); }
     // 이번 박자에 주인공이 맞은 일 (다음 박자에 지워져요, 11c)
     [[nodiscard]] const std::vector<HeroHitEvent>& hero_hits() const { return hero_hits_; }
     // 이번 박자에 다 사라진(쓰러진 뒤 0.5초) 몬스터들 (다음 박자에 지워져요, 11d)
@@ -91,8 +94,6 @@ public:
 
 private:
     void resolve_sword(PlayerMotion& player);
-    void spawn_spell(const PlayerMotion& player);
-    void step_projectiles(float dt_seconds, const world::MapData& map);
     // 맞은 일을 이번 박자 목록과 "마지막으로 맞은 일"에 적어요
     void record_hits(const std::vector<HitEvent>& hits);
     // 덮치는 몬스터가 주인공을 맞혔나 보고, 맞았으면 피해·경직·넉백을 줘요 (11c)
@@ -104,10 +105,9 @@ private:
 
     std::vector<TrainingDummy> dummies_;      // 맵의 허수아비들
     std::vector<Monster> monsters_;           // 맵의 몬스터들 (11a)
-    std::vector<Projectile> projectiles_;     // 날고 있는 빛 탄들
+    HeroMagic magic_;                         // 주인공 마술이 나간 뒤: 빛 탄·별무리·달빛 칼날 (15c)
     EnemyShots enemy_shots_;                  // 몬스터가 쏜 침 (13c)
     std::vector<HitEvent> hits_;              // 이번 박자에 맞은 일
-    std::vector<ProjectileEndEvent> ended_;   // 이번 박자에 사라진 빛 탄
     std::vector<HeroHitEvent> hero_hits_;     // 이번 박자에 주인공이 맞은 일 (11c)
     std::vector<MonsterVanishEvent> vanished_;  // 이번 박자에 다 사라진 몬스터 (11d)
     std::optional<HitEvent> last_hit_;        // 마지막으로 맞은 일
@@ -118,7 +118,6 @@ private:
     std::int64_t runes_earned_ = 0;           // 이번 박자에 받은 룬 (13a)
     std::vector<RuneDropEvent> rune_drops_;  // 이번 박자에 룬이 나온 자리 (13c)
     float strength_bonus_ = 0.0f;             // 힘 보너스 (13a, 주인공 능력치에서)
-    float intelligence_bonus_ = 0.0f;         // 지능 보너스 (13a)
 };
 
 }  // namespace wind::game

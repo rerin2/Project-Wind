@@ -91,6 +91,9 @@ private:
     CombatView view_;
     MonsterView monster_view_;
     SlashArc slash_;
+    SlashArc moon_slash_;                         // 달빛 칼날 칼자국 (15c)
+    std::optional<combat::SpellLight> moon_light_;  // 달빛 칼날 빛 (15c)
+    engine::Vec2 moon_at_;                        // 벤 자리 가운데
     SpellView spell_;
     ScreenShake shake_;
     HurtVignette vignette_;                       // 주인공 피격 붉은 가장자리 (11c)

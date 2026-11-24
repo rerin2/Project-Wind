@@ -13,7 +13,6 @@ constexpr float kFadeSeconds = 0.08f;     // 판정이 끝난 뒤 사라지는 �
 constexpr float kSweepDegrees = 50.0f;    // 휙 쓸 때 돌아가는 각도
 constexpr float kSweepPart = 0.6f;        // 보이는 시간 중 쓸기에 쓰는 앞부분 (나머지는 제자리에서 흐려짐)
 constexpr float kExtraLength = 6.0f;      // 히트박스보다 조금 길게 (칼끝이 상자에 딱 붙어 보이지 않게)
-constexpr engine::Color kTint{220, 236, 255, 255};  // 살짝 푸른 흰색
 
 // 바라보는 방향 -> 그림을 돌릴 각도 (그림은 오른쪽을 보고 있어요)
 float facing_degrees(world::Direction facing) {
@@ -32,20 +31,33 @@ bool horizontal(world::Direction facing) {
 
 }  // namespace
 
-SlashArc::SlashArc(engine::TextureHandle texture) : texture_(texture) {}
+SlashArc::SlashArc(engine::TextureHandle texture, engine::Color tint) : texture_(texture), tint_(tint) {}
+
+void SlashArc::play(engine::RectF box, world::Direction facing, float lifetime, bool reverse) {
+    box_ = box;            // 벤 곳에
+    facing_ = facing;      // 벤 방향으로
+    reverse_ = reverse;
+    lifetime_ = lifetime;  // 보이는 시간
+    age_ = 0.0f;
+}
+
+void SlashArc::advance(float dt_seconds) {
+    age_ += std::max(0.0f, dt_seconds);  // 나이 먹기
+}
+
+float SlashArc::strength() const {
+    if (!visible() || lifetime_ <= 0.0f) return 0.0f;
+    return 1.0f - std::clamp(age_ / lifetime_, 0.0f, 1.0f);  // 생길 때 1, 사라질 때 0
+}
 
 void SlashArc::update(float dt_seconds, const AttackRunner& attack,
                       const std::optional<engine::RectF>& hitbox, world::Direction facing) {
     const bool active = attack.phase() == AttackRunner::Phase::Active && hitbox.has_value();
-    if (active && !was_active_) {                          // 판정 구간이 막 시작됐어요
-        box_ = *hitbox;                                    // 칼이 닿는 곳에
-        facing_ = facing;                                  // 휘두른 방향으로
-        reverse_ = attack.combo_index() % 2 == 1;          // 2타는 반대로 쓸어요
-        lifetime_ = attack.current()->active + kFadeSeconds;  // 판정 동안 + 사라지는 시간
-        age_ = 0.0f;
+    if (active && !was_active_) {  // 판정 구간이 막 시작됐어요: 판정 동안 + 사라지는 시간, 2타는 반대로 쓸어요
+        play(*hitbox, facing, attack.current()->active + kFadeSeconds, attack.combo_index() % 2 == 1);
     }
     was_active_ = active;
-    age_ += std::max(0.0f, dt_seconds);                    // 나이 먹기
+    advance(dt_seconds);
 }
 
 void SlashArc::queue(const engine::Camera2D& camera, engine::RenderQueue& queue) const {
@@ -64,7 +76,7 @@ void SlashArc::queue(const engine::Camera2D& camera, engine::RenderQueue& queue)
     draw.texture = texture_;
     draw.dest = {std::round(center.x - length * 0.5f), std::round(center.y - width * 0.5f), length, width};
     draw.rotation_degrees = facing_degrees(facing_) + swing;   // 방향 + 쓸기
-    draw.tint = kTint;
+    draw.tint = tint_;
     draw.tint.a = static_cast<std::uint8_t>(std::lround(255.0f * std::clamp(alpha, 0.0f, 1.0f)));
     draw.blend = engine::BlendMode::Add;                       // 더하기 섞기: 빛나 보여요
     queue.push_sprite(engine::DrawLayer::Glow, 0.0f, draw);    // 조명 뒤라 밤·동굴에서도 밝아요

@@ -26,6 +26,9 @@ constexpr float kSpitSize = 12.0f;
 constexpr float kSpitCore = 6.0f;
 constexpr engine::Color kSpitColor{120, 200, 70, 230};
 constexpr engine::Color kSpitCoreColor{220, 255, 170, 255};
+// 달빛 칼날 칼자국 (15c): 칼보다 푸른 달빛 색, 조금 더 오래 보여요. docs/VISUALS.md "Moon blade" 절
+constexpr engine::Color kMoonSlashTint{170, 205, 255, 255};
+constexpr float kMoonSlashSeconds = 0.24f;
 
 }  // namespace
 
@@ -33,6 +36,7 @@ FieldCombatFx::FieldCombatFx(CombatFxSetup setup)
     : view_(setup.shadow, std::move(setup.dummies)),
       monster_view_(setup.shadow, setup.glow, std::move(setup.monsters)),
       slash_(setup.slash),
+      moon_slash_(setup.slash, kMoonSlashTint),
       spell_(setup.star_trail, setup.star_burst, setup.glow),
       vignette_texture_(setup.vignette),
       hit_spark_(setup.hit_spark),
@@ -60,6 +64,11 @@ void FieldCombatFx::collect(const FieldCombat& combat) {
     pending_drops_.insert(pending_drops_.end(), drops.begin(), drops.end());
     const auto& spit_ends = combat.enemy_shots().ended();  // 사라진 침 (13c)
     pending_spit_ends_.insert(pending_spit_ends_.end(), spit_ends.begin(), spit_ends.end());
+    for (const auto& slash : combat.spell_slashes()) {  // 달빛 칼날: 벤 박자에 바로 띄워요 (15c)
+        moon_slash_.play(slash.box, slash.facing, kMoonSlashSeconds);
+        moon_light_ = slash.light;
+        moon_at_ = {slash.box.x + slash.box.w * 0.5f, slash.box.y + slash.box.h * 0.5f};
+    }
 }
 
 void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& combat,
@@ -98,6 +107,7 @@ void FieldCombatFx::update(float dt_seconds, float alpha, const FieldCombat& com
     view_.update(dt_seconds, combat.dummies());
     monster_view_.update(dt_seconds, combat.monsters());  // 숨쉬기·뜀 세기 (11a)
     slash_.update(dt_seconds, player.attack(), player.attack_hitbox(), player.mover().facing());
+    moon_slash_.advance(dt_seconds);  // 달빛 칼날 칼자국 (15c)
     shake_.update(dt_seconds);
     vignette_.update(dt_seconds);
     numbers_.update(dt_seconds);
@@ -138,6 +148,7 @@ void FieldCombatFx::queue(const engine::Camera2D& camera, const FieldCombat& com
     view_.queue(camera, combat.dummies(), player.attack_hitbox(), show_boxes, queue);
     monster_view_.queue(camera, combat.monsters(), alpha, show_boxes, queue);  // 몬스터 (11a)
     slash_.queue(camera, queue);                                        // 칼자국
+    moon_slash_.queue(camera, queue);                                   // 달빛 칼날 (15c)
     spell_.queue(camera, combat.projectiles(), alpha, show_boxes, queue);  // 손끝 빛과 빛 탄
     runes_.queue(camera, glow_, queue);                                // 빨려 드는 룬 알갱이 (13c)
     queue_enemy_shots(camera, combat, alpha, queue);                   // 몬스터 침 (13c)
@@ -166,6 +177,14 @@ void FieldCombatFx::queue_enemy_shots(const engine::Camera2D& camera, const Fiel
 std::vector<engine::Light> FieldCombatFx::lights(const FieldCombat& combat, float alpha) const {
     auto result = spell_.lights(combat.projectiles(), alpha);         // 빛 탄, 손끝
     const auto warnings = monster_view_.lights(combat.monsters());    // 공격 예고 붉은 빛 (11b)
+    if (moon_light_ && moon_slash_.visible()) {  // 달빛 칼날 빛: 벨 때 밝았다가 칼자국과 같이 사라져요 (15c)
+        engine::Light light;
+        light.position = moon_at_;
+        light.radius = moon_light_->radius;
+        light.color = {moon_light_->color.r, moon_light_->color.g, moon_light_->color.b, 255};
+        light.intensity = moon_light_->intensity * moon_slash_.strength();
+        result.push_back(light);
+    }
     result.insert(result.end(), warnings.begin(), warnings.end());
     return result;
 }

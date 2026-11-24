@@ -42,6 +42,7 @@ struct Spell {
     int mp_cost = 0;                 // 한 번 쓸 때 MP (빛 탄·근접 마술)
     float mp_per_second = 0.0f;      // 유지하는 동안 1초에 쓰는 MP (광선만)
     float cast_seconds = 0.0f;       // 시전 시간: 누르고 이만큼 지나야 나가요
+    float cast_move_scale = 0.4f;    // 시전하는 동안 걷는 빠르기 배수 (0 = 멈춤, 선택, 기본 0.4, 15c)
     float power = 1.0f;              // 위력 배수
     float knockback = 0.0f;          // 밀어내는 힘 (픽셀/초, 선택, 10a)
     float hitstop = 0.0f;            // 맞는 순간 멈칫 (초, 선택)

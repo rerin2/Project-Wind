@@ -97,6 +97,19 @@ Code: `client/src/game/combat/spell_caster.*`, `projectile.*`, `client/src/game/
 - **Cast time:** `cast_seconds` (0.25 s = 15 fixed steps). The spell goes off on the step the time is reached. The direction is fixed when the cast starts (the pressed direction, else the facing) and the hero keeps facing it while casting.
 - **While casting:** walk at 0.4 × speed, no running, no attack, no dodge (spec 8.5: only before a cast or while holding a beam; beams come later). Only single straight-shot spells can be cast yet (star shard, great star shard). Moon blade, star swarm and comet beam can be learned and slotted, but L/C does nothing for them and spends no MP until 15c/15d.
 
+## Spell motions (phase 15c, spec 8.6)
+
+Code: `game/combat/hero_magic.*` (owned by `FieldCombat`), orbit/aim/steer in `game/combat/projectile.*`; tested in `hero_magic_tests`.
+
+- **Walking while casting** comes from the spell's `cast_move_scale` (default 0.4). Great star shard uses 0: she stands still for its 0.6 s cast. Drinking stays at 0.4.
+- **Great star shard:** one big slow shard (12 × 12 px, 220 px/s, power 2.2, knockback 240).
+- **Moon blade (melee):** on the release step, the `melee` box is placed in the cast direction like a sword hitbox (forward 20, lift −8, 34 × 40) and every dummy/monster inside is hit **once**. Damage = magic attack × 1.4. No lingering hitbox.
+- **Star swarm:** 5 stars spawn at the hand and circle the heroine (radius 22 px on the ground, flattened to 0.6 vertically to look round in the 3/4 view, 0.9 turns per second) while following her. Star *i* leaves after 1.5 s + 0.12 s × *i*, so they leave one by one within half a second.
+  - **While circling** a star that touches an enemy hits it and vanishes (decided with the developer), so the swarm also guards her briefly.
+  - **Leaving:** if an enemy (standing dummy or living monster) is within `range` (260 px) of the star, it aims straight at the nearest one; otherwise it flies in the cast direction (decided with the developer).
+  - **Flying:** each step it turns toward the nearest enemy within range by at most `homing` × 8 rad/s (0.8 → about 370°/s), so it curves onto moving targets but can still miss a sharp dodge. It stops at walls and after 260 px like any shard.
+- Comet beam still cannot be cast (15d); pressing L/C with it selected spends nothing.
+
 ## Spell slots and Q (phase 15b, spec 8.2, 8.6)
 
 Code: `wind/progression/spell_book`, `game/states/field_spells`, `game/combat/spell_shelf`; tested in `spell_book_tests`, `field_spells_tests`.

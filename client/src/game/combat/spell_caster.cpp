@@ -13,12 +13,12 @@ namespace {
 // (여유가 없으면 15박자가 아니라 16박자째에 나가요)
 constexpr float kTimeEpsilon = 1e-4f;
 
-// 지금 움직일 수 있는 마술인가요? 15b까지는 빛 탄 하나를 똑바로 쏘는 마술만 (별빛 조각·큰 별빛 조각).
-// 근접(달빛 칼날)·여러 개·유도(별무리)는 15c, 광선(혜성 광선)은 15d에서 열어요. 그 전에는 MP도 안 써요.
+// 지금 움직일 수 있는 마술인가요? 빛 탄(별무리 포함, 15c)과 근접(달빛 칼날, 15c)은 돼요.
+// 광선(혜성 광선)은 15d에서 열어요. 그 전에는 L/C를 눌러도 MP를 안 써요.
 bool castable(const combat::Spell& spell) {
-    if (spell.motion != combat::SpellMotion::Projectile || !spell.projectile) return false;
-    const auto& shot = *spell.projectile;
-    return shot.count == 1 && shot.homing == 0.0f && shot.orbit_seconds == 0.0f;
+    if (spell.motion == combat::SpellMotion::Projectile) return spell.projectile.has_value();
+    if (spell.motion == combat::SpellMotion::Melee) return spell.melee.has_value();
+    return false;
 }
 
 }  // namespace

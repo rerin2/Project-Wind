@@ -10,6 +10,6 @@
   "knockback": 130,
   "hitstop": 0.06,
   "shake": 0.2,
-  "melee": { "offset": [20, -8], "size": [34, 40] },
+  "melee": { "offset": [20, -8], "size": [64, 80] },
   "light": { "radius": 44, "color": "#dce8ff", "intensity": 0.8 }
 }

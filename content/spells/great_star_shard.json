@@ -6,6 +6,7 @@
   "icon": 1,
   "mp_cost": 14,
   "cast_seconds": 0.6,
+  "cast_move_scale": 0,
   "power": 2.2,
   "knockback": 240,
   "hitstop": 0.08,

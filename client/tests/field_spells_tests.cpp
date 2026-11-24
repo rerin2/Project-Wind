@@ -112,10 +112,10 @@ TEST(FieldSpells, StartingIntelligenceCannotSlotNewSpells) {
     EXPECT_FALSE(f.spells->step(f.hero));  // 칸에는 별빛 조각뿐
 }
 
-// 아직 움직일 수 없는 마술(근접은 15c, 광선은 15d)은 L을 눌러도 나가지 않고 MP도 그대로예요
+// 아직 움직일 수 없는 마술(광선은 15d)은 L을 눌러도 나가지 않고 MP도 그대로예요
 TEST(FieldSpells, NotYetCastableSpellKeepsMana) {
     Fixture f(40);  // 지능 40: 칸 4개, 혜성 광선(36)도 돼요
-    f.learn("moon_blade");
+    f.learn("comet_beam");
     f.spells->arm(f.hero);
     const float mana = f.hero.mana().current();
     f.hero.press_cast();

@@ -161,6 +161,7 @@ LoadResult<combat::Spell> parse_spell(const nlohmann::json& document, const std:
     read_optional_number(reader, "knockback", kMaxKnockback, spell.knockback);  // 타격감 (10a)
     read_optional_number(reader, "hitstop", kMaxHitstop, spell.hitstop);
     read_optional_number(reader, "shake", 1.0, spell.shake);
+    read_optional_number(reader, "cast_move_scale", 1.0, spell.cast_move_scale);  // 시전 중 걷기 (없으면 0.4, 15c)
     if (reader.has("icon")) {  // HUD 아이콘 칸 (선택, 15b)
         if (const auto icon = reader.integer("icon", 0, kMaxIcon)) spell.icon = static_cast<int>(*icon);
     }

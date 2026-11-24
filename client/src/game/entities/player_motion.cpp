@@ -148,7 +148,9 @@ bool PlayerMotion::step(double dt_seconds, engine::Vec2 move, bool run_held,
     const bool slow = caster_.busy() || drinker_.busy();
     const bool casting = caster_.busy();
     const bool staggered = hit_.staggered();  // 경직 중이면 다리도 멈춰요 (11c)
-    const float scale = attacking ? attack_.weapon().attack_move_scale : (slow ? kCastWalkScale : 1.0f);
+    // 시전 중 걷기는 마술마다 달라요 (큰 별빛 조각은 멈춤, 15c). 마시기는 0.4배 그대로
+    const float slow_scale = casting && caster_.spell() != nullptr ? caster_.spell()->cast_move_scale : kCastWalkScale;
+    const float scale = attacking ? attack_.weapon().attack_move_scale : (slow ? slow_scale : 1.0f);
     const engine::Vec2 legs = staggered ? engine::Vec2{} : move * scale;
     // 5) 달리기: Shift + 방향키 + 지침 아님
     const bool run = !attacking && !slow && !staggered && run_held && engine::length(move) > 0.0f &&

@@ -371,6 +371,11 @@ Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentati
 - Weapon detail line (15a): "무기 · 무게 N" in dim text, or "무기 · 무게 14 / 8 · 무거움" in red `#ec6060` when heavy for the current strength (the heavy check comes from `derive_stats`, not from the view).
 - Bottom hint: "R 정렬 · I 닫기" (dim). The first version also listed Enter and was clipped by the 166 px width, so it was shortened.
 
+## Moon blade and star swarm (phase 15c)
+
+- Moon blade: the sword's slash-arc sprite (`fx/slash_arc.bmp`) played once on the cut box, tinted moon blue `#aacdff`, additive on the Glow layer, visible 0.24 s (a little longer than a sword arc so the spell reads as magic). The spell's light (`#dce8ff`, radius 44) sits on the box centre and fades with the arc. Code: `SlashArc::play` / `advance`, owned by `FieldCombatFx`.
+- Star swarm stars are ordinary shards to the renderer (glow, trail, end sparkle, light carried per shard), so circling and curving need no new drawing code. Their small size (6 px) and dimmer light (`#9cc8ff`, radius 28, 0.6) keep five of them from washing out the screen.
+
 ## Hands HUD (phase 15b)
 
 Code: `client/src/app/hands_hud.*` (owned by `ItemHud`). Spell icons: `ui/spell_icons.bmp`, 128×16, cell = spell `icon` (generator section "마술 아이콘"): 0 star shard, 1 great star shard, 2 star swarm, 3 moon blade, 4 comet beam, each on a navy night-sky disc so they never read as item icons.

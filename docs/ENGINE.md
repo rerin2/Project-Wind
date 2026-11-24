@@ -235,6 +235,7 @@ Each direction is a row, each animation frame a column. `origin` is the feet poi
 | `fx`, `sfx` | no | content paths |
 | `light` | no | `radius` 1–512 px, `color` `#rrggbb[aa]`, `intensity` 0–1 (presentation only). Carried by each shard and by the casting hand glow, so switching spells never recolours a shard already in flight (15b) |
 | `icon` | no (0) | integer 0–255: cell in `ui/spell_icons.bmp` for the HUD spell slot (15b) |
+| `cast_move_scale` | no (0.4) | 0–1: walk speed multiplier while casting; 0 roots the caster (great star shard, 15c) |
 
 - **File name = id (15b):** spells are found by id as `spells/<id>.json` (`game::SpellShelf`); a file whose `id` differs is rejected. Shipped: `star_shard`, `great_star_shard`, `star_swarm`, `moon_blade`, `comet_beam` (spec 8.6 table).
 - **`projectile`** (shared with attacks): `speed` 1–2000 px/s, `range` 1–2000 px, `size` `[w, h]` 1–64 px; optional `count` integer 1–16 (default 1), `homing` 0–1 (default 0), `orbit_seconds` 0–10 (default 0). Until 15c only one straight shard flies; `count`, `homing` and `orbit_seconds` are validated now and move in 15c (star swarm).

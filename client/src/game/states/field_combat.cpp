@@ -16,10 +16,6 @@
 namespace wind::game {
 namespace {
 
-// 빛 탄이 나오는 곳: 발에서 앞으로 10픽셀, 화면 위로 14픽셀(가슴 높이)
-// 이유는 docs/GAMEPLAY.md "Casting" 절에 있어요.
-constexpr float kSpellSpawnForward = 10.0f;
-constexpr float kSpellLift = 14.0f;
 // 몬스터 주사위 씨앗 = 싸움 씨앗 XOR 이 값. 같은 씨앗에서 치명타와 다른 줄의 수가 나와요 (0이 아닌 아무 수나 괜찮아요).
 constexpr std::uint64_t kMonsterStream = 0xD1B54A32D192ED03ULL;
 // 몸끼리 밀어내기 (명세 7.3, 11c). 이유는 docs/GAMEPLAY.md "Bodies pushing apart" 절에 있어요.
@@ -33,6 +29,7 @@ FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed,
                          std::vector<Monster> monsters)
     : dummies_(std::move(dummies)),
       monsters_(std::move(monsters)),
+      magic_(base_crit_chance),
       random_(seed),
       monster_random_(seed ^ kMonsterStream),
       base_crit_chance_(base_crit_chance),
@@ -45,15 +42,14 @@ FieldCombat::FieldCombat(std::vector<TrainingDummy> dummies, std::uint64_t seed,
 
 void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::MapData& map) {
     hits_.clear();   // 지난 박자 기록 지우기
-    ended_.clear();
     hero_hits_.clear();
     vanished_.clear();
     runes_earned_ = 0;
     rune_drops_.clear();
     const auto dt = static_cast<float>(dt_seconds);
     resolve_sword(player);         // 1) 칼
-    spawn_spell(player);           // 2) 시전이 끝났으면 빛 탄 하나
-    step_projectiles(dt, map);     // 3) 빛 탄 날리기
+    magic_.step(dt, player, map, dummies_, monsters_, random_);  // 2) 나간 마술: 빛 탄·별무리·달빛 칼날 (15c)
+    record_hits(magic_.hits());    // 3) 빛 탄·별무리 날리기, 달빛 칼날에 맞은 일 (15c)
     for (auto& dummy : dummies_) { // 4) 쓰러진 허수아비가 다시 서기까지 시간 세기
         dummy.step(dt);
     }
@@ -77,7 +73,7 @@ void FieldCombat::step(double dt_seconds, PlayerMotion& player, const world::Map
 
 void FieldCombat::set_hero_stats(const progression::DerivedStats& derived) {
     strength_bonus_ = derived.strength_bonus;          // 칼 공격력에 곱해요
-    intelligence_bonus_ = derived.intelligence_bonus;  // 마법 공격력에 곱해요
+    magic_.set_intelligence_bonus(derived.intelligence_bonus);  // 마법 공격력에 곱해요 (15c: 마술 담당이 써요)
 }
 
 // 쓰러진(HP 0) 몬스터마다 한 번만 룬을 세요. 칼이든 빛 탄이든 쓰러뜨린 박자에 들어와요.
@@ -111,56 +107,6 @@ void FieldCombat::resolve_sword(PlayerMotion& player) {
     swing.register_hit = [&player](TargetId id) { return player.register_hit(id); };  // 한 번만 맞게
     record_hits(resolve_swing(swing, dummies_, &random_));      // 맞았는지 보고 피해 주기
     record_hits(resolve_swing(swing, monsters_, &random_));     // 몬스터도 같은 규칙으로 (11d)
-}
-
-// 주인공 시전이 이번 박자에 끝났으면, 시전 방향으로 빛 탄을 하나 만들어요.
-void FieldCombat::spawn_spell(const PlayerMotion& player) {
-    const auto* spell = player.caster().spell();
-    if (!player.spell_released() || spell == nullptr || !spell->projectile) {
-        return;
-    }
-    ProjectileShot shot;
-    shot.direction = direction_vector(player.cast_facing());                      // 시전 방향
-    shot.ground = player.mover().feet() + shot.direction * kSpellSpawnForward;     // 발 조금 앞
-    shot.lift = kSpellLift;                                                        // 가슴 높이
-    shot.data = *spell->projectile;                                                // 빠르기·거리·크기
-    shot.attack_power = combat::magic_attack_power(combat::kBaseMagicPower, intelligence_bonus_);  // 마법 공격력 (13a)
-    shot.power = spell->power;                                                     // 마술 위력
-    shot.crit_chance = base_crit_chance_;                                          // 마술도 기본 5%
-    shot.knockback = spell->knockback;                                             // 타격감 (마술 데이터)
-    shot.hitstop = spell->hitstop;
-    shot.shake = spell->shake;
-    shot.light = spell->light;  // 빛은 탄이 들고 다녀요 (연출, 15b)
-    projectiles_.emplace_back(shot);
-}
-
-// 빛 탄을 날리고, 사라진 것은 기록한 뒤 목록에서 빼요.
-void FieldCombat::step_projectiles(float dt_seconds, const world::MapData& map) {
-    for (auto& projectile : projectiles_) {
-        // 탄 네모가 허수아비에 닿았는지 묻는 함수: 처음 닿은 하나만 맞아요
-        const Projectile::HitTest hit_test = [this, &projectile](const engine::RectF& rect) {
-            bool used = false;                               // 이 걸음에서 이미 하나 맞혔나
-            Swing swing;
-            swing.hitbox = rect;
-            swing.attack_power = projectile.shot().attack_power;
-            swing.power = projectile.shot().power;
-            swing.crit_chance = projectile.shot().crit_chance;
-            swing.push_direction = projectile.shot().direction;    // 날아가던 쪽으로 밀어요
-            swing.knockback = projectile.shot().knockback;
-            swing.hitstop = projectile.shot().hitstop;
-            swing.shake = projectile.shot().shake;
-            swing.register_hit = [&used](TargetId) { return !std::exchange(used, true); };  // 첫 대상만
-            auto hits = resolve_swing(swing, dummies_, &random_);       // 허수아비 먼저
-            if (hits.empty()) hits = resolve_swing(swing, monsters_, &random_);  // 아무도 안 맞았으면 몬스터 (11d)
-            record_hits(hits);
-            return !hits.empty();
-        };
-        projectile.step(dt_seconds, map, hit_test);
-        if (!projectile.alive()) {
-            ended_.push_back({projectile.center(), projectile.end()});  // 연출: 그 자리에서 반짝
-        }
-    }
-    std::erase_if(projectiles_, [](const Projectile& p) { return !p.alive(); });
 }
 
 void FieldCombat::record_hits(const std::vector<HitEvent>& hits) {
@@ -220,8 +166,7 @@ void FieldCombat::separate(PlayerMotion& player, const world::MapData& map, floa
 }
 
 engine::Vec2 FieldCombat::spell_hand(engine::Vec2 feet, world::Direction facing) {
-    const engine::Vec2 ground = feet + direction_vector(facing) * kSpellSpawnForward;  // 발 조금 앞
-    return {ground.x, ground.y - kSpellLift};                                         // 가슴 높이
+    return HeroMagic::spell_hand(feet, facing);  // 마술 담당과 같은 손끝 (15c)
 }
 
 float FieldCombat::strongest_hitstop() const {
@@ -254,7 +199,7 @@ std::string FieldCombat::debug_text() const {
             monsters_, [&busy](const Monster& a, const Monster& b) { return busy(a.state()) < busy(b.state()); });
         text += "  mobs " + std::to_string(monsters_.size()) + " (" + std::string(to_string(top->state())) + ")";
     }
-    text += "  shards " + std::to_string(projectiles_.size());                // 날고 있는 빛 탄 수
+    text += "  shards " + std::to_string(magic_.projectiles().size());                // 날고 있는 빛 탄 수
     if (!last_hit_) return text;                                              // 아직 아무도 안 맞았으면 여기까지
     text += "  last hit " + std::to_string(last_hit_->amount) + (last_hit_->critical ? "!" : "") +  // ! = 치명타
             " -> #" + std::to_string(last_hit_->target);

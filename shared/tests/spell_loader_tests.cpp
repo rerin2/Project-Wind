@@ -284,3 +284,16 @@ TEST(SpellLoader, ShippedSpellsMatchTheTable) {
     const auto beam = wind::content::load_spell_file(WIND_TEST_CONTENT_DIR, "spells/comet_beam.json");
     EXPECT_FLOAT_EQ(beam.value->mp_per_second, 12.0f);
 }
+
+// 시전 중 걷기 배수 (15c): 없으면 0.4, 0~1만. 큰 별빛 조각은 0(시전 중 멈춤)
+TEST(SpellLoader, ReadsCastMoveScale) {
+    auto doc = make_doc();
+    EXPECT_FLOAT_EQ(wind::content::parse_spell(doc, "s.json").value->cast_move_scale, 0.4f);
+    doc["cast_move_scale"] = 0;
+    EXPECT_FLOAT_EQ(wind::content::parse_spell(doc, "s.json").value->cast_move_scale, 0.0f);
+    doc["cast_move_scale"] = 1.5;
+    EXPECT_FALSE(wind::content::parse_spell(doc, "s.json").ok());
+    const auto great = wind::content::load_spell_file(WIND_TEST_CONTENT_DIR, "spells/great_star_shard.json");
+    ASSERT_TRUE(great.ok());
+    EXPECT_FLOAT_EQ(great.value->cast_move_scale, 0.0f);
+}

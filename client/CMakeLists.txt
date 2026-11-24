@@ -153,6 +153,7 @@ add_library(wind_game_core STATIC
     src/game/items/loot_store.cpp
     src/game/items/weapon_rack.cpp
     src/game/combat/spell_shelf.cpp
+    src/game/combat/hero_magic.cpp
     src/game/items/field_loot.cpp
     src/game/progression/hero_progress.cpp
     src/game/progression/hero_tuning.cpp)
@@ -257,6 +258,7 @@ if(WIND_BUILD_TESTS)
         tests/field_items_tests.cpp
         tests/field_arms_tests.cpp
         tests/field_spells_tests.cpp
+        tests/hero_magic_tests.cpp
         tests/field_runes_tests.cpp
         tests/rune_trace_view_tests.cpp
         tests/enemy_shots_tests.cpp

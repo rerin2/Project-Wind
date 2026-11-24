@@ -10,6 +10,8 @@
 // - ground: 땅 위 점. 벽 검사는 이 점이 있는 칸으로 해요.
 // - 몸 높이: ground에서 lift만큼 화면 위. 대상과 맞는지는 이 높이의 네모로 봐요.
 // 허수아비처럼 칸을 막는 물건의 칸은 벽으로 치지 않아요 (그래야 탄이 물건에 맞을 수 있어요).
+// 별무리(15c): 먼저 주인공 둘레를 돌다가(orbit, 도는 동안 닿은 대상도 맞혀요), 다 돌면 aim으로 방향을 정하고
+// 날아가며 steer로 대상 쪽으로 조금씩 휘어요(1초에 최대 homing × 8 라디안).
 // 게임 규칙이라 정해진 박자마다 계산하고, SDL을 몰라서 창 없이 테스트할 수 있어요.
 
 #include "engine/core/math.hpp"
@@ -35,6 +37,8 @@ struct ProjectileShot {
     float hitstop = 0.0f;
     float shake = 0.0f;
     std::optional<combat::SpellLight> light;  // 마술 빛 (보여 주기 전용, 몬스터 침은 없음, 15b)
+    float orbit_seconds = 0.0f;  // 날아가기 전에 주인공 주위를 도는 시간 (별무리, 별마다 조금씩 달라요, 15c)
+    float orbit_angle = 0.0f;    // 처음 도는 자리 (라디안, 0 = 오른쪽)
 };
 
 // 탄이 사라진 이유 (연출이 다르게 보여 줄 수 있어요)
@@ -56,6 +60,15 @@ public:
     // 한 박자 날아가요. 사라졌으면 아무 일도 안 해요.
     void step(float dt_seconds, const world::MapData& map, const HitTest& hit_test);
 
+    // 주인공 둘레를 도는 한 박자 (별무리, 15c): hub(주인공 발) 둘레의 다음 자리로 옮기고 그 자리에서 대상에 닿았나 봐요.
+    // 돌 시간이 다 되면 orbiting()이 false가 되고, 그다음부터는 step으로 날아가요.
+    void orbit(engine::Vec2 hub, float dt_seconds, const HitTest& hit_test);
+    // 날아갈 방향을 바로 정해요 (길이 0이면 그대로)
+    void aim(engine::Vec2 direction);
+    // target(몸 높이 점) 쪽으로 이번 박자만큼 휘어요. homing이 0이면 그대로
+    void steer(engine::Vec2 target, float dt_seconds);
+
+    [[nodiscard]] bool orbiting() const { return alive() && orbit_left_ > 0.0f; }
     [[nodiscard]] bool alive() const { return end_ == ProjectileEnd::None; }
     [[nodiscard]] ProjectileEnd end() const { return end_; }
     [[nodiscard]] engine::Vec2 ground() const { return ground_; }
@@ -75,6 +88,8 @@ private:
     engine::Vec2 ground_;
     engine::Vec2 previous_ground_;  // 지난 박자 위치 (부드럽게 그릴 때)
     float travelled_ = 0.0f;
+    float orbit_left_ = 0.0f;  // 남은 도는 시간 (15c)
+    float orbit_angle_ = 0.0f; // 지금 도는 자리 (라디안)
     ProjectileEnd end_ = ProjectileEnd::None;
 };
 
