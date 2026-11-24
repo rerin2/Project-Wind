@@ -42,6 +42,11 @@ constexpr engine::Color kBodyBoxColor{80, 200, 255, 140};
 // 휘두를 때 보이는 칼자국 그림 (흰 반달, 생성기 스크립트가 그려요)
 constexpr std::string_view kSlashTexture = "fx/slash_arc.bmp";
 
+// 주인공이 처음 설 발 위치: 저장된 자리가 있으면 그곳, 없으면 등장 자리 칸 (16b)
+engine::Vec2 start_point(const FieldAssets& assets, std::int32_t tile_size) {
+    return assets.start_feet ? *assets.start_feet : engine::tile_feet(assets.spawn_tile, tile_size);
+}
+
 // 읽은 효과가 있으면 그 주소, 없으면 nullptr (효과를 빌려 쓰는 담당들에게 넘겨요)
 const engine::ParticleEffect* effect_ptr(const std::optional<engine::ParticleEffect>& effect) {
     return effect ? &*effect : nullptr;
@@ -56,11 +61,13 @@ std::unique_ptr<FieldState> FieldState::create(engine::ResourceManager& resource
                                                std::string_view player_sheet_path,
                                                engine::Vec2 viewport, HeroProgress& progress,
                                                const ItemWorld& items, const GearWorld& gear, std::string_view spawn_id,
-                                               FieldStress stress, std::string_view start_weather) {
+                                               FieldStress stress, std::string_view start_weather,
+                                               std::optional<engine::Vec2> start_feet) {
     // 1) 파일 준비물: 맵, 주인공 그림 설명서, 등장 자리, 하루 색, 날씨, 효과들
     auto assets = load_field_assets(resources.content_root(), map_path, player_sheet_path, spawn_id,
                                     stress.particles);
     if (!assets) return nullptr;  // 이유는 이미 기록했어요
+    assets->start_feet = start_feet;  // 저장을 불러왔으면 등장 자리 대신 그 자리 (16b)
     if (!FieldItems::drops_known(assets->monsters, items.catalog)) return nullptr;  // 드롭 아이템은 도감에 (14b)
     // 2) 그림 파일(텍스처). 없어도 체크무늬로 계속해요 (무엇이 없는지는 리소스 관리자가 기록해요)
     const auto tileset_texture = resources.texture(assets->map.tileset.image);
@@ -93,10 +100,9 @@ FieldState::FieldState(engine::Renderer& renderer, FieldAssets assets,
       camera_rig_(viewport,
                   engine::Vec2{static_cast<float>(map_.map.width), static_cast<float>(map_.map.height)} *
                       static_cast<float>(map_.map.tile_size),
-                  static_cast<float>(map_.map.tile_size),
-                  engine::tile_feet(assets.spawn_tile, map_.map.tile_size)),
-      // 캐릭터가 처음 설 곳(등장 자리)과 능력치에서 나온 최대 HP·MP·스태미나 (13a)
-      player_(engine::tile_feet(assets.spawn_tile, map_.map.tile_size), world::Direction::Down, MovementTuning{},
+                  static_cast<float>(map_.map.tile_size), start_point(assets, map_.map.tile_size)),
+      // 캐릭터가 처음 설 곳(등장 자리 또는 저장된 자리)과 능력치에서 나온 최대 HP·MP·스태미나 (13a)
+      player_(start_point(assets, map_.map.tile_size), world::Direction::Down, MovementTuning{},
               stamina_tuning(progress.derived()), kInputBufferSeconds, combat::Weapon{},  // 무기는 아래 arms_가 쥐여 줘요
               mana_tuning(progress.derived()), health_tuning(progress.derived())),
       // 허수아비들, 싸움 주사위 씨앗(치명타·몬스터, 켤 때마다 달라요), 기본 치명타 확률, 몬스터들 (11a)

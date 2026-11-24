@@ -30,6 +30,11 @@ void GameClock::skip_hours(float hours) {
     }
 }
 
+void GameClock::set(int day, float hour) {
+    day_ = std::max(day, 0);
+    hour_ = std::clamp(hour, 0.0f, kHoursPerDay - 0.001f);  // 생성자와 같은 범위
+}
+
 std::string GameClock::text() const {
     const int total_minutes = static_cast<int>(std::floor(hour_ * 60.0f));
     return std::format("{:02}:{:02}", total_minutes / 60, total_minutes % 60);

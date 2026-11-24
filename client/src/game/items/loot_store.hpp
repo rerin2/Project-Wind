@@ -18,6 +18,10 @@ class LootStore {
 public:
     // 이 맵의 목록 (처음이면 빈 목록을 만들어요). 돌려준 참조는 LootStore가 살아 있는 동안 그대로예요.
     [[nodiscard]] MapLoot& on(std::string_view map);
+    // 모든 맵의 목록 (저장용, 16b)
+    [[nodiscard]] const std::map<std::string, MapLoot, std::less<>>& maps() const { return maps_; }
+    // 모두 비워요 (저장을 불러오기 전에, 필드가 없을 때만 불러요: 참조가 사라져요)
+    void clear() { maps_.clear(); }
 
 private:
     std::map<std::string, MapLoot, std::less<>> maps_;  // 맵 파일 → 바닥 아이템 (std::map이라 참조가 안 바뀌어요)

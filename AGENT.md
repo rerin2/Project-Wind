@@ -51,8 +51,16 @@ CLAUDE.md 9번 규칙("같은 실수 반복 금지")에 따라, 작업 중 실�
 - **python 없음:** 이 PC에는 python이 없어요. 텍스트 처리는 sed/awk 또는 Edit 도구로 해요. (9d에서 잊고 또 시도함)
 - **스크린샷 폴더 지우기 막힘:** 임시 폴더 안을 `Remove-Item`으로 지우는 명령은 막혀요. 실행마다 새 폴더 이름(`shots9e_a`, `_b` ...)을 써요.
 - **BMP 스크린샷 보기:** Read 도구는 BMP를 못 읽어요. PowerShell `System.Drawing`으로 PNG로 바꿔서(필요하면 2배 확대) 봐요.
+- **링크 오류 LNK1236 "COFF 섹션이 손상" (16b):** 코드 문제가 아니라 깨진 .obj예요. 오류에 나온 `.cpp`(예: `json_file.cpp`)의
+  수정 시각을 바꾸고(`(Get-Item 파일).LastWriteTime = Get-Date`) 다시 빌드하면 돼요.
 
 ## 화면 확인 스크립트
+
+- **16b부터 게임이 저장을 불러와요:** 옵션 없이 켜면 `%APPDATA%\ProjectWIND\saves\slot_1`을 불러와서 시작 자리가 바뀌고
+  `--stat`·`--give`·`--learn`·`--runes`·`--fill-bag`이 무시돼요(경고만). 그래서 아래 길이 모두 어긋나요.
+  화면 확인은 **늘 `--save-dir <스크래치>/saves`** 를 주고, 새 게임으로 시작해야 하면 **`--new-game`** 도 줘요
+  (개발자의 진짜 저장을 건드리지 않게). 시작 질문 창은 `--press enter@N`/`esc@N`으로 답하고, `--screenshot-at`은
+  `--screenshot-dir`를 줄 때만 그 창에서 찍혀요.
 
 - **슬라임에게 맞는 장면 길 (12b에서 다시 찾음):** 12a의 `--hold right@60-82 --hold down@82-220` 길은 12b 때 맞지 않았어요.
   이 PC는 약 144 FPS로 돌아서, 프레임 번호로 정한 길은 실제 걷는 시간이 달라져요(맵도 바뀌어 슬라임이 40마리).

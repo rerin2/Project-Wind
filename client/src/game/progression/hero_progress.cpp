@@ -6,6 +6,7 @@
 #include "wind/content/progression_loader.hpp"
 #include "wind/log.hpp"
 
+#include <algorithm>
 #include <utility>
 
 namespace wind::game {
@@ -91,6 +92,28 @@ std::int64_t HeroProgress::recover_trace() {
     log::info("Recovered {} runes from the trace in '{}' (now {})", got, trace_->map, wallet_.amount());
     trace_.reset();  // 한 번만
     return got;
+}
+
+bool HeroProgress::restore(const progression::Stats& stats, std::int64_t runes, std::optional<RuneTrace> trace,
+                           std::optional<CushionRef> last_cushion, const std::vector<std::string>& discovered) {
+    // 하나라도 틀리면 아무것도 안 바꿔요 (저장 읽기가 이미 검사했지만, 다른 길로 불려도 안전하게)
+    if (!progression::stats_in_range(stats) || runes < 0 || runes > progression::RuneWallet::kMax) return false;
+    if (trace && trace->amount <= 0) return false;
+    if (last_cushion && std::find(discovered.begin(), discovered.end(), last_cushion->id) == discovered.end()) {
+        return false;
+    }
+    stats_ = stats;
+    wallet_ = progression::RuneWallet(runes);
+    trace_ = std::move(trace);
+    last_cushion_ = std::move(last_cushion);
+    discovered_ = {discovered.begin(), discovered.end()};
+    last_lost_ = 0;  // "쓰러졌다" 화면용 값은 이번 실행에서만 써요
+    last_vanished_ = 0;
+    return true;
+}
+
+std::vector<std::string> HeroProgress::discovered_ids() const {
+    return {discovered_.begin(), discovered_.end()};
 }
 
 }  // namespace wind::game

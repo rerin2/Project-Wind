@@ -179,3 +179,28 @@ TEST(HeroProgress, RecoveryStopsAtTheWalletCap) {
 }
 
 }  // namespace
+
+// 저장에서 되살리기 (16b): 맞으면 통째로, 틀리면 아무것도 안 바뀜
+TEST(HeroProgress, RestoreReplacesStateOrNothing) {
+    auto progress = make_progress(100);
+    Stats stats;
+    stats[StatId::Strength] = 25;
+    const wind::game::RuneTrace trace{"maps/test_cave.json", {40.0f, 50.0f}, 30};
+    const wind::game::CushionRef cushion{"maps/test_meadow.json", "meadow_cushion"};
+    // 부활 쿠션이 찾은 목록에 없으면 거절
+    EXPECT_FALSE(progress.restore(stats, 500, trace, cushion, {"other"}));
+    stats[StatId::Vigor] = 61;  // 범위 밖
+    EXPECT_FALSE(progress.restore(stats, 500, trace, cushion, {"meadow_cushion"}));
+    EXPECT_EQ(progress.runes(), 100);
+    EXPECT_EQ(progress.level(), 1);
+
+    stats[StatId::Vigor] = 10;
+    ASSERT_TRUE(progress.restore(stats, 500, trace, cushion, {"meadow_cushion", "cave_cushion"}));
+    EXPECT_EQ(progress.runes(), 500);
+    EXPECT_EQ(progress.stats()[StatId::Strength], 25);
+    ASSERT_TRUE(progress.trace().has_value());
+    EXPECT_EQ(progress.trace()->amount, 30);
+    EXPECT_EQ(progress.last_cushion(), cushion);
+    EXPECT_TRUE(progress.discovered("cave_cushion"));
+    EXPECT_EQ(progress.discovered_ids().size(), 2u);
+}

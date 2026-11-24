@@ -27,6 +27,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace wind::game {
 
@@ -87,6 +88,14 @@ public:
     [[nodiscard]] const std::optional<CushionRef>& last_cushion() const { return last_cushion_; }
     // 이 쿠션을 찾은 적이 있나요? (찾은 쿠션은 피어난 모습으로 그려요)
     [[nodiscard]] bool discovered(std::string_view cushion_id) const;
+    // 찾은 쿠션 id 모두 (저장용, 16b. 이름 순서)
+    [[nodiscard]] std::vector<std::string> discovered_ids() const;
+
+    // 저장에서 되살리기 (16b): 능력치·룬·흔적·부활 쿠션·찾은 쿠션을 통째로 바꿔요.
+    // 능력치가 1~60 밖, 룬이 0~상한 밖, 흔적 양이 0 이하, 부활 쿠션이 찾은 목록에 없으면 아무것도 안 바꾸고 false.
+    // 마술 공책은 spells().restore로 따로 되살려요.
+    bool restore(const progression::Stats& stats, std::int64_t runes, std::optional<RuneTrace> trace,
+                 std::optional<CushionRef> last_cushion, const std::vector<std::string>& discovered);
 
     // 마술 공책: 배운 마술, 마술 칸, 고른 칸 (15b). 칸 수는 derived().spell_slots예요.
     [[nodiscard]] progression::SpellBook& spells() { return spells_; }

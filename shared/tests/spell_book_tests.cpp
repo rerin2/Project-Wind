@@ -104,3 +104,20 @@ TEST(SpellBook, RefusedPlaceChangesNothing) {
     EXPECT_EQ(book.in_slot(0, 2), "a");
     EXPECT_TRUE(book.in_slot(1, 2).empty());
 }
+
+// 저장에서 되살리기 (16b): 맞으면 통째로 바뀌고, 하나라도 틀리면 아무것도 안 바뀌어요
+TEST(SpellBook, RestoreReplacesEverythingOrNothing) {
+    SpellBook book;
+    book.learn("old");
+    book.put(0, "old", 1, 10, 2);
+    EXPECT_FALSE(book.restore({"a", "b"}, {"a", "", "c", ""}, 0));  // c는 배우지 않았어요
+    EXPECT_FALSE(book.restore({"a", "a"}, {"a", "", "", ""}, 0));   // 배운 목록 겹침
+    EXPECT_FALSE(book.restore({"a"}, {"a", "a", "", ""}, 0));       // 두 칸에 같은 마술
+    EXPECT_FALSE(book.restore({"a"}, {"a", "", "", ""}, 4));        // 없는 칸 고름
+    EXPECT_EQ(book.in_slot(0, 2), "old");
+    ASSERT_TRUE(book.restore({"a", "b"}, {"", "", "", "b"}, 3));
+    EXPECT_FALSE(book.knows("old"));
+    EXPECT_EQ(book.raw_slots()[3], "b");
+    EXPECT_EQ(book.raw_selected(), 3u);
+    EXPECT_TRUE(book.in_slot(3, 2).empty());  // 4번 칸은 지능이 낮으면 잠겨 있어요(마술은 남아요)
+}

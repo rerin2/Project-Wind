@@ -66,7 +66,15 @@ struct ClientOptions {
     std::string start_weather;
     // 스크린샷 저장 폴더. 비어 있으면 %APPDATA%\ProjectWIND\screenshots
     std::filesystem::path screenshot_dir;
+    // 저장 (16b): 슬롯 1~3, 저장 폴더(비면 %APPDATA%\ProjectWIND\saves), 있는 저장 무시하고 새로 시작.
+    // 시험용 옵션(--stat·--give·--learn·--runes·--fill-bag)은 새 게임에서만 써요.
+    int save_slot = 1;
+    std::filesystem::path save_dir;
+    bool new_game = false;
 };
+
+// 시험용 시작 옵션이 하나라도 있나요? (저장을 불러오면 무시하고 경고해요, 16b)
+[[nodiscard]] bool has_test_start_options(const ClientOptions& options);
 
 // 주문서를 읽은 결과. 셋 중 하나예요: 성공 / 실패 / 도움말 보여 주기
 struct ClientParseResult {

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Phase 16b — loading, startup question, rest autosave
+- The game now loads slot 1 (or `--slot N`) on start: the newer of main and auto save. The hero starts at the saved
+  spot with saved HP/MP, and stats, runes, trace, cushions, spells, bag, gear, quick slots, ground items, clock and
+  play time come back. `--save-dir`, `--new-game`; test start options apply only to a new game (warning otherwise).
+- Resting at a cushion saves to the slot (shows "저장하지 못했다" if it fails).
+- A corrupt save (or one that no longer matches the content) opens a window before the game: Enter loads the backup,
+  Esc starts fresh; the broken file is kept as `.corrupt`. A newer-version save shows a notice and quits.
+- New: `game/save/` (`capture_save`, `apply_save`, `check_save_content`, `SavePicker`), `StartupQuestion`,
+  app `SaveKeeper`, `game_start`, `startup_prompt`; restore functions on `HeroProgress`, `SpellBook`, `GameClock`.
+- 846 CTest tests.
+
 ### Phase 16a — save format and slot files
 - `docs/SAVE_FORMAT.md` (schema version 1). `shared/…/save/`: `SaveData`, `save_to_json` / `save_from_json`
   (shape, ranges, duplicates, paths inside the content folder), `migrate_save` (one step per version),

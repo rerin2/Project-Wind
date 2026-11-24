@@ -4,6 +4,7 @@
 #include "app/field_session.hpp"
 
 #include "app/field_ui.hpp"
+#include "app/save_keeper.hpp"
 #include "game/progression/hero_progress.hpp"
 #include "game/states/field_state.hpp"
 #include "game/world/travel_targets.hpp"
@@ -24,13 +25,13 @@ constexpr float kRestFadeSeconds = 0.5f;
 
 }  // namespace
 
-FieldSession::FieldSession(MakeField make_field, game::HeroProgress& progress, FieldUi& ui)
-    : make_field_(std::move(make_field)), progress_(progress), ui_(ui), travel_(kFadeSeconds) {}
+FieldSession::FieldSession(MakeField make_field, game::HeroProgress& progress, FieldUi& ui, SaveKeeper& saver)
+    : make_field_(std::move(make_field)), progress_(progress), ui_(ui), saver_(saver), travel_(kFadeSeconds) {}
 
 FieldSession::~FieldSession() = default;  // FieldState는 .cpp에서만 완전히 알아요
 
-bool FieldSession::start(const std::string& map) {
-    field_ = make_field_(map, game::kDefaultSpawn);
+bool FieldSession::start(const std::string& map, std::optional<engine::Vec2> feet) {
+    field_ = make_field_(map, game::kDefaultSpawn, feet);
     if (!field_) return false;
     current_map_ = map;
     ui_.enter_area(field_->display_name());  // 첫 지역 이름 배너
@@ -59,7 +60,7 @@ void FieldSession::update(float frame_seconds, bool fallen_ready, bool confirm) 
 
 bool FieldSession::enter(const world::MapExit& exit, game::TravelKind kind) {
     const game::HeroVitals carried = field_->hero_vitals();  // 떠나기 전 값 (새 필드를 만들기 전에)
-    auto next = make_field_(exit.to_map, exit.to_spawn);
+    auto next = make_field_(exit.to_map, exit.to_spawn, std::nullopt);
     if (!next) return false;  // 지금 필드는 그대로 (MapTravel이 알려 줘요)
     if (kind == game::TravelKind::Exit) {
         next->restore_hero(carried);  // 맵을 오가도 HP가 다시 차지 않아요 (12c)
@@ -69,12 +70,20 @@ bool FieldSession::enter(const world::MapExit& exit, game::TravelKind kind) {
     current_map_ = exit.to_map;
     field_ = std::move(next);
     if (kind == game::TravelKind::Rest) {
-        // 부활 자리를 이 쿠션으로. 자동 저장 자리(명세 8.7 쉬기 5번)는 저장이 생기는 16단계에서 채워요.
-        if (progress_.rest_at(current_map_, exit.to_spawn)) {  // 처음 찾음: 쿠션이 피어나고 배너가 떠요
+        // 부활 자리를 이 쿠션으로
+        const bool first = progress_.rest_at(current_map_, exit.to_spawn);
+        if (first) {  // 처음 찾음: 쿠션이 피어나고 배너가 떠요
             field_->bloom_cushion(exit.to_spawn);
+        }
+        // 명세 8.7 쉬기 5번: 회복된 채 쿠션 자리에서 지금 슬롯에 자동 저장 (16b).
+        // 실패해도 쉬기는 그대로 하고 알려요 (이유는 SaveKeeper가 로그에)
+        const auto vitals = field_->hero_vitals();
+        const bool saved = saver_.save(save::SaveKind::Main, {current_map_, field_->hero_feet(), vitals.hp, vitals.mana});
+        if (!saved) {
+            ui_.announce("저장하지 못했다");
+        } else if (first) {
             ui_.announce("캣닢 쿠션을 찾았다 — " + field_->cushion_name(exit.to_spawn));
         }
-        log::info("Autosave skipped: saves come in phase 16");
         menu_request_ = true;  // 명세 8.7 쉬기 6번: 쿠션 메뉴를 열어요 (13c)
         return true;  // 같은 맵이라 지역 이름 배너는 띄우지 않아요
     }

@@ -63,6 +63,7 @@ wind_set_warnings(wind_engine_core)
 #   presentation/ : 먼지, 잔상 같은 보여 주기용 효과 (그리기 목록에 넣기까지만, SDL은 안 씀)
 #   world/        : 게임 시계, 맵 옮기기 순서
 #   progression/  : 주인공 진행 상태(능력치·룬, 필드 밖에 하나), 파생값 → 몸 숫자 (13a)
+#   save/         : 게임 상태 ⇄ 저장 모양, 콘텐츠 확인, 시작할 때 저장 고르기 (16b)
 #   states/field_assets : 필드 화면 준비물(맵·캐릭터·효과 파일) 읽기
 add_library(wind_game_core STATIC
     src/game/input/input_bindings.cpp
@@ -144,6 +145,7 @@ add_library(wind_game_core STATIC
     src/game/ui/pause_menu.cpp
     src/game/ui/spell_slot_sheet.cpp
     src/game/ui/rune_counter.cpp
+    src/game/ui/startup_question.cpp
     src/game/states/field_assets.cpp
     src/game/states/field_combat.cpp
     src/game/states/field_rest.cpp
@@ -160,7 +162,11 @@ add_library(wind_game_core STATIC
     src/game/combat/hero_beam.cpp
     src/game/items/field_loot.cpp
     src/game/progression/hero_progress.cpp
-    src/game/progression/hero_tuning.cpp)
+    src/game/progression/hero_tuning.cpp
+    src/game/save/save_capture.cpp
+    src/game/save/save_apply.cpp
+    src/game/save/save_content_check.cpp
+    src/game/save/save_picker.cpp)
 target_link_libraries(wind_game_core PUBLIC wind_engine_core)
 wind_set_warnings(wind_game_core)
 
@@ -191,6 +197,9 @@ add_executable(wind_client
     src/app/spell_slot_view.cpp
     src/app/hands_hud.cpp
     src/app/item_setup.cpp
+    src/app/save_keeper.cpp
+    src/app/game_start.cpp
+    src/app/startup_prompt.cpp
     src/app/ui_test_panel.cpp
     src/app/ui_resources.cpp
     src/app/transition_view.cpp
@@ -306,6 +315,10 @@ if(WIND_BUILD_TESTS)
         tests/hud_bar_layout_tests.cpp
         tests/fallen_screen_tests.cpp
         tests/screenshot_name_tests.cpp
+        tests/save_apply_tests.cpp
+        tests/save_content_check_tests.cpp
+        tests/save_picker_tests.cpp
+        tests/startup_question_tests.cpp
         tests/particle_effect_loader_tests.cpp
         tests/particle_spawn_tests.cpp
         tests/particle_emitter_tests.cpp

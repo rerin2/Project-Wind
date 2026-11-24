@@ -56,6 +56,15 @@ public:
     // Q: 다음 마술이 든 칸으로 (끝이면 처음으로). 다른 칸으로 바뀌었으면 true (마술이 하나뿐이면 false)
     bool select_next(std::size_t open_slots);
 
+    // 저장용 (16b): 칸 4개 그대로(잠긴 칸에 든 마술도 보여요)와 고른 칸 번호 그대로
+    [[nodiscard]] const std::array<std::string, kMaxSlots>& raw_slots() const { return slots_; }
+    [[nodiscard]] std::size_t raw_selected() const { return selected_; }
+    // 저장에서 되살리기 (16b): 배운 목록·칸·고른 칸을 통째로 바꿔요.
+    // 배운 목록에 빈 id·겹침이 있거나, 칸의 마술이 배운 것이 아니거나 두 칸에 있거나, 고른 칸이 4 이상이면
+    // 아무것도 안 바꾸고 false예요. 요구 지능은 부르는 쪽이 마술 데이터로 확인해요.
+    bool restore(std::vector<std::string> learned, const std::array<std::string, kMaxSlots>& slots,
+                 std::size_t selected);
+
 private:
     [[nodiscard]] static std::size_t open_count(std::size_t open_slots);
 

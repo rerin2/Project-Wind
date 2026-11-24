@@ -19,6 +19,8 @@ public:
     void advance(double dt_seconds);
     // 시계를 몇 시간 앞으로 돌려요 (디버그 F5).
     void skip_hours(float hours);
+    // 저장에서 되살리기 (16b): day는 0 이상, hour는 0 이상 24 미만으로 맞춰요
+    void set(int day, float hour);
 
     // 지금 시각 0 이상 24 미만 (예: 18.5 = 오후 6시 30분)
     [[nodiscard]] float hour() const { return hour_; }

@@ -36,6 +36,8 @@ public:
     bool write(int slot, SaveKind kind, const SaveData& data, std::string& error);
     // 읽어요. 본 파일이 Ok가 아니면 백업 상태도 알려 줘요.
     [[nodiscard]] SlotRead read(int slot, SaveKind kind) const;
+    // 백업(.bak)만 읽어요 (16b: 백업 내용이 콘텐츠와도 맞는지 게임이 확인할 때)
+    [[nodiscard]] SlotRead read_backup(int slot, SaveKind kind) const;
     // 백업을 본 파일로 되살려요(손상본은 .corrupt로 치워요). 백업이 Ok가 아니면 아무것도 안 하고 false
     bool restore_backup(int slot, SaveKind kind, std::string& error);
     // 손상된 본 파일을 <이름>.corrupt로 옮겨요(새 게임 전에, 지우지 않고 보관). 파일이 없으면 false

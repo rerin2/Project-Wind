@@ -101,6 +101,11 @@ SlotRead SaveSlots::read(int slot, SaveKind kind) const {
     return read;
 }
 
+SlotRead SaveSlots::read_backup(int slot, SaveKind kind) const {
+    const auto backup = backup_of(slot, kind);
+    return backup ? read_file(*backup) : SlotRead{};
+}
+
 bool SaveSlots::write(int slot, SaveKind kind, const SaveData& data, std::string& error) {
     const auto file = file_of(slot, kind);
     if (!file) {

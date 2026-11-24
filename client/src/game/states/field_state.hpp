@@ -110,7 +110,8 @@ public:
                                                             const ItemWorld& items, const GearWorld& gear,
                                                             std::string_view spawn_id = "default",
                                                             FieldStress stress = {},
-                                                            std::string_view start_weather = {});
+                                                            std::string_view start_weather = {},
+                                                            std::optional<engine::Vec2> start_feet = {});
 
     // 이 화면이 코드로 만든 그림(그림자·파티클·빛)을 정리해요. 맵을 옮길 때마다 새로 만드니까요.
     ~FieldState();
@@ -181,6 +182,8 @@ public:
     [[nodiscard]] bool hero_down() const { return player_.dead(); }
     // 주인공 HP·MP·스태미나 (12c: 맵을 옮길 때 새 필드로 들고 가요)
     [[nodiscard]] HeroVitals hero_vitals() const { return player_.vitals(); }
+    // 주인공 발 위치 (맵 위 픽셀, 저장용 16b)
+    [[nodiscard]] engine::Vec2 hero_feet() const { return player_.mover().feet(); }
     // 들고 온 HP·MP·스태미나로 맞춰요 (12c: 출구로 들어온 새 필드에서만. 부활은 가득 찬 채 시작해요)
     void restore_hero(const HeroVitals& vitals) { player_.restore(vitals); }
     // 화면을 흑백으로 만들 정도 0~1 (12b, 렌더러가 월드에만 입혀요)

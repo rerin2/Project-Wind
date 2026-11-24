@@ -32,3 +32,14 @@ TEST(GameClock, IgnoresNegativeTime) {
 }
 
 }  // namespace
+
+// 저장에서 되살리기 (16b): 날짜와 시각을 그대로, 범위 밖은 맞춰요
+TEST(GameClock, SetRestoresDayAndHour) {
+    GameClock clock(9.0f, 60.0f);
+    clock.set(3, 18.5f);
+    EXPECT_EQ(clock.day(), 3);
+    EXPECT_FLOAT_EQ(clock.hour(), 18.5f);
+    clock.set(-2, 30.0f);
+    EXPECT_EQ(clock.day(), 0);
+    EXPECT_LT(clock.hour(), 24.0f);
+}

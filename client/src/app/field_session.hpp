@@ -6,14 +6,16 @@
 // - 출구를 밟으면: 페이드(또는 아이리스) -> 새 맵. HP·MP·스태미나를 들고 가요.
 // - 쓰러진 뒤 Enter 또는 2.5초: 느린 페이드 -> 마지막 쿠션(없으면 지금 맵 기본 자리). 가득 찬 채 깨어나요.
 // - 쿠션에 앉은 지 잠깐 지나면: 페이드 -> 같은 맵을 새로 읽어 몬스터가 다시 나오고, 쿠션에 앉은 채 시작해요.
-//   부활 자리를 이 쿠션으로 정하고, 처음 찾은 쿠션이면 배너를 띄워요. (자동 저장은 16단계)
+//   부활 자리를 이 쿠션으로 정하고, 처음 찾은 쿠션이면 배너를 띄우고, 지금 슬롯에 자동 저장해요 (16b).
 // 새 맵을 못 열면 지금 필드는 그대로 두고 화면에 잠깐 알려 줘요 (MapTravel).
 
+#include "engine/core/math.hpp"
 #include "game/world/map_travel.hpp"
 #include "game/world/respawn_trigger.hpp"
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -26,19 +28,23 @@ class HeroProgress;
 namespace wind::client {
 
 class FieldUi;
+class SaveKeeper;
 
 class FieldSession {
 public:
     // 맵 하나로 필드를 만드는 방법 (못 만들면 nullptr)
-    using MakeField = std::function<std::unique_ptr<game::FieldState>(std::string_view map, std::string_view spawn)>;
+    // start: 저장된 발 위치 (불러온 첫 필드만, 16b). 비면 spawn 자리
+    using MakeField = std::function<std::unique_ptr<game::FieldState>(std::string_view map, std::string_view spawn,
+                                                                        std::optional<engine::Vec2> start)>;
 
-    FieldSession(MakeField make_field, game::HeroProgress& progress, FieldUi& ui);
+    // saver: 쉬면 자동 저장 (16b)
+    FieldSession(MakeField make_field, game::HeroProgress& progress, FieldUi& ui, SaveKeeper& saver);
     ~FieldSession();
     FieldSession(const FieldSession&) = delete;
     FieldSession& operator=(const FieldSession&) = delete;
 
-    // 첫 맵을 열어요 ("default" 자리). 못 열면 false (게임을 시작할 수 없어요)
-    bool start(const std::string& map);
+    // 첫 맵을 열어요 ("default" 자리, 저장을 불러왔으면 그 발 위치). 못 열면 false (게임을 시작할 수 없어요)
+    bool start(const std::string& map, std::optional<engine::Vec2> feet = {});
     [[nodiscard]] game::FieldState& field() { return *field_; }
     [[nodiscard]] const game::FieldState& field() const { return *field_; }
 
@@ -62,6 +68,7 @@ private:
     MakeField make_field_;
     game::HeroProgress& progress_;   // 부활 자리·찾은 쿠션 (앱이 가지고 있어요)
     FieldUi& ui_;                    // 지역 이름·쿠션 배너
+    SaveKeeper& saver_;              // 쉬면 자동 저장 (16b)
     std::unique_ptr<game::FieldState> field_;
     game::MapTravel travel_;         // 화면 가리기 -> 새 맵 -> 보여 주기
     game::RespawnTrigger respawn_;   // 쓰러진 뒤 언제 부활할지 (Enter 또는 2.5초, 12c)

@@ -91,4 +91,28 @@ bool SpellBook::select_next(std::size_t open_slots) {
     return false;
 }
 
+bool SpellBook::restore(std::vector<std::string> learned, const std::array<std::string, kMaxSlots>& slots,
+                        std::size_t selected) {
+    if (selected >= kMaxSlots) return false;
+    // 배운 목록: 빈 id·겹침 없음
+    for (std::size_t i = 0; i < learned.size(); ++i) {
+        if (learned[i].empty() || std::find(learned.begin(), learned.begin() + static_cast<std::ptrdiff_t>(i),
+                                            learned[i]) != learned.begin() + static_cast<std::ptrdiff_t>(i)) {
+            return false;
+        }
+    }
+    // 칸: 배운 마술만, 한 마술은 한 칸에만
+    for (std::size_t i = 0; i < kMaxSlots; ++i) {
+        if (slots[i].empty()) continue;
+        const bool known = std::find(learned.begin(), learned.end(), slots[i]) != learned.end();
+        const bool twice = std::find(slots.begin() + static_cast<std::ptrdiff_t>(i) + 1, slots.end(), slots[i]) != slots.end();
+        if (!known || twice) return false;
+    }
+    // 모두 맞으면 한 번에 바꿔요 (전부 성공 또는 전부 실패)
+    learned_ = std::move(learned);
+    slots_ = slots;
+    selected_ = selected;
+    return true;
+}
+
 }  // namespace wind::progression

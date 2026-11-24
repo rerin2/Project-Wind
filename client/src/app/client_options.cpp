@@ -6,6 +6,7 @@
 #include "app/client_options.hpp"
 
 #include "app/option_values.hpp"
+#include "wind/save/save_slots.hpp"
 
 #include "wind/cli.hpp"
 #include "wind/content/content_path.hpp"
@@ -26,6 +27,8 @@ constexpr std::uint64_t kMaxFxStress = 4000;
 constexpr std::uint64_t kMaxLightStress = 64;
 // 아이템 id 길이 상한 (도감과 같아요, 14b --fill-bag)
 constexpr std::size_t kMaxItemIdLength = 64;
+// 저장 슬롯 수 (--slot 1~3, 16b)
+constexpr std::uint64_t kSaveSlotCount = save::SaveSlots::kSlotCount;
 // --give 개수 상한 (가방 24칸, 15a)
 constexpr std::size_t kMaxGiveItems = 24;
 
@@ -71,6 +74,11 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
         // --help는 값이 없는 유일한 옵션이라 먼저 처리해요.
         if (arg == "--help" || arg == "-h") {
             return ClientParseResult{.options = std::nullopt, .error = {}, .show_help = true};
+        }
+        // --new-game도 값이 없어요 (16b): 있는 저장을 무시하고 새로 시작
+        if (arg == "--new-game") {
+            options.new_game = true;
+            continue;
         }
 
         // 나머지 옵션은 모두 "--이름 값" 모양이에요. 값이 빠졌으면 오류.
@@ -121,6 +129,14 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
         }
         else if (arg == "--screenshot-dir") {
             options.screenshot_dir = std::filesystem::path(value);
+        }
+        else if (arg == "--save-dir") {
+            options.save_dir = std::filesystem::path(value);  // 시험 실행은 스크래치 폴더에 (16b)
+        }
+        else if (arg == "--slot") {
+            const auto parsed = cli::parse_uint(value, 1, kSaveSlotCount);
+            if (!parsed) return fail("--slot must be 1-" + std::to_string(kSaveSlotCount));
+            options.save_slot = static_cast<int>(*parsed);
         }
         else if (arg == "--fx-stress") {
             // 성능 시험용: 파티클을 몇 개쯤 띄울지 (0~4000)
@@ -253,6 +269,11 @@ ClientParseResult parse_client_options(std::span<const std::string_view> args) {
     return ClientParseResult{.options = options};
 }
 
+bool has_test_start_options(const ClientOptions& options) {
+    return options.start_runes > 0 || options.start_stats != progression::Stats{} || !options.learn_spells.empty() ||
+           !options.fill_bag_item.empty() || !options.give_items.empty();
+}
+
 // --help를 입력하면 보여 주는 사용 설명서 (영어)
 std::string_view client_usage() {
     return "Usage: wind_client [options]\n"
@@ -266,6 +287,10 @@ std::string_view client_usage() {
            "  --screenshot-at <n>  save a screenshot after frame n; may repeat (for checks)\n"
            "  --screenshot-dir <dir>\n"
            "                       screenshot folder (default %APPDATA%\\ProjectWIND\\screenshots)\n"
+           "  --slot <1-3>         save slot (default 1)\n"
+           "  --save-dir <dir>     save folder (default %APPDATA%\\ProjectWIND\\saves)\n"
+           "  --new-game           ignore the slot's save and start a new game\n"
+           "                       (test-only options apply only to a new game)\n"
            "  --fx-stress <n>      keep about n extra particles on screen, 0-4000 (perf check)\n"
            "  --light-stress <n>   add n lights around the start, 0-64; needs a lit map (perf check)\n"
            "  --auto-move <dir>    hold up|down|left|right for the whole run (for checks)\n"

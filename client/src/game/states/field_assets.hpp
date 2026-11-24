@@ -10,6 +10,7 @@
 // 있으면 좋은 것(효과, 하루 색, 날씨)이 잘못되면 기록만 하고 빼고 계속해요.
 
 #include "engine/animation/sprite_sheet.hpp"
+#include "engine/core/math.hpp"
 #include "game/combat/training_dummy.hpp"
 #include "game/monsters/monster.hpp"
 #include "game/presentation/field_effects.hpp"
@@ -40,6 +41,7 @@ struct FieldAssets {
     std::vector<Monster> monsters;       // 맵의 몬스터들 (11a, 설명 파일이 잘못된 몬스터는 빠져요)
     std::vector<Cushion> cushions;       // 맵의 캣닢 쿠션들 (13b)
     std::optional<std::string> start_cushion;  // 쿠션 위에서 시작하면 그 쿠션 id (쉬기·부활, 13b)
+    std::optional<engine::Vec2> start_feet;    // 저장을 불러왔으면 그 발 위치 (등장 자리 대신, 16b)
 };
 
 // 맵에 들어갈 때 무엇을 읽었는지 기록해요 (맵 크기, 효과·빛 수, 허수아비·몬스터 수).

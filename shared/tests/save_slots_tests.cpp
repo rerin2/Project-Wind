@@ -139,6 +139,7 @@ TEST(SaveSlots, CorruptFileOffersBackupAndRestoresIt) {
     EXPECT_EQ(read.status, SaveStatus::Corrupt);
     EXPECT_FALSE(read.errors.empty());
     EXPECT_EQ(read.backup, SaveStatus::Ok);  // 백업 불러오기를 제안할 수 있어요
+    EXPECT_EQ(saves.slots.read_backup(1, SaveKind::Main).data->runes, 10);
 
     std::string error;
     ASSERT_TRUE(saves.slots.restore_backup(1, SaveKind::Main, error)) << error;

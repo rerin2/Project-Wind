@@ -166,3 +166,22 @@ TEST(ClientOptions, ParsesLearnAndStat) {
     EXPECT_FALSE(parse({"--stat", "luck=20"}).options.has_value());
     EXPECT_FALSE(parse({"--stat", "intelligence"}).options.has_value());
 }
+
+// 저장 옵션 (16b): 슬롯 1~3, 저장 폴더, 값 없는 --new-game. 시험용 시작 옵션이 있는지
+TEST(ClientOptions, ParsesSaveOptions) {
+    const auto defaults = parse({});
+    ASSERT_TRUE(defaults.options.has_value());
+    EXPECT_EQ(defaults.options->save_slot, 1);
+    EXPECT_FALSE(defaults.options->new_game);
+    EXPECT_FALSE(wind::client::has_test_start_options(*defaults.options));
+
+    const auto result = parse({"--slot", "3", "--new-game", "--save-dir", "D:/tmp/saves", "--give", "dagger"});
+    ASSERT_TRUE(result.options.has_value()) << result.error;
+    EXPECT_EQ(result.options->save_slot, 3);
+    EXPECT_TRUE(result.options->new_game);
+    EXPECT_EQ(result.options->save_dir, std::filesystem::path("D:/tmp/saves"));
+    EXPECT_TRUE(wind::client::has_test_start_options(*result.options));
+
+    EXPECT_FALSE(parse({"--slot", "0"}).options.has_value());
+    EXPECT_FALSE(parse({"--slot", "4"}).options.has_value());
+}

@@ -8,6 +8,8 @@
 #include "app/damage_number_drawing.hpp"
 #include "app/debug_overlay.hpp"
 #include "app/field_ui.hpp"
+#include "app/game_start.hpp"
+#include "app/save_keeper.hpp"
 #include "app/item_setup.hpp"
 #include "app/hud_info_source.hpp"
 #include "app/input_gate.hpp"
@@ -121,32 +123,37 @@ int ClientApp::run() {
     if (!item_setup) return 1;
     const game::ItemWorld items{item_setup->bag, item_setup->catalog, item_setup->loot, &item_setup->quick};
     const game::GearWorld gear{item_setup->worn, item_setup->weapons, item_setup->spells};  // 장비·무기·마술 선반
+    // 게임 시계: 맵을 옮겨도 이어지도록 필드 화면 밖에 둬요 (저장에서 되살릴 수 있게 저장 담당보다 먼저)
+    game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
+    const auto bindings = game::InputBindings::defaults();  // 키 버튼표
+    // 저장 담당 (16b): 지금 슬롯, 저장할 상태가 있는 곳. 시작할 곳을 정하며 저장을 불러와요 (손상이면 질문 창)
+    SaveKeeper saver(save_folder(options_), options_.save_slot,
+                     {*progress, item_setup->bag, item_setup->worn, item_setup->quick, item_setup->loot, game_clock});
+    const auto start = choose_start(options_, saver, *item_setup, *platform, painter, bindings, frames_rendered_);
+    if (!start) return 0;  // 미래 버전 저장·창 닫기 등 (이유는 로그에)
 
     // 맵 하나로 필드 화면을 만드는 방법. 처음 시작할 때와 출구로 맵을 옮길 때 같이 써요.
     const game::FieldStress stress{options_.fx_stress, options_.light_stress};
-    auto make_field = [&](std::string_view map_path, std::string_view spawn_id) {
-        auto made = game::FieldState::create(resources, renderer, map_path, kPlayerSheet,
-                                             renderer.logical_size(), *progress, items, gear, spawn_id, stress,
-                                             options_.start_weather);
+    auto make_field = [&](std::string_view map_path, std::string_view spawn_id, std::optional<engine::Vec2> feet) {
+        auto made = game::FieldState::create(resources, renderer, map_path, kPlayerSheet, renderer.logical_size(),
+                                             *progress, items, gear, spawn_id, stress, options_.start_weather, feet);
         if (made) made->set_feel(options_.feel);  // 흔들림·번쩍임 세기 (접근성, 새 맵마다)
         return made;
     };
     // 지금 필드와 필드 바꾸기(출구·부활·쉬기)를 맡는 곳 (13b에서 ClientApp에서 떼어 냈어요)
-    FieldSession session(make_field, *progress, field_ui);
-    if (!session.start(options_.map)) {
+    FieldSession session(make_field, *progress, field_ui, saver);
+    if (!session.start(start->map, start->feet)) {
         log::critical("Client cannot start without a valid map; see errors above");
         return 1;  // 맵이 잘못되면 시작할 수 없어요 (자세한 이유는 위쪽 로그에 있어요)
     }
+    if (start->vitals) session.field().restore_hero(*start->vitals);  // 불러온 HP·MP (스태미나는 가득)
 
-    const auto bindings = game::InputBindings::defaults();  // 키 버튼표
     engine::InputState input;                                // 지금 키보드 상태
     engine::FixedStepClock clock(kFixedStepSeconds, kMaxFrameSeconds, kMaxStepsPerFrame);  // 박자 시계
     engine::RenderQueue queue;                               // 그릴 것 목록
     DebugOverlay overlay;                                    // F3 정보판
     const auto screenshot_dir = resolve_screenshot_dir(options_);  // 스크린샷 저장 폴더
     ScreenshotFlash screenshot_flash;                        // 찍은 뒤 "찰칵" 효과
-    // 게임 시계: 맵을 옮겨도 이어지도록 필드 화면 밖에 둬요.
-    game::GameClock game_clock(options_.start_hour.value_or(kDefaultStartHour), kSecondsPerGameHour);
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
     cushion_menu.set_spells(item_setup->spells, resources.texture(kSpellIconsTexture));  // "마술 칸" 화면 (15f)
@@ -197,6 +204,7 @@ int ClientApp::run() {
         const auto now = Clock::now();
         const double frame_seconds = std::chrono::duration<double>(now - last_frame).count();
         last_frame = now;
+        saver.add_play_time(frame_seconds);  // 플레이 시간 (저장 파일, 16b)
 
         // 시험용 --auto-move: 정해진 방향키를 계속 누르고 있는 것처럼 해요.
         if (options_.auto_move) {
