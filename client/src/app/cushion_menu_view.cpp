@@ -3,6 +3,7 @@
 
 #include "app/cushion_menu_view.hpp"
 
+#include "app/menu_page.hpp"  // 능력치 이름 (메뉴 능력치 탭과 같이 써요, 15e)
 #include "engine/tween/easing.hpp"
 #include "engine/ui/ui_painter.hpp"
 #include "game/progression/hero_progress.hpp"
@@ -45,7 +46,6 @@ constexpr engine::Color kShortColor{230, 96, 84, 255};     // 룬 모자람 (빨
 constexpr engine::Color kRowFocus{255, 233, 168, 40};      // 고른 줄 배경 (옅은 금빛)
 
 constexpr std::array<std::string_view, CushionMenu::kItemCount> kItemLabels{"레벨업", "마술 칸", "저장", "떠나기"};
-constexpr std::array<std::string_view, progression::kStatCount> kStatNames{"생명력", "정신력", "지구력", "힘", "지능"};
 
 // 글자 한 줄 (자르기, 그림자 있음)
 void line(engine::UiPainter& painter, engine::RectF box, std::string_view text, engine::Color color,

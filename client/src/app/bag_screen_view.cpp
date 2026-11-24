@@ -4,7 +4,6 @@
 #include "app/bag_screen_view.hpp"
 
 #include "engine/render/renderer.hpp"
-#include "engine/tween/easing.hpp"
 #include "engine/ui/ui_painter.hpp"
 #include "game/presentation/loot_view.hpp"
 #include "game/presentation/rarity_color.hpp"
@@ -27,10 +26,6 @@ namespace {
 
 using game::BagScreen;
 
-constexpr float kAppearSeconds = 0.18f;   // 나타나는 시간 (명세 6.9: 0.15~0.25초)
-constexpr float kSlidePixels = 12.0f;     // 왼쪽에서 미끄러져 들어오는 거리
-constexpr float kLeft = 16.0f;            // 화면 왼쪽에서 창까지
-constexpr float kPadding = 10.0f;         // 창 안쪽 여백
 constexpr float kCell = 26.0f;            // 칸 크기 (아이콘 16 + 여백 5씩, 개수 글자 자리)
 constexpr float kPitch = 28.0f;           // 칸 간격 (칸 26 + 틈 2)
 constexpr float kDetailLines = 5.0f;      // 설명 칸 높이 (줄 수: 이름, 종류, 설명 3줄)
@@ -103,26 +98,22 @@ std::size_t row_count(std::size_t slots) {
 
 }  // namespace
 
-void BagScreenView::update(float dt_seconds, bool open) {
-    appear_ = open ? std::min(1.0f, appear_ + dt_seconds / kAppearSeconds) : 0.0f;
-}
-
-void BagScreenView::draw(engine::UiPainter& painter, engine::Vec2 screen, const game::BagScreen& bag_screen,
-                         const items::Inventory& bag, const items::ItemCatalog& catalog) const {
-    if (!bag_screen.is_open()) return;
-    const auto& theme = painter.theme();
+engine::Vec2 BagScreenView::size(const engine::UiPainter& painter, const items::Inventory& bag) {
     const float line_h = painter.line_height(engine::FontStyle::Regular);
     const float grid_w = kPitch * static_cast<float>(BagScreen::kColumns) - (kPitch - kCell);
     const float grid_h = kPitch * static_cast<float>(row_count(bag.slot_count())) - (kPitch - kCell);
-    const float width = kPadding * 2.0f + grid_w;
-    const float height = kPadding * 2.0f + line_h + 6.0f + grid_h + 8.0f + line_h * kDetailLines + 4.0f + line_h;
-    const float eased = engine::ease(engine::Ease::OutCubic, appear_);  // 빨리 들어오다 사뿐히 멈춰요
-    const engine::RectF rect{std::round(kLeft - kSlidePixels * (1.0f - eased)), std::round((screen.y - height) * 0.5f),
-                             width, height};
-    painter.panel(rect, eased);
-    const float alpha = eased;
-    const float x = rect.x + kPadding;
-    float y = rect.y + kPadding;
+    return {grid_w, line_h + 6.0f + grid_h + 8.0f + line_h * kDetailLines};  // 칸 수 줄 + 칸 + 설명
+}
+
+void BagScreenView::draw(engine::UiPainter& painter, engine::Vec2 origin, float alpha, bool show_menu,
+                         const game::BagScreen& bag_screen, const items::Inventory& bag,
+                         const items::ItemCatalog& catalog) const {
+    const auto& theme = painter.theme();
+    const float line_h = painter.line_height(engine::FontStyle::Regular);
+    const float grid_w = size(painter, bag).x;
+    const float grid_h = kPitch * static_cast<float>(row_count(bag.slot_count())) - (kPitch - kCell);
+    const float x = origin.x;
+    float y = origin.y;
     // 1) 제목과 쓴 칸 수
     line(painter, {x, y, grid_w, line_h}, "가방", theme.text_focused, alpha, engine::TextAlign::Left, engine::FontStyle::Bold);
     const auto used = bag.slot_count() - bag.free_slots();
@@ -142,11 +133,8 @@ void BagScreenView::draw(engine::UiPainter& painter, engine::Vec2 screen, const 
     y += grid_h + 8.0f;
     // 3) 고른 아이템 설명
     draw_details(painter, {x, y, grid_w, line_h * kDetailLines}, bag_screen.cursor(), bag, catalog, alpha);
-    y += line_h * kDetailLines + 4.0f;
-    // 4) 키 안내
-    line(painter, {x, y, grid_w, line_h}, "R 정렬 · I 닫기", theme.text_dim, alpha, engine::TextAlign::Center);
-    // 5) 작은 메뉴 (맨 위에)
-    if (bag_screen.menu_open() && appear_ >= 1.0f) draw_menu(painter, focused_cell, bag_screen, bag, catalog);
+    // 4) 작은 메뉴 (맨 위에, 다 나타난 뒤에만). 키 안내는 메뉴 창 맨 아래에 있어요 (15e)
+    if (bag_screen.menu_open() && show_menu) draw_menu(painter, focused_cell, bag_screen, bag, catalog);
 }
 
 void BagScreenView::draw_slot(engine::UiPainter& painter, engine::RectF cell, std::size_t slot, bool focused,

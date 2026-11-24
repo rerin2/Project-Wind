@@ -20,7 +20,7 @@ enum class Action : std::uint8_t {
     Attack,           // 무기 휘두르기 (J / Z)
     Cast,             // 마술 쓰기 (L / C)
     Interact,         // 살펴보기·쉬기 (E): 캣닢 쿠션에서 쉬고 일어나기 (13b)
-    ToggleBag,        // 인벤토리 열기·닫기 (I, 14c)
+    ToggleBag,        // 메뉴를 가방 탭으로 열기·닫기 (I, 14c, 15e부터 메뉴 안)
     SortBag,          // 인벤토리 정렬 (R, 14c)
     NextSpell,        // 다음 마술 칸 고르기 (Q, 15b)
     Confirm,          // UI에서 고른 버튼 누르기 (Enter)
@@ -30,7 +30,9 @@ enum class Action : std::uint8_t {
     Screenshot,       // 스크린샷 찍기 (지금 화면을 그림 파일로 저장)
     SkipTime,         // 시간 3시간 앞으로 (디버그)
     NextWeather,      // 다음 날씨로 (디버그)
-    Quit,             // 게임 끄기
+    Back,             // UI에서 뒤로·닫기 (Esc). 15e 전에는 "게임 끄기"였어요
+    Menu,             // 일시정지 메뉴 열기 (Esc / Tab, 15e)
+    NextTab,          // 메뉴 안에서 다음 탭 (Tab, 15e)
     Count  // 개수 표시용 (진짜 동작은 아니고, 동작이 몇 개인지 세는 데 써요)
 };
 

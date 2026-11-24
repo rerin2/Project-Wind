@@ -479,11 +479,24 @@ For now the hero uses idle, moving, running, attacking, casting, drinking (14d),
 - A map whose monsters drop an item missing from the catalog does not open (the error is logged).
 - Test option `--fill-bag <item_id>` fills every bag slot with that item.
 
+## Pause menu (phase 15e, spec 13.1, 13.3, 13.4)
+
+Code: `game/ui/pause_menu.*` (rules), `app/pause_menu_panel.*` (keys → menu → field requests), `app/input_gate.hpp`; tested in `pause_menu_tests`, `input_gate_tests`.
+
+- **Esc** or **Tab** opens the menu on the tab you saw last; **I** opens it straight on the bag tab. It cannot open while changing maps, fallen, resting, in the cushion menu or with the F7 panel open, and it closes by itself if one of those starts. An Esc that another window used in the same frame does not open it.
+- **The game keeps running** (decided with the developer, like the bag in 14c): the game loop gives the field no input (`InputGate`), so the heroine stands still and monsters can still reach her.
+- Tabs: 가방 · 장비 · 마술 · 능력치 · 시스템. **Tab** goes to the next one (wrapping); switching closes the bag's small menu. **Esc** closes the bag's small menu first, otherwise the menu. **I** closes the menu on the bag tab and jumps to the bag tab elsewhere.
+- **가방:** the 14c bag screen unchanged (see "Bag screen").
+- **장비, 마술 — view only** (decided with the developer): Up/Down pick an equipment slot or a learned spell to read about it. Equipping stays in the bag (15a); changing spell slots belongs to the cushion (15f).
+- **능력치:** level, runes, the five stats and the values derived from them (max HP/MP/stamina, physical attack with the worn weapon, magic attack, carry weight, spell slots); nothing to choose.
+- **시스템:** 설정 and 타이틀로 are dimmed until phase 17; **게임 끄기** quits (decided with the developer, because Esc no longer quits and the title screen does not exist yet). There is no save here: the tab says saving happens at a catnip cushion.
+- **Esc no longer quits** (spec 13.4: "Esc = 메뉴" once the pause menu exists). Closing the window still quits.
+
 ## Bag screen (phase 14c, spec 10.2, 13.1)
 
-- **I** opens and closes the bag. It cannot open while changing maps, fallen, resting or in the cushion menu, and it closes by itself if one of those starts.
+- Since 15e the bag is the pause menu's first tab: **I** opens the menu on it (and closes the menu from it). It cannot open while changing maps, fallen, resting or in the cushion menu, and it closes by itself if one of those starts.
 - The game keeps running while it is open (decided with the developer), but the heroine stands still: the game loop gives the field no input, so monsters can still reach her.
-- Arrows/WASD pick a slot in the 6 × 4 grid (stopping at the edges). **Enter**/E/J on an item opens a small menu: 사용 (use; dimmed until potions can be drunk in 14d), 버리기 (put down), 취소. **R** sorts. **Esc** closes the small menu, then the bag.
+- Arrows/WASD pick a slot in the 6 × 4 grid (stopping at the edges). **Enter**/E/J on an item opens a small menu: 사용 (use; dimmed until potions can be drunk in 14d), 버리기 (put down), 취소. **R** sorts. **Esc** closes the small menu, then the menu.
 - The screen never changes the bag itself: put down and sort are requests the field carries out on the next fixed step, all-or-nothing (an emptied slot does nothing).
 - **Put down** places the whole stack 14 px in front of the heroine (at her feet if that spot is a wall or water). It is not picked up again until she has been more than 48 px away.
 - **사용** (14d) is offered for consumables. Choosing it closes the bag so you can see her drink (decided with the developer).

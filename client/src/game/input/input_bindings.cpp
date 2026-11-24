@@ -47,7 +47,10 @@ InputBindings InputBindings::defaults() {
     b.bind(Action::NextWeather, Key::F6);
     b.bind(Action::ToggleUiTest, Key::F7);
     b.bind(Action::Confirm, Key::Enter);
-    b.bind(Action::Quit, Key::Escape);
+    b.bind(Action::Back, Key::Escape);    // UI에서 뒤로·닫기
+    b.bind(Action::Menu, Key::Escape);    // 필드에서 일시정지 메뉴 열기 (명세 13.4: Esc / Tab, 15e)
+    b.bind(Action::Menu, Key::Tab);
+    b.bind(Action::NextTab, Key::Tab);    // 메뉴 안에서 다음 탭 (15e)
     return b;
 }
 

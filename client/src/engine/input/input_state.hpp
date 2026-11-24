@@ -37,6 +37,7 @@ enum class Key : std::uint8_t {
     I,      // 인벤토리 열기·닫기 (14c)
     R,      // 인벤토리 정렬 (14c)
     Q,      // 마술 고르기 (15b)
+    Tab,    // 메뉴 열기·다음 탭 (15e)
     Shift,  // 왼쪽·오른쪽 Shift 둘 다
     F3,
     F4,

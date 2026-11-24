@@ -359,9 +359,23 @@ Code: `client/src/game/presentation/loot_view.*`, `client/src/game/ui/loot_toast
 - Pickup: the icon flies to the hero's body (10 px above the feet) in 0.28 s, accelerating (u²) and shrinking to half size, then `fx/item_pickup.json` (8 warm sparks) bursts there.
 - Notice line (bottom left, decided with the developer): band `#00000078`, 16 px icon, text in cream `#f0e8c8` ("슬라임 젤리 ×2") or red-orange `#f07860` ("가방이 가득 찼다 · 롱소드"). Newest line at the bottom (10 px margin), 20 px apart, at most 4 lines. Each slides in 40 px from the left in 0.2 s, stays 2.6 s and fades over the last 0.4 s; picking up the same item within 1 s adds to the count instead of adding a line.
 
+## Pause menu (phase 15e)
+
+Code: `client/src/app/pause_menu_view.*` (window, tabs, system tab, hints), pages `menu_gear_page.*`, `menu_spell_page.*`, `menu_stats_page.*`, shared bits `menu_page.hpp` and `ui_text.*`.
+
+- Same place and entrance as the 14c bag screen (decided with the developer: a left window keeps the heroine and approaching monsters visible while time runs): 16 px from the left, centred vertically, sliding 12 px in from the left over 0.18 s (OutCubic) while fading in.
+- Size: 196 px of content + 10 px padding; the height always fits the bag page (the tallest), so the window does not jump when the tab changes.
+- Tab row: five equal cells; the chosen tab is bold `text_focused` gold with a 2 px gold underline over a 1 px grey rule (`#5a6070a0`); the others are `text_dim`. Switching tabs fades the page in over 0.12 s while it rises 4 px. The bag's small menu only appears once both the window and the page have fully appeared.
+- Hint line at the bottom, centred, dim: "R 정렬 · Tab 다음 탭 · Esc 닫기" on the bag tab, "Tab 다음 탭 · Esc 닫기" elsewhere. A first version with "Enter 고르기 ·" was about 300 px wide and would not fit.
+- 장비: "장비 무게 6 / 8" on top (red `#ec6060` with "· 무거움" when heavy), four 24 px rows (20 px cell with rarity border and icon, slot name, item name in rarity colour or dim "비어 있음"); the chosen row gets the cushion menu's pale gold row fill. Below: attack (with the current strength), crit and combo count, stamina per swing, then two lines of item description.
+- 마술: "마술 칸 3/4" in bold gold and four 22 px slot cells on the right (locked slots at 40 %, the selected slot outlined in the HUD's strong gold `#ffcc5c`); a five-row list of learned spells (icon, name, "칸 N" when slotted); details at a fixed height (required intelligence in red when short, MP, cast time, power, motion); bottom note "마술 칸은 캣닢 쿠션에서 바꿔요". The title box was first 60 px and clipped the bold title, so it now takes the width left of the slot cells.
+- 능력치: name left in `text_dim`, value right, sections split by 1 px rules; carry weight turns red when heavy.
+- 시스템: three 120 × 20 px buttons (dimmed ones at 40 % and never focused), then two dim centred lines about saving and the settings/title screens.
+- Screen check (noon, `--stat intelligence=20 --learn moon_blade --give dagger`): all five tabs drawn, no clipped text in the log after the title fix, "게임 끄기" quit the client.
+
 ## Bag screen (phase 14c)
 
-Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentation/rarity_color.hpp`.
+Code: `client/src/app/bag_screen_view.*`, colours in `client/src/game/presentation/rarity_color.hpp`. Since 15e it draws inside the pause menu's bag tab (no window, entrance or hint line of its own).
 
 - A panel on the left of the screen (16 px from the edge, centred vertically), so the heroine and nearby monsters in the middle stay visible while time runs. It slides in 12 px from the left over 0.18 s (OutCubic) while fading in.
 - Title "가방" in bold gold, used/total slots on the right in dim text.

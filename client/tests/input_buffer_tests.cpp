@@ -32,7 +32,7 @@ TEST(InputBuffer, ExpiresAfterWindow) {
 TEST(InputBuffer, ActionsAreIndependent) {
     InputBuffer buffer(0.15);
     buffer.press(Action::Dodge);
-    EXPECT_FALSE(buffer.consume(Action::Quit));
+    EXPECT_FALSE(buffer.consume(Action::Back));
     EXPECT_TRUE(buffer.consume(Action::Dodge));
 }
 

@@ -9,7 +9,10 @@
 #include "app/debug_overlay.hpp"
 #include "app/field_ui.hpp"
 #include "app/item_setup.hpp"
+#include "app/hud_info_source.hpp"
+#include "app/input_gate.hpp"
 #include "app/item_hud.hpp"
+#include "app/pause_menu_panel.hpp"
 #include "app/screenshot_flash.hpp"
 #include "app/screenshot_name.hpp"
 #include "app/scripted_input.hpp"
@@ -147,7 +150,9 @@ int ClientApp::run() {
     const engine::InputState no_input;                       // 옮기는 중에는 키를 안 누른 셈 쳐요
     CushionMenuPanel cushion_menu;                           // 쿠션 메뉴와 레벨업 화면 (13c)
     ItemHud item_hud(*item_setup, *progress, resources.texture(game::kItemIconsTexture),
-                     resources.texture(kSpellIconsTexture));  // 무기·마술 칸, 알림 줄, 인벤토리 (14b·14c·15b)
+                     resources.texture(kSpellIconsTexture));  // 무기·마술 칸, 알림 줄 (14b·15b)
+    PauseMenuPanel pause_menu(*item_setup, *progress, resources.texture(game::kItemIconsTexture),
+                              resources.texture(kSpellIconsTexture));  // 일시정지 메뉴: 가방·장비·마술·능력치·시스템 (15e)
 
     auto last_frame = Clock::now();
     // 여기서부터 게임이 끝날 때까지 한 바퀴 = 화면 한 장이에요.
@@ -160,18 +165,19 @@ int ClientApp::run() {
         // 시험용 --press: 정해진 장에서 키를 누르고, 다음 장에서 떼요.
         apply_scripted_presses(options_.presses, frames_rendered_ + 1, input);
         apply_scripted_holds(options_.holds, frames_rendered_ + 1, input);
-        // UI가 먼저 키를 봐요. 시험판이 열려 있으면 Esc는 게임을 끄지 않고 시험판만 닫아요.
-        bool ui_used_quit = false;
-        const UiCommand command = field_ui.handle_input(input, bindings, ui_used_quit);
+        // UI가 먼저 키를 봐요. 시험판이 열려 있으면 Esc는 시험판만 닫아요.
+        bool esc_used = false;
+        const UiCommand command = field_ui.handle_input(input, bindings, esc_used);
         // 쿠션 메뉴 (13c): 열려 있으면 키를 메뉴가 써요 (Esc = 떠나기). 이번 장은 게임 입력도 막아요.
         const bool menu_open = cushion_menu.is_open();
-        if (menu_open && cushion_menu.handle_input(input, bindings, *progress, session.field(), field_ui)) ui_used_quit = true;
-        // 인벤토리 (14c): 옮기는 중·쓰러짐·쉬는 중·쿠션 메뉴가 아니면 I로 열어요. 열려 있으면 Esc는 화면이 써요
-        const bool bag_allowed = !session.busy() && !session.field().hero_down() && !session.field().hero_resting() && !menu_open;
-        if (item_hud.handle_input(input, bindings, session.field(), bag_allowed)) ui_used_quit = true;
-        if (!ui_used_quit && bindings.pressed(game::Action::Quit, input)) {
-            log::info("Quit requested");
-            break;  // Esc
+        if (menu_open && cushion_menu.handle_input(input, bindings, *progress, session.field(), field_ui)) esc_used = true;
+        // 일시정지 메뉴 (15e): 옮기는 중·쓰러짐·쉬는 중·쿠션 메뉴·시험판이 아니면 Esc/Tab(I는 가방 탭)으로 열어요.
+        // 이번 장의 Esc를 다른 창이 썼으면 열지 않아요. Esc는 이제 게임을 끄지 않아요 (끄기는 시스템 탭)
+        const bool pause_allowed = !session.busy() && !session.field().hero_down() && !session.field().hero_resting() &&
+                                   !menu_open && !field_ui.captures_input();
+        if (pause_menu.handle_input(input, bindings, session.field(), pause_allowed && !esc_used)) {
+            log::info("Quit requested from the pause menu");
+            break;
         }
         if (options_.max_frames && frames_rendered_ >= *options_.max_frames) {
             log::info("Reached --max-frames {}", *options_.max_frames);
@@ -196,8 +202,8 @@ int ClientApp::run() {
             input.set_key(move_key(*options_.auto_move), true);
         }
         // 맵을 옮기는 중(페이드)이거나 UI 창이 열려 있으면 캐릭터가 움직이지 않게 키를 막아요.
-        const bool blocked = session.busy() || field_ui.captures_input() || menu_open || item_hud.bag_open();
-        const engine::InputState& game_input = blocked ? no_input : input;
+        const InputGate gate{session.busy(), field_ui.captures_input(), menu_open, pause_menu.captures_input()};
+        const engine::InputState& game_input = gate.blocks_game() ? no_input : input;
 
         // 3. 누른 키를 필드에 알려 줘요 (구르기 버튼은 메모장에 적어 둬요).
         session.field().handle_input(game_input, bindings);
@@ -218,25 +224,12 @@ int ClientApp::run() {
                        bindings.pressed(game::Action::Confirm, game_input));
         if (!session.busy() && session.take_menu_request()) cushion_menu.open();  // 쉬기가 끝나면 쿠션 메뉴 (13c)
         cushion_menu.update(static_cast<float>(frame_seconds));
-        // HUD 바에 지금 값(0~1)과 최대값(바 길이용)을 알려 줘요. 위에서부터 HP·MP·스태미나.
-        HudInfo hud;
-        hud.hp = session.field().health().fraction();
-        hud.hp_max = static_cast<float>(session.field().health().max());
-        hud.stamina = session.field().stamina().fraction();
-        hud.stamina_max = session.field().stamina().max();
-        hud.exhausted = session.field().stamina().exhausted();
-        hud.mana = session.field().mana().fraction();
-        hud.mana_max = session.field().mana().max();
-        hud.mana_denied = session.field().mana_denied_count();
-        hud.fallen = session.field().hero_down();  // 쓰러지면 "쓰러졌다" 화면 (12b), 부활 안내 (12c)
-        hud.rest_prompt = session.field().rest_prompt();        // 쿠션 가까이면 "[E] 쉬기" (13b)
-        hud.rest_denied = session.field().rest_denied_count();  // 못 쉬면 "주변이 너무 소란스럽다" (13b)
-        hud.runes = progress->runes();            // 오른쪽 아래 룬 숫자 (13c)
-        hud.lost_runes = progress->last_lost();   // "쓰러졌다" 화면의 잃은 룬 (13c)
-        hud.vanished_runes = progress->last_vanished();  // 사라진 흔적 (14e)
+        // HUD 바에 지금 값(0~1)과 최대값(바 길이용)을 알려 줘요 (모으기는 hud_info_source, 15e)
         if (session.field().take_rune_recovered()) field_ui.announce("룬을 되찾았다");  // 흔적을 되찾았으면 배너 (14e)
-        field_ui.update(static_cast<float>(frame_seconds), hud);
-        item_hud.update(static_cast<float>(frame_seconds), session.field(), bag_allowed);  // 알림·인벤토리 (14b·14c)
+        field_ui.update(static_cast<float>(frame_seconds), collect_hud_info(session.field(), *progress));
+        item_hud.update(static_cast<float>(frame_seconds), session.field());  // 알림·무기·마술 칸 (14b·15b)
+        // 일시정지 메뉴: 쓰러짐·쉬기·맵 옮기기·쿠션 메뉴가 되면 저절로 닫혀요 (15e)
+        pause_menu.update(static_cast<float>(frame_seconds), pause_allowed && !cushion_menu.is_open());
 
         // 6. 그리기: 그릴 것을 목록에 모으고, 순서대로 줄 세운 다음, 한 번에 그려요.
         queue.clear();
@@ -257,7 +250,8 @@ int ClientApp::run() {
         // 7. HUD(스태미나 바)와 지역 이름 배너. 화면 가리기보다 아래라서 맵과 함께 어두워져요.
         const engine::Vec2 screen = renderer.logical_size();
         field_ui.draw_hud(painter, screen);
-        item_hud.draw(painter, screen);  // 왼쪽 아래 알림 줄과 인벤토리 화면 (14b·14c)
+        item_hud.draw(painter, screen);  // 왼쪽 아래 무기·마술 칸과 알림 줄 (14b·15b)
+        pause_menu.draw(painter, screen);  // 일시정지 메뉴 (15e)
         // 8. 맵을 옮기는 중이면 화면을 검게 가려요 (디버그 정보판은 그 위에 보여요).
         //    아이리스는 주인공을 가운데 두고 오므라들어요. 못 간 출구가 있으면 잠깐 알려 줘요.
         draw_transition(renderer, session.fade(), session.field().focus_on_screen());

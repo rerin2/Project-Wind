@@ -44,7 +44,7 @@ Rules: game code never includes SDL headers; only `renderer.cpp`, `sdl_platform.
 `ClientApp::run` (`client/src/app/client_app.cpp`) runs, per rendered frame:
 
 1. `InputState::begin_frame`, then `SdlPlatform::pump_events` (OS events → keys; focus loss releases all keys)
-2. Frame-level actions (Esc quit, F3 debug toggle)
+2. Frame-level actions: UI windows first (F7 panel, cushion menu, pause menu; since 15e Esc/Tab open the pause menu and its 시스템 tab quits), F3 debug toggle. `InputGate` decides whether the field gets the real input or none
 3. `FieldState::handle_input`: movement intent, dodge press into the input buffer, F4 toggle
 4. Fixed-step simulation (`FieldState::fixed_update`): `FixedStepClock` at **60 Hz**; a frame counts at most **0.25 s** and runs at most **5** steps, extra time is dropped (no catch-up spiral)
 5. Per-frame presentation (`FieldState::frame_update(dt, alpha)`): animation, dust, afterimages, look-ahead, camera follow. Positions are drawn interpolated between the last two simulation steps using the clock's `alpha`, so movement is smooth at any frame rate.
@@ -353,7 +353,7 @@ Invalid map or sprite *data* stops the client with a non-zero exit code and the 
 ## Input (spec 5.8)
 
 - `SdlPlatform` translates SDL **scancodes** (physical keys, layout-independent) into engine `Key`s; OS key-repeat events are ignored.
-- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Shift run (held), Space/K/X dodge, J/Z attack, L/C cast, E interact, I bag (14c), R sort bag (14c), Enter confirm (UI), F3 debug overlay, F4 collision overlay, F5 skip time, F6 next weather, F7 UI test panel, F12 screenshot, Esc quit (closes the UI test panel instead when it is open). Left and right Shift both map to `Key::Shift`.
+- `InputBindings` maps game `Action`s to keys. Defaults: arrows/WASD move, Shift run (held), Space/K/X dodge, J/Z attack, L/C cast, E interact, I menu on the bag tab (14c, 15e), R sort bag (14c), Q next spell (15b), Enter confirm (UI), F3 debug overlay, F4 collision overlay, F5 skip time, F6 next weather, F7 UI test panel, F12 screenshot. Since 15e: `Back` = Esc (UI back/close), `Menu` = Esc or Tab (open the pause menu), `NextTab` = Tab (next menu tab); Esc no longer quits (`Quit` became `Back`). `Key::Tab` is new (SDL, `--press tab`). Left and right Shift both map to `Key::Shift`.
 - `MovementIntent` turns held move keys into an 8-way unit vector (diagonals are normalized). When opposite keys are both held, the most recently pressed one wins.
 - `InputBuffer` remembers a dodge, attack or cast press for **0.15 s**, so a press slightly before a dodge becomes possible still fires. Presses are recorded per frame and consumed in fixed steps, so a press is never lost on a frame that runs zero steps.
 - `InputState::set_ui_capture(true)` makes all game queries return false (for menus and text input, phases 15 and 17). In phase 8 the game loop gives the field an empty input while `FieldUi::captures_input()` (UI test panel open) or a map transition is running; the UI itself reads the real input first.

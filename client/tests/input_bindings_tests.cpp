@@ -26,13 +26,13 @@ TEST(InputBindings, DefaultsMapArrowsAndWasd) {
 // "끄기" 버튼을 Esc에서 Enter로 바꾸면, Esc는 더 이상 안 되고 Enter가 돼야 해요.
 TEST(InputBindings, RebindingReplacesKeys) {
     auto bindings = InputBindings::defaults();
-    bindings.clear(Action::Quit);
-    bindings.bind(Action::Quit, Key::Enter);
+    bindings.clear(Action::Back);
+    bindings.bind(Action::Back, Key::Enter);
     InputState input;
     input.set_key(Key::Escape, true);
-    EXPECT_FALSE(bindings.pressed(Action::Quit, input));
+    EXPECT_FALSE(bindings.pressed(Action::Back, input));
     input.set_key(Key::Enter, true);
-    EXPECT_TRUE(bindings.pressed(Action::Quit, input));
+    EXPECT_TRUE(bindings.pressed(Action::Back, input));
 }
 
 // 기본 버튼표에서 Space, K, X는 모두 "구르기"예요.

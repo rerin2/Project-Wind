@@ -47,7 +47,7 @@ UiCommand UiTestPanel::handle_input(const engine::InputState& input,
     if (!open_) {
         return UiCommand::None;
     }
-    if (bindings.pressed(game::Action::Quit, input)) {
+    if (bindings.pressed(game::Action::Back, input)) {
         consumed_quit = true;
         open_ = false;
         return UiCommand::None;

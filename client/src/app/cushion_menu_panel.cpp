@@ -23,7 +23,7 @@ constexpr std::array<std::pair<game::Action, game::MenuInput>, 8> kKeys{{
     {game::Action::Confirm, game::MenuInput::Confirm},
     {game::Action::Interact, game::MenuInput::Confirm},
     {game::Action::Attack, game::MenuInput::Confirm},
-    {game::Action::Quit, game::MenuInput::Back},
+    {game::Action::Back, game::MenuInput::Back},
 }};
 
 }  // namespace
@@ -33,7 +33,7 @@ bool CushionMenuPanel::handle_input(const engine::InputState& input, const game:
     bool used_quit = false;
     for (const auto& [action, menu_input] : kKeys) {
         if (!menu_.is_open() || !bindings.pressed(action, input)) continue;  // 한 장에 여러 키도 차례로
-        if (action == game::Action::Quit) used_quit = true;                  // Esc는 게임을 끄지 않아요
+        if (action == game::Action::Back) used_quit = true;                  // Esc는 게임을 끄지 않아요
         switch (menu_.handle(menu_input, progress)) {
             case game::MenuResult::Leave:
                 (void)field.stand_up();  // 기지개 켜고 일어나요
